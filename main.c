@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <paths.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -35,113 +36,46 @@ struct	config {
 	char	*base;
 };
 
-
-/*	$OpenBSD$ */
-/*
- * Copyright (c) 1983, 1992, 1993
- *	The Regents of the University of California.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
-/* Code taken directly from mkdir(1).
-
- * mkpath -- create directories.
- *	path     - path
- */
-static int
-mkpath(char *path)
+static struct ical *
+req2ical(struct kreq *r)
 {
-	struct stat sb;
-	char *slash;
-	int done = 0;
-
-	slash = path;
-
-	while (!done) {
-		slash += strspn(slash, "/");
-		slash += strcspn(slash, "/");
-
-		done = (*slash == '\0');
-		*slash = '\0';
-
-		if (stat(path, &sb)) {
-			if (errno != ENOENT || (mkdir(path, 0777) &&
-			    errno != EEXIST)) {
-				return (-1);
-			}
-		} else if (!S_ISDIR(sb.st_mode)) {
-			return (-1);
-		}
-
-		*slash = '/';
-	}
-
-	return (0);
-}
-
-static void
-put(struct kreq *r)
-{
-	struct config	*cfg = r->arg;
-	char		*fname;
-	int		 fd;
-	struct ical	*ical;
-	enum khttp	 code;
+	struct ical	*p;
+	const char	*cp;
+	size_t		 sz;
+	char		*buf;
 
 	if (0 == r->fieldsz) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_400]);
 		khttp_body(r);
-		return;
-	} else if (NULL == (ical = ical_parse(r->fields[0].val))) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_400]);
-		khttp_body(r);
-		return;
+		return(NULL);
+	} 
+
+	cp = r->fields[0].val;
+	sz = r->fields[0].valsz;
+	p = NULL;
+	buf = kmalloc(sz + 1);
+	memcpy(buf, cp, sz);
+	buf[sz] = '\0';
+
+	fprintf(stderr, "CHecking: %s\n", buf);
+
+	p = ical_parse(buf);
+	free(buf);
+	if (NULL != p) {
+		fprintf(stderr, "It's good!\n");
+		return(p);
 	}
+	fprintf(stderr, "It's bad!\n");
 
-	kasprintf(&fname, "%s%s", cfg->base, r->fullpath);
-	fd = open(fname, O_RDWR | O_CREAT | O_APPEND, 0666);
-	if (-1 != fd) {
-		if (write(fd, ical->data, strlen(ical->data)) < 0)
-			code = KHTTP_403;
-		else
-			code = KHTTP_201;
-	} else
-		code = KHTTP_403;
-
-	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[code]);
+	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_400]);
 	khttp_body(r);
-	fprintf(stderr, "%s: Put file\n", fname);
-	free(fname);
-	ical_free(ical);
-	close(fd);
+	ical_free(p);
+	return(NULL);
 }
 
 static struct caldav *
-caldav_get(struct kreq *r, enum type type)
+req2caldav(struct kreq *r, enum type type)
 {
 	struct caldav	*p;
 
@@ -153,21 +87,72 @@ caldav_get(struct kreq *r, enum type type)
 	} 
 
 	p = caldav_parse(r->fields[0].val, r->fields[0].valsz);
-	if (NULL == p) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_400]);
+	if (NULL != p && type == p->type)
+		return(p);
+
+	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_400]);
+	khttp_body(r);
+	caldav_free(p);
+	return(NULL);
+}
+
+static void
+put(struct kreq *r)
+{
+	struct config	*cfg = r->arg;
+	struct ical	*p;
+	char		 file[PATH_MAX];
+	enum khttp	 code;
+	int		 rc;
+
+	rc = snprintf(file, sizeof(file), 
+		"%s%s", cfg->base, '/' == r->fullpath[0] ?
+		r->fullpath + 1 : r->fullpath);
+
+	if (rc >= (int)sizeof(file)) {
+		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_400]);
 		khttp_body(r);
-		caldav_free(p);
-		return(NULL);
-	} else if (type != p->type) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_400]);
+		return;
+	} else if (NULL == (p = req2ical(r)))
+		return;
+
+	code = ical_mergefile(file, p) ? KHTTP_201 : KHTTP_403;
+	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[code]);
+	khttp_body(r);
+	ical_free(p);
+}
+
+
+static void
+get(struct kreq *r)
+{
+	struct config	*cfg = r->arg;
+	char		 file[PATH_MAX], buf[BUFSIZ];
+	int		 rc, fd;
+	ssize_t		 ssz;
+
+	rc = snprintf(file, sizeof(file), "%s%s", cfg->base, 
+		'/' == r->fullpath[0] ? r->fullpath + 1 : r->fullpath);
+
+	if (rc >= (int)sizeof(file)) {
+		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
 		khttp_body(r);
-		caldav_free(p);
-		return(NULL);
+		return;
+	} else if (-1 == (fd = open(file, O_RDONLY, 0))) {
+		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
+		khttp_body(r);
+		return;
 	}
 
-	return(p);
+	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
+	khttp_body(r);
+
+	do
+		if ((ssz = read(fd, buf, sizeof(buf))) > 0) 
+			write(STDOUT_FILENO, buf, ssz);
+	while (ssz > 0);
+
+	close(fd);
 }
 
 static void
@@ -178,7 +163,7 @@ report(struct kreq *r)
 	int		 fd;
 	char		*fname;
 
-	if (NULL == (p = caldav_get(r, TYPE_CALQUERY)))
+	if (NULL == (p = req2caldav(r, TYPE_CALQUERY)))
 		return;
 
 	kasprintf(&fname, "%s%s", cfg->base, r->fullpath);
@@ -198,23 +183,40 @@ static void
 propfind(struct kreq *r)
 {
 	struct caldav	*p;
+	size_t		 i;
+	const char	*cp, *tag;
 
-	if (NULL == (p = caldav_get(r, TYPE_PROPFIND)))
+	if (NULL == (p = req2caldav(r, TYPE_PROPFIND)))
 		return;
 
+	for (i = 0; i < p->propsz; i++) {
+		tag = calelems[calpropelems[p->props[i].key]];
+		fprintf(stderr, "%s: propfind: %s\n", r->fullpath, tag);
+	}
+
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_207]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE], "%s", kmimetypes[KMIME_TEXT_XML]);
 	khttp_body(r);
-
-	puts("<d:multistatus xmlns:d=\"DAV:\" "
-		"xmlns:cs=\"http://calendarserver.org/ns/\">");
-	puts(" <d:response>");
-	printf(" <d:href>/%s</d:href>\n", r->fullpath);
-	puts(" <d:propstat>");
-	puts(" </d:propstat>");
-	puts("</d:response>");
-	puts("</d:multistatus>");
-
-	fprintf(stderr, "%s: propfind\n", r->fullpath);
+	puts("<?xml version=\"1.0\" encoding=\"utf-8\" ?>");
+	puts("<D:multistatus xmlns:D=\"DAV:\">");
+	puts("<D:response>");
+	printf("<D:href>http://%s%s%s</D:href>\n", 
+		r->host, r->pname, r->fullpath);
+	puts("<D:propstat>");
+	puts("<D:prop>");
+	for (i = 0; i < p->propsz; i++) {
+		tag = calelems[calpropelems[p->props[i].key]];
+		cp = prop_default(p->props[i].key);
+		if ('\0' == *cp) 
+			printf("<D:%s />\n", tag);
+		else
+			printf("<D:%s>%s</D:%s>\n", tag, cp, tag);
+	}
+	puts("</D:prop>");
+	puts("<D:status>HTTP/1.1 200 OK</D:status>");
+	puts("</D:propstat>");
+	puts("</D:response>");
+	puts("</D:multistatus>");
 	caldav_free(p);
 }
 
@@ -222,52 +224,60 @@ static void
 mkcalendar(struct kreq *r)
 {
 	struct config	*cfg = r->arg;
-	char		*dir, *path;
 	struct caldav	*p;
+	char		 dir[PATH_MAX], path[PATH_MAX];
 	FILE		*f;
+	int		 rc;
 	size_t		 i;
 
-	if (NULL == (p = caldav_get(r, TYPE_MKCALENDAR)))
+	dir[0] = path[0] = '\0';
+
+	if (NULL == (p = req2caldav(r, TYPE_MKCALENDAR)))
 		return;
 
-	dir = path = NULL;
+	rc = snprintf(dir, sizeof(dir), "%s%s", cfg->base, 
+		'/' == r->fullpath[0] ? r->fullpath + 1 : r->fullpath);
 
-	kasprintf(&dir, "%s%s", cfg->base, r->fullpath);
-	fprintf(stderr, "mkdir(%s)\n", dir);
-
-	if (-1 == mkpath(dir)) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_403]);
+	if (rc >= (int)sizeof(dir) || -1 == mkdir(dir, 0755)) {
+		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
 		khttp_body(r);
-		goto out;
+		caldav_free(p);
+		return;
 	}
 
-	kasprintf(&path, "%sproperties.dav", dir, r->fullpath);
+	rc = snprintf(path, sizeof(path), "%s%sproperties.dav", 
+		dir, '/' == dir[strlen(dir) - 1] ? "" : "/");
+
+	if (rc >= (int)sizeof(path)) {
+		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
+		khttp_body(r);
+		caldav_free(p);
+		return;
+	}
+
 	if (NULL == (f = fopen(dir, "r+"))) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_403]);
+		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
 		khttp_body(r);
-		goto out;
+		caldav_free(p);
+		return;
 	}
-	fprintf(stderr, "fopen(%s)\n", path);
+
+	fputs("<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n", f);
+	fputs("<proplist>\n", f);
+	fputs(" <d:prop>\n", f);
+	for (i = 0; i < p->propsz; i++) {
+		fprintf(f, " <d:%s>%s</d:%s>\n",
+			calelems[calpropelems[p->props[i].key]],
+			p->props[i].value,
+			calelems[calpropelems[p->props[i].key]]);
+	}
+	fputs(" </d:prop>\n", f);
+	fputs("</proplist>\n", f);
+	fclose(f);
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_201]);
 	khttp_body(r);
-
-	fputs("<d:prop xmlns:d=\"DAV:\" "
-		"xmlns:cs=\"http://calendarserver.org/ns/\">\n", f);
-	for (i = 0; i < p->d.mkcal.propsz; i++) {
-		fprintf(f, " <d:%s>%s</d:%s>\n",
-			calelems[calprops[p->d.mkcal.props[i].key]],
-			p->d.mkcal.props[i].value,
-			calelems[calprops[p->d.mkcal.props[i].key]]);
-	}
-	fputs("</d:prop>\n", f);
-	fclose(f);
-out:
 	caldav_free(p);
-	free(dir);
-	free(path);
 }
 
 static void
@@ -288,30 +298,43 @@ main(void)
 	struct kreq	 r;
 	struct config	 cfg;
 
+	fprintf(stderr, "Here we go...\n");
+
 	if (KCGI_OK != khttp_parse(&r, NULL, 0, NULL, 0, 0))
 		return(EXIT_FAILURE);
 
 	cfg.base = kstrdup(_PATH_TMP);
+	assert(cfg.base[strlen(cfg.base) - 1] == '/');
 
 	r.arg = &cfg;
 
 	switch (r.method) {
 	case (KMETHOD_OPTIONS):
+		fprintf(stderr, "KMETHOD_OPTIONS\n");
 		options(&r);
 		break;
 	case (KMETHOD_MKCALENDAR):
+		fprintf(stderr, "KMETHOD_MKCALENDAR\n");
 		mkcalendar(&r);
 		break;
 	case (KMETHOD_PUT):
+		fprintf(stderr, "KMETHOD_PUT\n");
 		put(&r);
 		break;
 	case (KMETHOD_PROPFIND):
+		fprintf(stderr, "KMETHOD_PROPFIND\n");
 		propfind(&r);
 		break;
 	case (KMETHOD_REPORT):
+		fprintf(stderr, "KMETHOD_REPORT\n");
 		report(&r);
 		break;
+	case (KMETHOD_GET):
+		fprintf(stderr, "KMETHOD_GET\n");
+		get(&r);
+		break;
 	default:
+		fprintf(stderr, "Unknown method\n");
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_405]);
 		khttp_body(&r);
