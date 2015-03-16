@@ -5,6 +5,10 @@ ALLOBJS		 = main.o test-ical.o test-caldav.o $(OBJS)
 
 all: kcaldav test-ical test-caldav
 
+install: all
+	mkdir -p $(PREFIX)
+	install -m 0755 kcaldav $(PREFIX)/kcaldav.cgi
+
 kcaldav: main.o $(OBJS)
 	$(CC) -o $@ main.o $(OBJS) -lkcgi -lexpat -lz
 

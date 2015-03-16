@@ -15,7 +15,7 @@ main(int argc, char *argv[])
 	int		 fd, c;
 	struct stat	 st;
 	size_t		 sz;
-	char		*map;
+	char		*map, *buf;
 	struct ical	*p = NULL;
 
 	if (-1 != (c = getopt(argc, argv, "")))
@@ -44,13 +44,15 @@ main(int argc, char *argv[])
 		perror(argv[0]);
 		return(EXIT_FAILURE);
 	} 
-	
-	if (NULL != memchr(map, '\0', sz)) {
-		p = ical_parse(map);
-		ical_free(p);
-	} else 
-		fprintf(stderr, "%s: not nil-terminated\n", argv[0]);
 
+	buf = malloc(sz + 1);
+	memcpy(buf, map, sz);
+	buf[sz] = '\0';
 	munmap(map, sz);
+	
+	if (NULL != (p = ical_parse(buf)))
+		ical_print(stdout, p);
+	ical_free(p);
+	free(buf);
 	return(NULL == p ? EXIT_FAILURE : EXIT_SUCCESS);
 }
