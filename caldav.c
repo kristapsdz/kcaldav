@@ -1,33 +1,19 @@
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+
 #include <assert.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <expat.h>
 
 #include "extern.h"
-
-enum	calelem {
-	CALELEM_MKCALENDAR,
-	CALELEM_PROPFIND,
-	CALELEM_DISPLAYNAME,
-	CALELEM_CALDESC,
-	CALELEM_CALQUERY,
-	CALELEM_CALTIMEZONE,
-	CALELEM_CREATIONDATE,
-	CALELEM_GETCONTENTLANGUAGE,
-	CALELEM_GETCONTENTLENGTH,
-	CALELEM_GETCONTENTTYPE,
-	CALELEM_GETETAG,
-	CALELEM_GETLASTMODIFIED,
-	CALELEM_GETLOCKDISCOVERY,
-	CALELEM_RESOURCETYPE,
-	CALELEM_SOURCE,
-	CALELEM_SUPPORTLOCK,
-	CALELEM__MAX
-};
 
 struct	parse {
 	struct caldav	*p;
@@ -38,6 +24,7 @@ struct	parse {
 static	const enum proptype __calprops[CALELEM__MAX] = {
 	PROP__MAX, /* CALELEM_MKCALENDAR */
 	PROP__MAX, /* CALELEM_PROPFIND */
+	PROP__MAX, /* CALELEM_PROPLIST */
 	PROP_DISPLAYNAME, /* CALELEM_DISPLAYNAME */
 	PROP_CALDESC, /* CALELEM_CALDESC */
 	PROP__MAX, /* CALELEM_CALQUERY */
@@ -48,17 +35,41 @@ static	const enum proptype __calprops[CALELEM__MAX] = {
 	PROP_GETCONTENTTYPE, /* CALELEM_GETCONTENTTYPE */
 	PROP_GETETAG, /* CALELEM_GETETAG */
 	PROP_GETLASTMODIFIED, /* CALELEM_GETLASTMODIFIED */
-	PROP_GETLOCKDISCOVERY, /* CALELEM_GETLOCKDISCOVERY */
+	PROP_LOCKDISCOVERY, /* CALELEM_LOCKDISCOVERY */
 	PROP_RESOURCETYPE, /* CALELEM_RESOURCETYPE */
 	PROP_SOURCE, /* CALELEM_SOURCE */
 	PROP_SUPPORTLOCK, /* CALELEM_SUPPORTLOCK */
+	PROP_EXECUTABLE, /* CALELEM_EXECUTABLE */
+	PROP_CHECKEDIN, /* CALELEM_CHECKEDIN */
+	PROP_CHECKEDOUT, /* CALELEM_CHECKEDOUT */
+};
+
+static	const enum calelem __calpropelems[PROP__MAX] = {
+	CALELEM_CALDESC, /* PROP_CALDESC */
+	CALELEM_CALTIMEZONE,/* PROP_CALTIMEZONE */
+	CALELEM_CREATIONDATE,/* PROP_CREATIONDATE */
+	CALELEM_DISPLAYNAME,/* PROP_DISPLAYNAME */
+	CALELEM_GETCONTENTLANGUAGE,/* PROP_GETCONTENTLANGUAGE */
+	CALELEM_GETCONTENTLENGTH,/* PROP_GETCONTENTLENGTH */
+	CALELEM_GETCONTENTTYPE,/* PROP_GETCONTENTTYPE */
+	CALELEM_GETETAG, /* PROP_GETETAG */
+	CALELEM_GETLASTMODIFIED,/* PROP_GETLASTMODIFIED */
+	CALELEM_LOCKDISCOVERY,/* PROP_LOCKDISCOVERY */
+	CALELEM_RESOURCETYPE,/* PROP_RESOURCETYPE */
+	CALELEM_SOURCE, /* PROP_SOURCE */
+	CALELEM_SUPPORTLOCK, /* PROP_SUPPORTLOCK */
+	CALELEM_EXECUTABLE, /* PROP_EXECUTABLE */
+	CALELEM_CHECKEDIN, /* CALELEM_CHECKEDIN */
+	CALELEM_CHECKEDOUT, /* CALELEM_CHECKEDOUT */
 };
 
 const enum proptype *calprops = __calprops;
+const enum calelem *calpropelems = __calpropelems;
 
 const char *const __calelems[CALELEM__MAX] = {
 	"mkcalendar", /* CALELEM_MKCALENDAR */
 	"propfind", /* CALELEM_PROPFIND */
+	"proplist", /* CALELEM_PROPLIST */
 	"displayname", /* CALELEM_DISPLAYNAME */
 	"calendar-description", /* CALELEM_CALDESC */
 	"calendar-query", /* CALELEM_CALQUERY */
@@ -69,10 +80,13 @@ const char *const __calelems[CALELEM__MAX] = {
 	"getcontenttype", /* CALELEM_GETCONTENTTYPE */
 	"getetag", /* CALELEM_GETETAG */
 	"getlastmodified", /* CALELEM_GETLASTMODIFIED */
-	"getlockdiscovery", /* CALELEM_GETLOCKDISCOVERY */
-	"getresourcetype", /* CALELEM_RESOURCETYPE */
+	"lockdiscovery", /* CALELEM_LOCKDISCOVERY */
+	"resourcetype", /* CALELEM_RESOURCETYPE */
 	"source", /* CALELEM_SOURCE */
 	"supportlock", /* CALELEM_SUPPORTLOCK */
+	"executable", /* CALELEM_EXECUTABLE */
+	"checked-in", /* CALELEM_CHECKEDIN */
+	"checked-out", /* CALELEM_CHECKEDOUT */
 };
 
 const char *const *calelems = __calelems;
@@ -109,32 +123,18 @@ caldav_err(struct parse *p, const char *fmt, ...)
 static void
 propadd(struct parse *p, enum proptype prop, const char *cp)
 {
-	struct prop	**ps;
-	size_t		 *psz;
 
-	switch (p->p->type) {
-	case (TYPE_PROPFIND):
-		ps = &p->p->d.propfind.props;
-		psz = &p->p->d.propfind.propsz;
-		break;
-	case (TYPE_MKCALENDAR):
-		ps = &p->p->d.mkcal.props;
-		psz = &p->p->d.mkcal.propsz;
-		break;
-	default:
-		abort();
-	}
+	p->p->props = realloc(p->p->props,
+		sizeof(struct prop) * (p->p->propsz + 1));
 
-	*ps = realloc(*ps, 
-		sizeof(struct prop) * (*psz + 1));
-
-	if (NULL == *ps) {
+	if (NULL == p->p->props) {
 		caldav_err(p, "memory exhausted");
 		return;
 	}
 
-	(*ps)[(*psz)].key = prop;
-	(*ps)[(*psz)++].value = strdup(cp);
+	p->p->props[p->p->propsz].key = prop;
+	p->p->props[p->p->propsz].value = strdup(cp);
+	p->p->propsz++;
 }
 
 static void
@@ -142,28 +142,6 @@ prop_free(struct prop *p)
 {
 
 	free(p->value);
-}
-
-static void
-propfind_free(struct propfind *p)
-{
-	size_t	 i;
-
-	for (i = 0; i < p->propsz; i++)
-		prop_free(&p->props[i]);
-
-	free(p->props);
-}
-
-static void
-mkcal_free(struct mkcal *p)
-{
-	size_t	 i;
-
-	for (i = 0; i < p->propsz; i++)
-		prop_free(&p->props[i]);
-
-	free(p->props);
 }
 
 static const XML_Char *
@@ -199,21 +177,14 @@ caldav_alloc(struct parse *p, enum type type)
 void
 caldav_free(struct caldav *p)
 {
+	size_t	 i;
 
 	if (NULL == p)
 		return;
 
-	switch (p->type) {
-	case (TYPE_MKCALENDAR):
-		mkcal_free(&p->d.mkcal);
-		break;
-	case (TYPE_PROPFIND):
-		propfind_free(&p->d.propfind);
-		break;
-	default:
-		abort();
-	}
-
+	for (i = 0; i < p->propsz; i++)
+		prop_free(&p->props[i]);
+	free(p->props);
 	free(p);
 }
 
@@ -230,17 +201,20 @@ parseclose(void *dat, const XML_Char *s)
 	struct parse	*p = dat;
 	enum calelem	 elem;
 
+	fprintf(stderr, "End parsing: </%s>\n", s);
 	s = strip(s);
 
 	switch ((elem = calelem_find(s))) {
 	case (CALELEM_MKCALENDAR):
+	case (CALELEM_CALQUERY):
 	case (CALELEM_PROPFIND):
+	case (CALELEM_PROPLIST):
 		/* Clear our parsing context. */
 		XML_SetDefaultHandler(p->xp, NULL);
 		XML_SetElementHandler(p->xp, NULL, NULL);
 		break;
-	case (CALELEM_CALDESC):
 	case (CALELEM_DISPLAYNAME):
+	case (CALELEM_CALDESC):
 	case (CALELEM_CALTIMEZONE):
 	case (CALELEM_CREATIONDATE):
 	case (CALELEM_GETCONTENTLANGUAGE):
@@ -248,10 +222,13 @@ parseclose(void *dat, const XML_Char *s)
 	case (CALELEM_GETCONTENTTYPE):
 	case (CALELEM_GETETAG):
 	case (CALELEM_GETLASTMODIFIED):
-	case (CALELEM_GETLOCKDISCOVERY):
+	case (CALELEM_LOCKDISCOVERY):
 	case (CALELEM_RESOURCETYPE):
 	case (CALELEM_SOURCE):
 	case (CALELEM_SUPPORTLOCK):
+	case (CALELEM_EXECUTABLE):
+	case (CALELEM_CHECKEDIN):
+	case (CALELEM_CHECKEDOUT):
 		propadd(p, calprops[elem], p->buf.buf);
 		XML_SetDefaultHandler(p->xp, NULL);
 		break;
@@ -276,20 +253,21 @@ parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 {
 	struct parse	*p = dat;
 
+	fprintf(stderr, "Parsing: <%s>\n", s);
 	s = strip(s);
 
 	switch (calelem_find(s)) {
 	case (CALELEM_MKCALENDAR):
-		if ( ! caldav_alloc(p, TYPE_MKCALENDAR))
-			return;
+		caldav_alloc(p, TYPE_MKCALENDAR);
 		break;
 	case (CALELEM_PROPFIND):
-		if ( ! caldav_alloc(p, TYPE_PROPFIND))
-			return;
+		caldav_alloc(p, TYPE_PROPFIND);
 		break;
 	case (CALELEM_CALQUERY):
-		if ( ! caldav_alloc(p, TYPE_CALQUERY))
-			return;
+		caldav_alloc(p, TYPE_CALQUERY);
+		break;
+	case (CALELEM_PROPLIST):
+		caldav_alloc(p, TYPE_PROPLIST);
 		break;
 	case (CALELEM_DISPLAYNAME):
 	case (CALELEM_CALDESC):
@@ -300,14 +278,18 @@ parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 	case (CALELEM_GETCONTENTTYPE):
 	case (CALELEM_GETETAG):
 	case (CALELEM_GETLASTMODIFIED):
-	case (CALELEM_GETLOCKDISCOVERY):
+	case (CALELEM_LOCKDISCOVERY):
 	case (CALELEM_RESOURCETYPE):
 	case (CALELEM_SOURCE):
 	case (CALELEM_SUPPORTLOCK):
+	case (CALELEM_EXECUTABLE):
+	case (CALELEM_CHECKEDIN):
+	case (CALELEM_CHECKEDOUT):
 		p->buf.sz = 0;
 		XML_SetDefaultHandler(p->xp, parsebuffer);
 		break;
 	default:
+		fprintf(stderr, "Unknown: <%s>\n", s);
 		break;
 	}
 }
@@ -324,7 +306,7 @@ caldav_parse(const char *buf, size_t sz)
 		return(NULL);
 	}
 
-	bufappend(&p.buf, "", 0);
+	bufappend(&p.buf, " ", 1);
 
 	XML_SetDefaultHandler(p.xp, NULL);
 	XML_SetElementHandler(p.xp, parseopen, parseclose);
@@ -339,4 +321,61 @@ caldav_parse(const char *buf, size_t sz)
 	XML_ParserFree(p.xp);
 	free(p.buf.buf);
 	return(p.p);
+}
+
+struct caldav *
+caldav_parsefile(const char *file)
+{
+	int		 fd;
+	char		*map;
+	size_t		 sz;
+	struct stat	 st;
+	struct caldav	*p;
+
+	if (-1 == (fd = open(file, O_RDONLY, 0))) 
+		return(NULL);
+
+	if (-1 == fstat(fd, &st)) {
+		close(fd);
+		return(NULL);
+	} 
+
+	sz = st.st_size;
+	map = mmap(NULL, sz, PROT_READ, MAP_SHARED, fd, 0);
+	close(fd);
+
+	if (MAP_FAILED == map) 
+		return(NULL);
+
+	p = caldav_parse(map, sz);
+	munmap(map, sz);
+	return(p);
+}
+
+const char *
+prop_default(enum proptype prop)
+{
+	static char buf[1024];
+
+	buf[0] = '\0';
+	switch (prop) {
+	case(PROP_CALTIMEZONE):
+		strlcpy(buf, "GMT", sizeof(buf));
+		break;
+	case(PROP_GETCONTENTLENGTH):
+		strlcpy(buf, "0", sizeof(buf));
+		break;
+	case(PROP_GETCONTENTTYPE):
+		strlcpy(buf, "text/html", sizeof(buf));
+		break;
+	case(PROP_EXECUTABLE):
+		strlcpy(buf, "F", sizeof(buf));
+		break;
+	case(PROP_RESOURCETYPE):
+		strlcpy(buf, "<D:collection/>", sizeof(buf));
+		break;
+	default:
+		break;
+	}
+	return(buf);
 }
