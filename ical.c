@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "extern.h"
+#include "md5.h"
 
 static void
 icalnode_free(struct icalnode *p, int first)
@@ -28,6 +29,7 @@ icalnode_free(struct icalnode *p, int first)
 		icalnode_free(np, 0);
 }
 
+#if 0
 static struct icalnode *
 icalnode_clone(const struct icalnode *p, int first)
 {
@@ -60,6 +62,7 @@ icalnode_clone(const struct icalnode *p, int first)
 	}
 	return(np);
 }
+#endif
 
 void
 ical_free(struct ical *p)
@@ -92,7 +95,54 @@ ical_line(const char **cp, struct buf *buf)
 
 	*cp = end + 2;
 	return(1);
+}
 
+struct ical *
+ical_parsefile(const char *file)
+{
+	int	 	 fd;
+	char		*buf;
+	struct stat	 st;
+	ssize_t		 ssz;
+	struct ical	*p;
+
+	if (-1 == (fd = open(file, O_RDONLY | O_SHLOCK, 0))) {
+		perror(file);
+		return(NULL);
+	} else if (-1 == fstat(fd, &st)) {
+		perror(file);
+		flock(fd, LOCK_UN);
+		close(fd);
+		return(NULL);
+	} else if (NULL == (buf = malloc(st.st_size + 1))) {
+		perror(NULL);
+		flock(fd, LOCK_UN);
+		close(fd);
+		return(NULL);
+	} else if ((ssz = read(fd, buf, st.st_size)) < 0) {
+		perror(file);
+		flock(fd, LOCK_UN);
+		close(fd);
+		free(buf);
+		return(NULL);
+	} else if (ssz != st.st_size) {
+		fprintf(stderr, "%s: invalid read size\n", file);
+		flock(fd, LOCK_UN);
+		close(fd);
+		free(buf);
+		return(NULL);
+	}
+	buf[st.st_size] = '\0';
+	if (-1 == flock(fd, LOCK_UN)) {
+		perror(file);
+		close(fd);
+		free(buf);
+		return(NULL);
+	}
+	close(fd);
+	p = ical_parse(buf);
+	free(buf);
+	return(p);
 }
 
 struct ical *
@@ -102,6 +152,9 @@ ical_parse(const char *cp)
 	struct icalnode	*cur, *np;
 	char		*name, *val;
 	struct buf	 buf;
+	MD5_CTX		 ctx;
+	size_t		 i;
+	unsigned char	 digest[16];
 
 	memset(&buf, 0, sizeof(struct buf));
 
@@ -109,6 +162,12 @@ ical_parse(const char *cp)
 		perror(NULL);
 		return(NULL);
 	}
+
+	MD5Init(&ctx);
+	MD5Update(&ctx, cp, strlen(cp));
+	MD5Final(digest, &ctx);
+	for (i = 0; i < sizeof(digest); i++) 
+	         snprintf(&p->digest[i * 2], 3, "%02x", digest[i]);
 
 	while ('\0' != *cp) {
 		if (0 == ical_line(&cp, &buf)) {
@@ -195,19 +254,29 @@ ical_parse(const char *cp)
 }
 
 static void
-icalnode_putchar(FILE *f, char c, size_t *col)
+icalnode_putc(int c, void *arg)
+{
+	FILE	*f = arg;
+
+	fputc(c, f);
+}
+
+static void
+icalnode_putchar(char c, size_t *col, ical_putchar fp, void *arg)
 {
 
 	if (74 == *col) {
-		fputs("\r\n ", f);
+		(*fp)('\r', arg);
+		(*fp)('\n', arg);
+		(*fp)(' ', arg);
 		*col = 1;
 	}
-	fputc(c, f);
+	(*fp)(c, arg);
 	(*col)++;
 }
 
 static void
-icalnode_print(FILE *f, const struct icalnode *p)
+icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 {
 	const char	*cp;
 	size_t		 col;
@@ -217,23 +286,32 @@ icalnode_print(FILE *f, const struct icalnode *p)
 
 	col = 0;
 	for (cp = p->name; '\0' != *cp; cp++) 
-		icalnode_putchar(f, *cp, &col);
-	icalnode_putchar(f, ':', &col);
+		icalnode_putchar(*cp, &col, fp, arg);
+	icalnode_putchar(':', &col, fp, arg);
 	for (cp = p->val; '\0' != *cp; cp++) 
-		icalnode_putchar(f, *cp, &col);
-	fputs("\r\n", f);
-
-	icalnode_print(f, p->first);
-	icalnode_print(f, p->next);
+		icalnode_putchar(*cp, &col, fp, arg);
+	(*fp)('\r', arg);
+	(*fp)('\n', arg);
+	icalnode_print(p->first, fp, arg);
+	icalnode_print(p->next, fp, arg);
 }
 
 void
-ical_print(FILE *f, const struct ical *p)
+ical_print(const struct ical *p, ical_putchar fp, void *arg)
 {
 
-	icalnode_print(f, p->first);
+	icalnode_print(p->first, fp, arg);
 }
 
+
+void
+ical_printfile(FILE *f, const struct ical *p)
+{
+
+	icalnode_print(p->first, icalnode_putc, f);
+}
+
+#if 0
 static int
 ical_merge(int fd, struct ical *p, const struct ical *newp)
 {
@@ -317,6 +395,7 @@ ical_merge(int fd, struct ical *p, const struct ical *newp)
 	}
 	return(1);
 }
+#endif
 
 int
 ical_putfile(const char *file, const struct ical *newp)
@@ -343,7 +422,7 @@ ical_putfile(const char *file, const struct ical *newp)
 		goto out;
 	}
 
-	ical_print(f, newp);
+	ical_printfile(f, newp);
 	rc = 1;
 out:
 	/* Release the EXLOCK. */
@@ -358,6 +437,7 @@ out:
 	return(rc);
 }
 
+#if 0
 int
 ical_mergefile(const char *file, const struct ical *newp)
 {
@@ -391,7 +471,7 @@ ical_mergefile(const char *file, const struct ical *newp)
 			perror(file);
 			goto out;
 		}
-		ical_print(f, newp);
+		ical_printfile(f, newp);
 		rc = 1;
 		goto out;
 	} else
@@ -425,7 +505,7 @@ ical_mergefile(const char *file, const struct ical *newp)
 
 	/* Now truncate and flush to our database. */
 	if (NULL != (f = fdopen(fd, "w"))) {
-		ical_print(f, p);
+		ical_printfile(f, p);
 		rc = 1;
 	} else
 		perror(NULL);
@@ -443,3 +523,4 @@ out:
 	free(buf);
 	return(rc);
 }
+#endif
