@@ -51,7 +51,7 @@ main(int argc, char *argv[])
 	munmap(map, sz);
 	
 	if (NULL != (p = ical_parse(buf)))
-		ical_print(stdout, p);
+		ical_printfile(stdout, p);
 	ical_free(p);
 	free(buf);
 	return(NULL == p ? EXIT_FAILURE : EXIT_SUCCESS);
