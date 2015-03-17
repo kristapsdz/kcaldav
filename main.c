@@ -31,6 +31,7 @@
 #include <kcgi.h>
 
 #include "extern.h"
+#include "md5.h"
 
 struct	config {
 	char	*base;
@@ -58,15 +59,10 @@ req2ical(struct kreq *r)
 	memcpy(buf, cp, sz);
 	buf[sz] = '\0';
 
-	fprintf(stderr, "CHecking: %s\n", buf);
-
 	p = ical_parse(buf);
 	free(buf);
-	if (NULL != p) {
-		fprintf(stderr, "It's good!\n");
+	if (NULL != p)
 		return(p);
-	}
-	fprintf(stderr, "It's bad!\n");
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_400]);
 	khttp_body(r);
@@ -96,6 +92,66 @@ req2caldav(struct kreq *r, enum type type)
 	return(NULL);
 }
 
+const char *
+req2prop(struct kreq *r, enum proptype prop)
+{
+	static char 	 buf[BUFSIZ];
+	struct config	*cfg = r->arg;
+	char		 file[PATH_MAX];
+	size_t		 i;
+	MD5_CTX		 ctx;
+	int		 rc, fd;
+	ssize_t		 ssz;
+	unsigned char 	digest[16];
+
+	buf[0] = '\0';
+	switch (prop) {
+	case(PROP_GETETAG):
+		rc = snprintf(file, sizeof(file), 
+			"%s%s", cfg->base, '/' == r->fullpath[0] ?
+			r->fullpath + 1 : r->fullpath);
+		if (rc < 0 || (size_t)rc >= sizeof(file))
+			break;
+		if (-1 == (fd = open(file, O_RDONLY, 0))) {
+			perror(file);
+			break;
+		}
+		MD5Init(&ctx);
+		do {
+			ssz = read(fd, buf, sizeof(buf));
+			if (ssz <= 0)
+				continue;
+			MD5Update(&ctx, buf, ssz);
+		} while (ssz > 0);
+		close(fd);
+		MD5Final(digest, &ctx);
+		for (i = 0; i < sizeof(digest); i++) 
+		         snprintf(&buf[i * 2], sizeof(buf), 
+				"%02x", digest[i]);
+		buf[i * 2] = '\0';
+		fprintf(stderr, "etag = %s\n", buf);
+		break;
+	case(PROP_CALTIMEZONE):
+		strlcpy(buf, "GMT", sizeof(buf));
+		break;
+	case(PROP_GETCONTENTLENGTH):
+		strlcpy(buf, "0", sizeof(buf));
+		break;
+	case(PROP_GETCONTENTTYPE):
+		strlcpy(buf, "text/html", sizeof(buf));
+		break;
+	case(PROP_EXECUTABLE):
+		strlcpy(buf, "F", sizeof(buf));
+		break;
+	case(PROP_RESOURCETYPE):
+		strlcpy(buf, "<D:collection/>", sizeof(buf));
+		break;
+	default:
+		break;
+	}
+	return(buf);
+}
+
 static void
 put(struct kreq *r)
 {
@@ -109,19 +165,18 @@ put(struct kreq *r)
 		"%s%s", cfg->base, '/' == r->fullpath[0] ?
 		r->fullpath + 1 : r->fullpath);
 
-	if (rc >= (int)sizeof(file)) {
+	if (rc < 0 || (size_t)rc >= sizeof(file)) {
 		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_400]);
 		khttp_body(r);
 		return;
 	} else if (NULL == (p = req2ical(r)))
 		return;
 
-	code = ical_mergefile(file, p) ? KHTTP_201 : KHTTP_403;
+	code = ical_putfile(file, p) ? KHTTP_201 : KHTTP_403;
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[code]);
 	khttp_body(r);
 	ical_free(p);
 }
-
 
 static void
 get(struct kreq *r)
@@ -134,7 +189,7 @@ get(struct kreq *r)
 	rc = snprintf(file, sizeof(file), "%s%s", cfg->base, 
 		'/' == r->fullpath[0] ? r->fullpath + 1 : r->fullpath);
 
-	if (rc >= (int)sizeof(file)) {
+	if (rc < 0 || (size_t)rc >= sizeof(file)) {
 		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
 		khttp_body(r);
 		return;
@@ -206,7 +261,7 @@ propfind(struct kreq *r)
 	puts("<D:prop>");
 	for (i = 0; i < p->propsz; i++) {
 		tag = calelems[calpropelems[p->props[i].key]];
-		cp = prop_default(p->props[i].key);
+		cp = req2prop(r, p->props[i].key);
 		if ('\0' == *cp) 
 			printf("<D:%s />\n", tag);
 		else
@@ -238,7 +293,7 @@ mkcalendar(struct kreq *r)
 	rc = snprintf(dir, sizeof(dir), "%s%s", cfg->base, 
 		'/' == r->fullpath[0] ? r->fullpath + 1 : r->fullpath);
 
-	if (rc >= (int)sizeof(dir) || -1 == mkdir(dir, 0755)) {
+	if (rc < 0 || (size_t)rc >= sizeof(dir) || -1 == mkdir(dir, 0755)) {
 		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
 		khttp_body(r);
 		caldav_free(p);
@@ -248,7 +303,7 @@ mkcalendar(struct kreq *r)
 	rc = snprintf(path, sizeof(path), "%s%sproperties.dav", 
 		dir, '/' == dir[strlen(dir) - 1] ? "" : "/");
 
-	if (rc >= (int)sizeof(path)) {
+	if (rc < 0 || (size_t)rc >= sizeof(path)) {
 		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
 		khttp_body(r);
 		caldav_free(p);

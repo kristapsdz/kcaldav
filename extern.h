@@ -88,6 +88,7 @@ void 		 bufappend(struct buf *, const char *, size_t);
 void		 bufreset(struct buf *);
 
 int		 ical_mergefile(const char *, const struct ical *);
+int		 ical_putfile(const char *, const struct ical *);
 struct ical 	*ical_parse(const char *);
 void		 ical_free(struct ical *);
 void		 ical_print(FILE *, const struct ical *);
@@ -95,8 +96,6 @@ void		 ical_print(FILE *, const struct ical *);
 struct caldav	*caldav_parsefile(const char *);
 struct caldav 	*caldav_parse(const char *, size_t);
 void		 caldav_free(struct caldav *);
-
-const char	*prop_default(enum proptype);
 
 const enum proptype *calprops;
 const enum calelem *calpropelems;
