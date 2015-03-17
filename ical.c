@@ -319,6 +319,46 @@ ical_merge(int fd, struct ical *p, const struct ical *newp)
 }
 
 int
+ical_putfile(const char *file, const struct ical *newp)
+{
+	int		 fd, flags, rc;
+	struct stat	 st;
+	char		*buf;
+	FILE		*f;
+
+	rc = 0;
+	flags = O_RDWR | O_EXLOCK | O_CREAT | O_TRUNC;
+	buf = NULL;
+	f = NULL;
+
+	/* Open our database with an EXLOCK. */
+	if (-1 == (fd = open(file, flags, 0666))) {
+		perror(file);
+		return(0);
+	} else if (-1 == fstat(fd, &st)) {
+		perror(file);
+		goto out;
+	} else if (NULL == (f = fdopen(fd, "w"))) {
+		perror(file);
+		goto out;
+	}
+
+	ical_print(f, newp);
+	rc = 1;
+out:
+	/* Release the EXLOCK. */
+	if (-1 == flock(fd, LOCK_UN)) 
+		perror(file);
+
+	if (NULL != f)
+		fclose(f);
+	else
+		close(fd);
+	free(buf);
+	return(rc);
+}
+
+int
 ical_mergefile(const char *file, const struct ical *newp)
 {
 	int		 fd, flags, rc;

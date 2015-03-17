@@ -352,30 +352,3 @@ caldav_parsefile(const char *file)
 	return(p);
 }
 
-const char *
-prop_default(enum proptype prop)
-{
-	static char buf[1024];
-
-	buf[0] = '\0';
-	switch (prop) {
-	case(PROP_CALTIMEZONE):
-		strlcpy(buf, "GMT", sizeof(buf));
-		break;
-	case(PROP_GETCONTENTLENGTH):
-		strlcpy(buf, "0", sizeof(buf));
-		break;
-	case(PROP_GETCONTENTTYPE):
-		strlcpy(buf, "text/html", sizeof(buf));
-		break;
-	case(PROP_EXECUTABLE):
-		strlcpy(buf, "F", sizeof(buf));
-		break;
-	case(PROP_RESOURCETYPE):
-		strlcpy(buf, "<D:collection/>", sizeof(buf));
-		break;
-	default:
-		break;
-	}
-	return(buf);
-}

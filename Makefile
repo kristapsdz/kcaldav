@@ -1,6 +1,6 @@
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DHAVE_CONFIG_H
 SRCS		 = main.c test-ical.c test-caldav.c caldav.c ical.c buf.o
-OBJS		 = caldav.o ical.o buf.o
+OBJS		 = caldav.o ical.o buf.o md5.o
 ALLOBJS		 = main.o test-ical.o test-caldav.o $(OBJS)
 
 all: kcaldav test-ical test-caldav
@@ -18,7 +18,7 @@ test-ical: test-ical.o $(OBJS)
 test-caldav: test-caldav.o $(OBJS)
 	$(CC) -o $@ test-caldav.o $(OBJS) -lexpat
 
-$(ALLOBJS): extern.h
+$(ALLOBJS): extern.h md5.h
 
 clean:
 	rm -f $(ALLOBJS) kcaldav test-ical test-caldav
