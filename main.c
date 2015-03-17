@@ -31,149 +31,113 @@
 #include <kcgi.h>
 
 #include "extern.h"
-#include "md5.h"
 
-struct	config {
-	char	*base;
-};
+/* 
+ * Validator for iCalendar OR CalDav object.
+ * This checks the initial string of the object: if it equals the
+ * prologue to an iCalendar, we attempt an iCalendar parse.
+ * Otherwise, we try a CalDav parse.
+ */
+static int
+kvalid(struct kpair *kp)
+{
+	size_t	 	 sz;
+	const char	*tok = "BEGIN:VCALENDAR";
+	struct ical	*ical;
+	struct caldav	*dav;
 
+	if ( ! kvalid_stringne(kp))
+		return(0);
+	sz = strlen(tok);
+	if (0 == strncmp(kp->val, tok, sz)) {
+		ical = ical_parse(kp->val);
+		ical_free(ical);
+		return(NULL != ical);
+	}
+	dav = caldav_parse(kp->val, kp->valsz);
+	caldav_free(dav);
+	return(NULL != dav);
+}
+
+/*
+ * Put a character into a request stream.
+ * We use this instead of just fputc because the stream might be
+ * compressed, so we need kcgi(3)'s function.
+ */
+static void
+ical_putc(int c, void *arg)
+{
+	struct kreq	*r = arg;
+
+	khttp_putc(r, c);
+}
+
+/*
+ * If found, convert the (already-validated) iCalendar.
+ */
 static struct ical *
 req2ical(struct kreq *r)
 {
 	struct ical	*p;
-	const char	*cp;
-	size_t		 sz;
-	char		*buf;
 
-	if (0 == r->fieldsz) {
+	if (NULL == r->fieldmap[0]) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_400]);
 		khttp_body(r);
 		return(NULL);
-	} 
-
-	cp = r->fields[0].val;
-	sz = r->fields[0].valsz;
-	p = NULL;
-	buf = kmalloc(sz + 1);
-	memcpy(buf, cp, sz);
-	buf[sz] = '\0';
-
-	p = ical_parse(buf);
-	free(buf);
-	if (NULL != p)
-		return(p);
-
-	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_400]);
-	khttp_body(r);
-	ical_free(p);
-	return(NULL);
+	}
+	
+	/* We already know that this works! */
+	p = ical_parse(r->fieldmap[0]->val);
+	assert(NULL != p);
+	return(p);
 }
 
+/*
+ * This converts the request into a CalDav object with one extra check
+ * (we know that it will validate): we make sure that the CalDav request
+ * is the correct type.
+ */
 static struct caldav *
 req2caldav(struct kreq *r, enum type type)
 {
 	struct caldav	*p;
 
-	if (0 == r->fieldsz) {
+	if (NULL == r->fieldmap[0]) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_400]);
 		khttp_body(r);
 		return(NULL);
 	} 
 
-	p = caldav_parse(r->fields[0].val, r->fields[0].valsz);
-	if (NULL != p && type == p->type)
+	p = caldav_parse(r->fieldmap[0]->val, r->fieldmap[0]->valsz);
+	assert(NULL != p);
+	if (type == p->type)
 		return(p);
 
-	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_400]);
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_400]);
 	khttp_body(r);
 	caldav_free(p);
 	return(NULL);
 }
 
-const char *
-req2prop(struct kreq *r, enum proptype prop)
-{
-	static char 	 buf[BUFSIZ];
-	struct config	*cfg = r->arg;
-	char		 file[PATH_MAX];
-	size_t		 i;
-	MD5_CTX		 ctx;
-	int		 rc, fd;
-	ssize_t		 ssz;
-	unsigned char 	digest[16];
-
-	buf[0] = '\0';
-	switch (prop) {
-	case(PROP_GETETAG):
-		rc = snprintf(file, sizeof(file), 
-			"%s%s", cfg->base, '/' == r->fullpath[0] ?
-			r->fullpath + 1 : r->fullpath);
-		if (rc < 0 || (size_t)rc >= sizeof(file))
-			break;
-		if (-1 == (fd = open(file, O_RDONLY, 0))) {
-			perror(file);
-			break;
-		}
-		MD5Init(&ctx);
-		do {
-			ssz = read(fd, buf, sizeof(buf));
-			if (ssz <= 0)
-				continue;
-			MD5Update(&ctx, buf, ssz);
-		} while (ssz > 0);
-		close(fd);
-		MD5Final(digest, &ctx);
-		for (i = 0; i < sizeof(digest); i++) 
-		         snprintf(&buf[i * 2], sizeof(buf), 
-				"%02x", digest[i]);
-		buf[i * 2] = '\0';
-		fprintf(stderr, "etag = %s\n", buf);
-		break;
-	case(PROP_CALTIMEZONE):
-		strlcpy(buf, "GMT", sizeof(buf));
-		break;
-	case(PROP_GETCONTENTLENGTH):
-		strlcpy(buf, "0", sizeof(buf));
-		break;
-	case(PROP_GETCONTENTTYPE):
-		strlcpy(buf, "text/html", sizeof(buf));
-		break;
-	case(PROP_EXECUTABLE):
-		strlcpy(buf, "F", sizeof(buf));
-		break;
-	case(PROP_RESOURCETYPE):
-		strlcpy(buf, "<D:collection/>", sizeof(buf));
-		break;
-	default:
-		break;
-	}
-	return(buf);
-}
-
+/*
+ * Satisfy 5.3.2, PUT.
+ */
 static void
 put(struct kreq *r)
 {
-	struct config	*cfg = r->arg;
 	struct ical	*p;
-	char		 file[PATH_MAX];
 	enum khttp	 code;
-	int		 rc;
 
-	rc = snprintf(file, sizeof(file), 
-		"%s%s", cfg->base, '/' == r->fullpath[0] ?
-		r->fullpath + 1 : r->fullpath);
-
-	if (rc < 0 || (size_t)rc >= sizeof(file)) {
-		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_400]);
-		khttp_body(r);
-		return;
-	} else if (NULL == (p = req2ical(r)))
+	if (NULL == (p = req2ical(r)))
 		return;
 
-	code = ical_putfile(file, p) ? KHTTP_201 : KHTTP_403;
+	fprintf(stderr, "%s: PUT: %s\n", r->arg, p->digest);
+	code = ical_putfile(r->arg, p) ? KHTTP_201 : KHTTP_403;
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[code]);
+	khttp_head(r, kresps[KRESP_ETAG], "%s", p->digest);
 	khttp_body(r);
 	ical_free(p);
 }
@@ -181,76 +145,52 @@ put(struct kreq *r)
 static void
 get(struct kreq *r)
 {
-	struct config	*cfg = r->arg;
-	char		 file[PATH_MAX], buf[BUFSIZ];
-	int		 rc, fd;
-	ssize_t		 ssz;
+	struct ical	*p;
 
-	rc = snprintf(file, sizeof(file), "%s%s", cfg->base, 
-		'/' == r->fullpath[0] ? r->fullpath + 1 : r->fullpath);
-
-	if (rc < 0 || (size_t)rc >= sizeof(file)) {
-		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
-		khttp_body(r);
-		return;
-	} else if (-1 == (fd = open(file, O_RDONLY, 0))) {
-		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
+	if (NULL == (p = ical_parsefile(r->arg))) {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_404]);
 		khttp_body(r);
 		return;
 	}
 
-	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
+	fprintf(stderr, "%s: GET: %s\n", r->arg, p->digest);
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_200]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+		"%s", kmimetypes[KMIME_TEXT_CALENDAR]);
+	khttp_head(r, kresps[KRESP_ETAG], "%s", p->digest);
 	khttp_body(r);
-
-	do
-		if ((ssz = read(fd, buf, sizeof(buf))) > 0) 
-			write(STDOUT_FILENO, buf, ssz);
-	while (ssz > 0);
-
-	close(fd);
-}
-
-static void
-report(struct kreq *r)
-{
-	struct caldav	*p;
-	struct config	*cfg = r->arg;
-	int		 fd;
-	char		*fname;
-
-	if (NULL == (p = req2caldav(r, TYPE_CALQUERY)))
-		return;
-
-	kasprintf(&fname, "%s%s", cfg->base, r->fullpath);
-	fd = open(fname, O_RDWR | O_CREAT | O_APPEND, 0666);
-	if (-1 == fd) {
-		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_404]);
-		khttp_body(r);
-	}
-
-	fprintf(stderr, "%s: report\n", r->fullpath);
-
-	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
-	khttp_body(r);
+	ical_print(p, ical_putc, r);
+	ical_free(p);
 }
 
 static void
 propfind(struct kreq *r)
 {
-	struct caldav	*p;
+	struct caldav	*dav;
+	struct ical	*ical;
 	size_t		 i;
-	const char	*cp, *tag;
+	const char	*tag;
 
-	if (NULL == (p = req2caldav(r, TYPE_PROPFIND)))
+	if (NULL == (ical = ical_parsefile(r->arg))) {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_404]);
+		khttp_body(r);
 		return;
-
-	for (i = 0; i < p->propsz; i++) {
-		tag = calelems[calpropelems[p->props[i].key]];
-		fprintf(stderr, "%s: propfind: %s\n", r->fullpath, tag);
+	} else if (NULL == (dav = req2caldav(r, TYPE_PROPFIND))) {
+		ical_free(ical);
+		return;
 	}
 
-	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_207]);
-	khttp_head(r, kresps[KRESP_CONTENT_TYPE], "%s", kmimetypes[KMIME_TEXT_XML]);
+	/*
+	 * The only property we respond to is the etag property, which
+	 * we've set above.
+	 */
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_207]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+		"%s", kmimetypes[KMIME_TEXT_XML]);
 	khttp_body(r);
 	puts("<?xml version=\"1.0\" encoding=\"utf-8\" ?>");
 	puts("<D:multistatus xmlns:D=\"DAV:\">");
@@ -259,91 +199,30 @@ propfind(struct kreq *r)
 		r->host, r->pname, r->fullpath);
 	puts("<D:propstat>");
 	puts("<D:prop>");
-	for (i = 0; i < p->propsz; i++) {
-		tag = calelems[calpropelems[p->props[i].key]];
-		cp = req2prop(r, p->props[i].key);
-		if ('\0' == *cp) 
-			printf("<D:%s />\n", tag);
+	for (i = 0; i < dav->propsz; i++) {
+		tag = calelems[calpropelems[dav->props[i].key]];
+		if (PROP_GETETAG == dav->props[i].key)
+			printf("<D:%s>%s</D:%s>\n", tag, ical->digest, tag);
 		else
-			printf("<D:%s>%s</D:%s>\n", tag, cp, tag);
+			printf("<D:%s />\n", tag);
 	}
 	puts("</D:prop>");
 	puts("<D:status>HTTP/1.1 200 OK</D:status>");
 	puts("</D:propstat>");
 	puts("</D:response>");
 	puts("</D:multistatus>");
-	caldav_free(p);
-}
-
-static void
-mkcalendar(struct kreq *r)
-{
-	struct config	*cfg = r->arg;
-	struct caldav	*p;
-	char		 dir[PATH_MAX], path[PATH_MAX];
-	FILE		*f;
-	int		 rc;
-	size_t		 i;
-
-	dir[0] = path[0] = '\0';
-
-	if (NULL == (p = req2caldav(r, TYPE_MKCALENDAR)))
-		return;
-
-	rc = snprintf(dir, sizeof(dir), "%s%s", cfg->base, 
-		'/' == r->fullpath[0] ? r->fullpath + 1 : r->fullpath);
-
-	if (rc < 0 || (size_t)rc >= sizeof(dir) || -1 == mkdir(dir, 0755)) {
-		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
-		khttp_body(r);
-		caldav_free(p);
-		return;
-	}
-
-	rc = snprintf(path, sizeof(path), "%s%sproperties.dav", 
-		dir, '/' == dir[strlen(dir) - 1] ? "" : "/");
-
-	if (rc < 0 || (size_t)rc >= sizeof(path)) {
-		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
-		khttp_body(r);
-		caldav_free(p);
-		return;
-	}
-
-	if (NULL == (f = fopen(dir, "r+"))) {
-		khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_403]);
-		khttp_body(r);
-		caldav_free(p);
-		return;
-	}
-
-	fputs("<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n", f);
-	fputs("<proplist>\n", f);
-	fputs(" <d:prop>\n", f);
-	for (i = 0; i < p->propsz; i++) {
-		fprintf(f, " <d:%s>%s</d:%s>\n",
-			calelems[calpropelems[p->props[i].key]],
-			p->props[i].value,
-			calelems[calpropelems[p->props[i].key]]);
-	}
-	fputs(" </d:prop>\n", f);
-	fputs("</proplist>\n", f);
-	fclose(f);
-
-	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_201]);
-	khttp_body(r);
-	caldav_free(p);
+	caldav_free(dav);
+	ical_free(ical);
 }
 
 static void
 options(struct kreq *r)
 {
 
-	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[KHTTP_200]);
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_200]);
 	khttp_head(r, kresps[KRESP_ALLOW], "%s", 
-		"OPTIONS, GET, HEAD, POST, PUT, DELETE, TRACE, "
-		"COPY, MOVE, PROPFIND, PROPPATCH, LOCK, UNLOCK, "
-		"REPORT, ACL");
+		"OPTIONS, GET, PUT, PROPFIND");
 	khttp_body(r);
 }
 
@@ -351,41 +230,37 @@ int
 main(void)
 {
 	struct kreq	 r;
-	struct config	 cfg;
+	char		*path;
+	struct kvalid	 valid = { kvalid, "" };
 
-	fprintf(stderr, "Here we go...\n");
-
-	if (KCGI_OK != khttp_parse(&r, NULL, 0, NULL, 0, 0))
+	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
 
-	cfg.base = kstrdup(_PATH_TMP);
-	assert(cfg.base[strlen(cfg.base) - 1] == '/');
+	if (strstr(r.fullpath, "../") || 
+			strstr(r.fullpath, "/..") ||
+			'/' != r.fullpath[0]) {
+		fprintf(stderr, "%s: insecure path\n", r.fullpath);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_400]);
+		khttp_body(&r);
+		khttp_free(&r);
+		return(EXIT_FAILURE);
+	}
 
-	r.arg = &cfg;
+	kasprintf(&path, "%s%s", CALDIR, r.fullpath);
+	r.arg = path;
 
 	switch (r.method) {
 	case (KMETHOD_OPTIONS):
-		fprintf(stderr, "KMETHOD_OPTIONS\n");
 		options(&r);
 		break;
-	case (KMETHOD_MKCALENDAR):
-		fprintf(stderr, "KMETHOD_MKCALENDAR\n");
-		mkcalendar(&r);
-		break;
 	case (KMETHOD_PUT):
-		fprintf(stderr, "KMETHOD_PUT\n");
 		put(&r);
 		break;
 	case (KMETHOD_PROPFIND):
-		fprintf(stderr, "KMETHOD_PROPFIND\n");
 		propfind(&r);
 		break;
-	case (KMETHOD_REPORT):
-		fprintf(stderr, "KMETHOD_REPORT\n");
-		report(&r);
-		break;
 	case (KMETHOD_GET):
-		fprintf(stderr, "KMETHOD_GET\n");
 		get(&r);
 		break;
 	default:
@@ -396,7 +271,7 @@ main(void)
 		break;
 	}
 
-	free(cfg.base);
+	free(path);
 	khttp_free(&r);
 	return(EXIT_SUCCESS);
 }

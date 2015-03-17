@@ -68,6 +68,7 @@ struct	icalnode {
 };
 
 struct	ical {
+	char	 	 digest[33];
 	struct icalnode	*first;
 };
 
@@ -84,14 +85,17 @@ struct	caldav {
 
 __BEGIN_DECLS
 
+typedef void	(*ical_putchar)(int, void *);
+
 void 		 bufappend(struct buf *, const char *, size_t);
 void		 bufreset(struct buf *);
 
-int		 ical_mergefile(const char *, const struct ical *);
 int		 ical_putfile(const char *, const struct ical *);
 struct ical 	*ical_parse(const char *);
+struct ical 	*ical_parsefile(const char *);
 void		 ical_free(struct ical *);
-void		 ical_print(FILE *, const struct ical *);
+void		 ical_printfile(FILE *, const struct ical *);
+void		 ical_print(const struct ical *, ical_putchar, void *);
 
 struct caldav	*caldav_parsefile(const char *);
 struct caldav 	*caldav_parse(const char *, size_t);
