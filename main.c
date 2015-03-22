@@ -58,42 +58,24 @@ static	const char *const kmethods[KMETHOD__MAX + 1] = {
 
 enum	xml {
 	XML_CALDAV_CALENDAR,
-	XML_CALDAV_CALENDAR_HOME_SET,
 	XML_DAV_COLLECTION,
-	XML_DAV_DISPLAYNAME,
-	XML_DAV_GETETAG,
 	XML_DAV_HREF,
 	XML_DAV_MULTISTATUS,
-	XML_DAV_PRINCIPAL_URL,
 	XML_DAV_PROP,
 	XML_DAV_PROPSTAT,
-	XML_DAV_RESOURCETYPE,
 	XML_DAV_RESPONSE,
 	XML_DAV_STATUS,
 	XML_DAV_UNAUTHENTICATED,
 	XML__MAX
 };
 
-static	const enum xml xmlprops[PROP__MAX] = {
-	XML_CALDAV_CALENDAR_HOME_SET, /* PROP_CALENDAR_HOME_SET */
-	XML_DAV_DISPLAYNAME, /* PROP_DISPLAYNAME */
-	XML_DAV_GETETAG, /* PROP_GETETAG */
-	XML_DAV_PRINCIPAL_URL, /* PROP_PRINCIPAL_URL */
-	XML_DAV_RESOURCETYPE, /* PROP_RESOURCETYPE */
-};
-
 static	const char *const xmls[XML__MAX] = {
 	"C:calendar", /* XML_CALDAV_CALENDAR */
-	"C:calendar-home-set", /* XML_CALDAV_CALENDAR_HOME_SET */
 	"D:collection", /* XML_DAV_COLLECTION */
-	"D:displayname", /* XML_DAV_DISPLAYNAME */
-	"D:getetag", /* XML_DAV_GETETAG */
 	"D:href", /* XML_DAV_HREF */
 	"D:multistatus", /* XML_DAV_MULTISTATUS */
-	"D:principal-URL", /* XML_DAV_PRINCIPAL_URL */
 	"D:prop", /* XML_DAV_PROP */
         "D:propstat", /* XML_DAV_PROPSTAT */
-	"D:resourcetype", /* XML_DAV_RESOURCETYPE */
 	"D:response", /* XML_DAV_RESPONSE */
 	"D:status", /* XML_DAV_STATUS */
 	"D:unauthenticated", /* XML_DAV_UNAUTHENTICATED */
@@ -357,12 +339,21 @@ get(struct kreq *r)
 static void
 propfind_collection(const struct caldav *dav, struct kreq *r)
 {
-	size_t	 	 i;
+	size_t	 	 i, nf;
 	struct kxmlreq	 xml;
 	struct config	*cfg;
-	enum xml	 key;
+	const char	*tag;
 
-	cfg = config_parse(r->arg);
+	/*
+	 * If we can't find the configuration file within this current
+	 * directory, then exit with an HTTP 404.
+	 */
+	if (NULL == (cfg = config_parse(r->fullpath, r->arg))) {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_403]);
+		khttp_body(r);
+		return;
+	}
 
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
@@ -371,48 +362,124 @@ propfind_collection(const struct caldav *dav, struct kreq *r)
 	khttp_body(r);
 	kxml_open(&xml, r, xmls, XML__MAX);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
+		"xmlns:B", "http://calendarserver.org/ns/",
 		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
 		"xmlns:D", "DAV:", NULL);
 	kxml_push(&xml, XML_DAV_RESPONSE);
 	kxml_push(&xml, XML_DAV_HREF);
+	kxml_text(&xml, "http://");
+	kxml_text(&xml, r->host);
 	kxml_text(&xml, r->pname);
 	kxml_text(&xml, r->fullpath);
 	kxml_pop(&xml);
 	kxml_push(&xml, XML_DAV_PROPSTAT);
 	kxml_push(&xml, XML_DAV_PROP);
-	for (i = 0; i < dav->propsz; i++) {
-		key = xmlprops[dav->props[i].key];
-		if (NULL == cfg) {
-			kxml_pushnull(&xml, key);
-			continue;
-		}
-		kxml_push(&xml, key);
+	for (nf = i = 0; i < dav->propsz; i++) {
+		/* White-list our support properties. */
 		switch (dav->props[i].key) {
-		case (PROP_RESOURCETYPE):
-			/* This is necessary as per RFC 4791, 4.2. */
-			kxml_pushnull(&xml, XML_DAV_COLLECTION);
-			kxml_pushnull(&xml, XML_CALDAV_CALENDAR);
-			break;
+		case (PROP_CALENDAR_HOME_SET):
+		case (PROP_CALENDAR_USER_ADDRESS_SET):
+		case (PROP_CURRENT_USER_PRINCIPAL):
+		case (PROP_DISPLAYNAME):
+		case (PROP_EMAIL_ADDRESS_SET):
 		case (PROP_PRINCIPAL_URL):
+		case (PROP_RESOURCETYPE):
+			nf++;
+			continue;
+		default:
+			break;
+		}
+
+		/* Switch on property to report. */
+		tag = calelems[calpropelems[dav->props[i].key]];
+		khttp_puts(r, "<X:");
+		khttp_puts(r, tag);
+		khttp_puts(r, " xmlns:X=\"");
+		khttp_puts(r, dav->props[i].xmlns);
+		khttp_puts(r, "\">");
+		switch (dav->props[i].key) {
+		case (PROP_CALENDAR_HOME_SET):
 			kxml_push(&xml, XML_DAV_HREF);
+			kxml_text(&xml, "http://");
+			kxml_text(&xml, r->host);
 			kxml_text(&xml, r->pname);
-			kxml_text(&xml, r->fullpath);
+			kxml_text(&xml, cfg->calendarhome);
 			kxml_pop(&xml);
+			break;
+		case (PROP_CALENDAR_USER_ADDRESS_SET):
+			kxml_text(&xml, cfg->calendaruseraddress);
+			break;
+		case (PROP_CURRENT_USER_PRINCIPAL):
+			kxml_pushnull(&xml, XML_DAV_UNAUTHENTICATED);
+			break;
 		case (PROP_DISPLAYNAME):
 			kxml_text(&xml, cfg->displayname);
 			break;
-		case (PROP_CALENDAR_HOME_SET):
-			kxml_text(&xml, cfg->calendarhomeset);
+		case (PROP_EMAIL_ADDRESS_SET):
+			kxml_text(&xml, cfg->emailaddress);
+			break;
+		case (PROP_PRINCIPAL_URL):
+			kxml_push(&xml, XML_DAV_HREF);
+			kxml_text(&xml, "http://");
+			kxml_text(&xml, r->host);
+			kxml_text(&xml, r->pname);
+			kxml_text(&xml, r->fullpath);
+			kxml_pop(&xml);
+			break;
+		case (PROP_RESOURCETYPE):
+			kxml_pushnull(&xml, XML_DAV_COLLECTION);
+			kxml_pushnull(&xml, XML_CALDAV_CALENDAR);
 			break;
 		default:
+			abort();
 			break;
 		} 
-		kxml_pop(&xml);
+		khttp_puts(r, "</X:");
+		khttp_puts(r, tag);
+		khttp_putc(r, '>');
 	}
 	kxml_pop(&xml);
 	kxml_push(&xml, XML_DAV_STATUS);
 	kxml_text(&xml, "HTTP/1.1 ");
-	kxml_text(&xml, khttps[NULL == cfg ? KHTTP_404 : KHTTP_200]);
+	kxml_text(&xml, khttps[KHTTP_200]);
+	kxml_pop(&xml);
+	kxml_pop(&xml);
+
+	/*
+	 * If we had any properties for which we're not going to report,
+	 * then indicate that now with a 404.
+	 */
+	if (nf > 0) {
+		kxml_push(&xml, XML_DAV_PROPSTAT);
+		kxml_push(&xml, XML_DAV_PROP);
+		for (i = 0; i < dav->propsz; i++) {
+			/* Note which properties we supported. */
+			switch (dav->props[i].key) {
+			case (PROP_CALENDAR_HOME_SET):
+			case (PROP_CALENDAR_USER_ADDRESS_SET):
+			case (PROP_CURRENT_USER_PRINCIPAL):
+			case (PROP_DISPLAYNAME):
+			case (PROP_EMAIL_ADDRESS_SET):
+			case (PROP_PRINCIPAL_URL):
+			case (PROP_RESOURCETYPE):
+				continue;
+			default:
+				break;
+			}
+			
+			/* Otherwise... */
+			khttp_puts(r, "<X:");
+			khttp_puts(r, dav->props[i].name);
+			khttp_puts(r, " xmlns:X=\"");
+			khttp_puts(r, dav->props[i].xmlns);
+			khttp_puts(r, "\" />");
+		}
+		kxml_pop(&xml);
+		kxml_push(&xml, XML_DAV_STATUS);
+		kxml_text(&xml, "HTTP/1.1 ");
+		kxml_text(&xml, khttps[KHTTP_404]);
+	}
+
 	kxml_popall(&xml);
 	kxml_close(&xml);
 	config_free(cfg);
@@ -425,8 +492,9 @@ static void
 propfind_resource(const struct caldav *dav, struct kreq *r)
 {
 	struct ical	*ical;
-	size_t		 i;
+	size_t		 i, nf;
 	const char	*tag;
+	struct kxmlreq	 xml;
 
 	for (i = 0; i < dav->propsz; i++) 
 		logmsg(r, "%s: resource: %s", r->arg, 
@@ -444,29 +512,70 @@ propfind_resource(const struct caldav *dav, struct kreq *r)
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
 	khttp_body(r);
-	khttp_puts(r, "<?xml version=\"1.0\" encoding=\"utf-8\" ?>");
-	khttp_puts(r, "<DAV:multistatus>");
-	khttp_puts(r, "<DAV:response>");
-	khttp_puts(r, "<DAV:href>http://");
-	khttp_puts(r, r->host);
-	khttp_puts(r, r->pname);
-	khttp_puts(r, r->fullpath);
-	khttp_puts(r, "</DAV:href>");
-	khttp_puts(r, "<DAV:propstat>");
-	khttp_puts(r, "<DAV:prop>");
-	for (i = 0; i < dav->propsz; i++) {
-		tag = calelems[calpropelems[dav->props[i].key]];
-		if (PROP_GETETAG == dav->props[i].key) {
-			khttp_puts(r, "<DAV:getetag>");
-			khttp_puts(r, ical->digest);
-			khttp_puts(r, "</DAV:getetag>");
+	kxml_open(&xml, r, xmls, XML__MAX);
+	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
+		"xmlns:B", "http://calendarserver.org/ns/",
+		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
+		"xmlns:D", "DAV:", NULL);
+	kxml_push(&xml, XML_DAV_RESPONSE);
+	kxml_push(&xml, XML_DAV_HREF);
+	kxml_text(&xml, "http://");
+	kxml_text(&xml, r->host);
+	kxml_text(&xml, r->pname);
+	kxml_text(&xml, r->fullpath);
+	kxml_pop(&xml);
+	kxml_push(&xml, XML_DAV_PROPSTAT);
+	kxml_push(&xml, XML_DAV_PROP);
+	for (nf = i = 0; i < dav->propsz; i++) {
+		if (PROP_GETETAG != dav->props[i].key) {
+			nf++;
+			continue;
 		}
+		tag = calelems[calpropelems[dav->props[i].key]];
+		khttp_puts(r, "<X:");
+		khttp_puts(r, tag);
+		khttp_puts(r, " xmlns:X=\"");
+		khttp_puts(r, dav->props[i].xmlns);
+		khttp_puts(r, "\">");
+		khttp_puts(r, ical->digest);
+		khttp_puts(r, "</X:");
+		khttp_puts(r, tag);
+		khttp_putc(r, '>');
 	}
-	khttp_puts(r, "</DAV:prop>");
-	khttp_puts(r, "<DAV:status>HTTP/1.1 200 OK</DAV:status>");
-	khttp_puts(r, "</DAV:propstat>");
-	khttp_puts(r, "</DAV:response>");
-	khttp_puts(r, "</DAV:multistatus>");
+	kxml_pop(&xml);
+	kxml_push(&xml, XML_DAV_STATUS);
+	kxml_text(&xml, "HTTP/1.1 ");
+	kxml_text(&xml, khttps[KHTTP_200]);
+	kxml_pop(&xml);
+	kxml_pop(&xml);
+
+	/*
+	 * If we had any properties for which we're not going to report,
+	 * then indicate that now with a 404.
+	 */
+	if (nf > 0) {
+		kxml_push(&xml, XML_DAV_PROPSTAT);
+		kxml_push(&xml, XML_DAV_PROP);
+		for (i = 0; i < dav->propsz; i++) {
+			/* Note which properties we supported. */
+			if (PROP_GETETAG == dav->props[i].key) 
+				continue;
+			
+			/* Otherwise... */
+			khttp_puts(r, "<X:");
+			khttp_puts(r, dav->props[i].name);
+			khttp_puts(r, " xmlns:X=\"");
+			khttp_puts(r, dav->props[i].xmlns);
+			khttp_puts(r, "\" />");
+		}
+		kxml_pop(&xml);
+		kxml_push(&xml, XML_DAV_STATUS);
+		kxml_text(&xml, "HTTP/1.1 ");
+		kxml_text(&xml, khttps[KHTTP_404]);
+	}
+
+	kxml_popall(&xml);
+	kxml_close(&xml);
 	ical_free(ical);
 }
 

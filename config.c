@@ -49,18 +49,24 @@ config_defaults(const char *path, struct config *cfg)
 	if ( ! xstrlcat(file, "calendars", sizeof(file)))
 		return(0);
 
+	if (NULL == cfg->calendarhome)
+		if ( ! config_set(&cfg->calendarhome, file))
+			return(0);
+	if (NULL == cfg->calendaruseraddress)
+		if ( ! config_set(&cfg->calendaruseraddress, "mailto:foo@example.com"))
+			return(0);
 	if (NULL == cfg->displayname)
 		if ( ! config_set(&cfg->displayname, ""))
 			return(0);
-	if (NULL == cfg->calendarhomeset)
-		if ( ! config_set(&cfg->calendarhomeset, file))
+	if (NULL == cfg->emailaddress)
+		if ( ! config_set(&cfg->emailaddress, "foo@example.com"))
 			return(0);
 
 	return(1);
 }
 
 struct config *
-config_parse(const char *path)
+config_parse(const char *root, const char *path)
 {
 	FILE		*f;
 	char		 file[PATH_MAX];
@@ -96,16 +102,20 @@ config_parse(const char *path)
 
 	while (NULL != (cp = fparseln(f, &len, &line, NULL, 0))) {
 		key = cp;
-		if (NULL != (val = strchr(key, '='))) {
+		if (NULL == (val = strchr(key, '='))) {
 			fprintf(stderr, "%s:%zu: no "
 				"\"=\"", file, line + 1);
 			break;
 		}
 		*val++ = '\0';
-		if (strcmp(key, "displayname"))
+		if (0 == strcmp(key, "calendar-home-set"))
+			rc = config_set(&cfg->calendarhome, val);
+		else if (0 == strcmp(key, "calendar-user-address-set"))
+			rc = config_set(&cfg->calendaruseraddress, val);
+		else if (0 == strcmp(key, "displayname"))
 			rc = config_set(&cfg->displayname, val);
-		else if (strcmp(key, "calendar-home-set"))
-			rc = config_set(&cfg->displayname, val);
+		else if (0 == strcmp(key, "email-address-set"))
+			rc = config_set(&cfg->emailaddress, val);
 		else
 			rc = 1;
 
@@ -118,7 +128,7 @@ config_parse(const char *path)
 
 	free(cp);
 	fclose(f);
-	if (NULL != cp || ! config_defaults(path, cfg)) {
+	if (NULL != cp || ! config_defaults(root, cfg)) {
 		config_free(cfg);
 		cfg = NULL;
 	}
@@ -131,6 +141,10 @@ config_free(struct config *p)
 
 	if (NULL == p)
 		return;
+
+	free(p->calendarhome);
+	free(p->calendaruseraddress);
 	free(p->displayname);
-	free(p->calendarhomeset);
+	free(p->emailaddress);
+	free(p);
 }
