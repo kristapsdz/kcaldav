@@ -29,7 +29,6 @@ icalnode_free(struct icalnode *p, int first)
 		icalnode_free(np, 0);
 }
 
-#if 0
 static struct icalnode *
 icalnode_clone(const struct icalnode *p, int first)
 {
@@ -62,7 +61,6 @@ icalnode_clone(const struct icalnode *p, int first)
 	}
 	return(np);
 }
-#endif
 
 void
 ical_free(struct ical *p)
@@ -100,13 +98,44 @@ ical_line(const char **cp, struct buf *buf)
 struct ical *
 ical_parsefile(const char *file)
 {
+
+
+	return(ical_parsefile_open(file, NULL));
+}
+
+int
+ical_parsefile_close(const char *file, int fd)
+{
+
+	if (-1 == fd)
+		return(1);
+
+	if (-1 == flock(fd, LOCK_UN)) {
+		perror(file);
+		close(fd);
+		return(0);
+	} 
+	close(fd);
+	return(1);
+}
+
+struct ical *
+ical_parsefile_open(const char *file, int *keep)
+{
 	int	 	 fd;
+	unsigned int	 flags;
 	char		*buf;
 	struct stat	 st;
 	ssize_t		 ssz;
 	struct ical	*p;
 
-	if (-1 == (fd = open(file, O_RDONLY | O_SHLOCK, 0))) {
+	if (NULL != keep) {
+		*keep = -1;
+		flags = O_RDWR | O_EXLOCK;
+	} else
+		flags = O_RDONLY;
+
+	if (-1 == (fd = open(file, flags, 0666))) {
 		perror(file);
 		return(NULL);
 	} else if (-1 == fstat(fd, &st)) {
@@ -133,15 +162,18 @@ ical_parsefile(const char *file)
 		return(NULL);
 	}
 	buf[st.st_size] = '\0';
-	if (-1 == flock(fd, LOCK_UN)) {
+	if (NULL == keep && -1 == flock(fd, LOCK_UN)) {
 		perror(file);
 		close(fd);
 		free(buf);
 		return(NULL);
-	}
-	close(fd);
+	} else if (NULL == keep)
+		close(fd);
+
 	p = ical_parse(buf);
 	free(buf);
+	if (NULL != keep)
+		*keep = fd;
 	return(p);
 }
 
@@ -256,9 +288,9 @@ ical_parse(const char *cp)
 static void
 icalnode_putc(int c, void *arg)
 {
-	FILE	*f = arg;
+	int	fd = *(int *)arg;
 
-	fputc(c, f);
+	write(fd, &c, 1);
 }
 
 static void
@@ -303,17 +335,15 @@ ical_print(const struct ical *p, ical_putchar fp, void *arg)
 	icalnode_print(p->first, fp, arg);
 }
 
-
 void
-ical_printfile(FILE *f, const struct ical *p)
+ical_printfile(int fd, const struct ical *p)
 {
 
-	icalnode_print(p->first, icalnode_putc, f);
+	icalnode_print(p->first, icalnode_putc, &fd);
 }
 
-#if 0
-static int
-ical_merge(int fd, struct ical *p, const struct ical *newp)
+int
+ical_merge(struct ical *p, const struct ical *newp)
 {
 	const struct icalnode	*newpp, *nnp, *xp;
 	const char		*uid;
@@ -395,46 +425,27 @@ ical_merge(int fd, struct ical *p, const struct ical *newp)
 	}
 	return(1);
 }
-#endif
 
 int
 ical_putfile(const char *file, const struct ical *newp)
 {
-	int		 fd, flags, rc;
-	struct stat	 st;
-	char		*buf;
-	FILE		*f;
+	int	 fd, flags;
 
-	rc = 0;
-	flags = O_RDWR | O_EXLOCK | O_CREAT | O_TRUNC;
-	buf = NULL;
-	f = NULL;
+	flags = O_RDWR | O_EXLOCK | O_CREAT | O_EXCL;
 
 	/* Open our database with an EXLOCK. */
 	if (-1 == (fd = open(file, flags, 0666))) {
 		perror(file);
 		return(0);
-	} else if (-1 == fstat(fd, &st)) {
-		perror(file);
-		goto out;
-	} else if (NULL == (f = fdopen(fd, "w"))) {
-		perror(file);
-		goto out;
 	}
 
-	ical_printfile(f, newp);
-	rc = 1;
-out:
-	/* Release the EXLOCK. */
+	ical_printfile(fd, newp);
+
 	if (-1 == flock(fd, LOCK_UN)) 
 		perror(file);
 
-	if (NULL != f)
-		fclose(f);
-	else
-		close(fd);
-	free(buf);
-	return(rc);
+	close(fd);
+	return(1);
 }
 
 #if 0
