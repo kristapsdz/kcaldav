@@ -22,74 +22,50 @@ struct	parse {
 };
 
 static	const enum proptype __calprops[CALELEM__MAX] = {
-	PROP__MAX, /* CALELEM_MKCALENDAR */
-	PROP__MAX, /* CALELEM_PROPFIND */
-	PROP__MAX, /* CALELEM_PROPLIST */
+	PROP_CALENDAR_HOME_SET, /* CALELEM_CALENDAR_HOME_SET */
+	PROP__MAX, /* CALELEM_CALENDAR_MULTIGET */
+	PROP__MAX, /* CALELEM_CALENDAR_QUERY */
 	PROP_DISPLAYNAME, /* CALELEM_DISPLAYNAME */
-	PROP_CALDESC, /* CALELEM_CALDESC */
-	PROP__MAX, /* CALELEM_CALQUERY */
-	PROP_CALTIMEZONE, /* CALELEM_CALTIMEZONE */
-	PROP_CREATIONDATE, /* CALELEM_CREATIONDATE */
-	PROP_GETCONTENTLANGUAGE, /* CALELEM_GETCONTENTLANGUAGE */
-	PROP_GETCONTENTLENGTH, /* CALELEM_GETCONTENTLENGTH */
-	PROP_GETCONTENTTYPE, /* CALELEM_GETCONTENTTYPE */
 	PROP_GETETAG, /* CALELEM_GETETAG */
-	PROP_GETLASTMODIFIED, /* CALELEM_GETLASTMODIFIED */
-	PROP_LOCKDISCOVERY, /* CALELEM_LOCKDISCOVERY */
+	PROP__MAX, /* CALELEM_HREF */
+	PROP__MAX, /* CALELEM_MKCALENDAR */
+	PROP_PRINCIPAL_URL, /* CALELEM_PRINCIPAL_URL */
+	PROP__MAX, /* CALELEM_PROP */
+	PROP__MAX, /* CALELEM_PROPFIND */
 	PROP_RESOURCETYPE, /* CALELEM_RESOURCETYPE */
-	PROP_SOURCE, /* CALELEM_SOURCE */
-	PROP_SUPPORTLOCK, /* CALELEM_SUPPORTLOCK */
-	PROP_EXECUTABLE, /* CALELEM_EXECUTABLE */
-	PROP_CHECKEDIN, /* CALELEM_CHECKEDIN */
-	PROP_CHECKEDOUT, /* CALELEM_CHECKEDOUT */
 };
 
 static	const enum calelem __calpropelems[PROP__MAX] = {
-	CALELEM_CALDESC, /* PROP_CALDESC */
-	CALELEM_CALTIMEZONE,/* PROP_CALTIMEZONE */
-	CALELEM_CREATIONDATE,/* PROP_CREATIONDATE */
-	CALELEM_DISPLAYNAME,/* PROP_DISPLAYNAME */
-	CALELEM_GETCONTENTLANGUAGE,/* PROP_GETCONTENTLANGUAGE */
-	CALELEM_GETCONTENTLENGTH,/* PROP_GETCONTENTLENGTH */
-	CALELEM_GETCONTENTTYPE,/* PROP_GETCONTENTTYPE */
+	CALELEM_CALENDAR_HOME_SET, /* PROP_CALENDAR_HOME_SET */
+	CALELEM_DISPLAYNAME, /* PROP_DISPLAYNAME */
 	CALELEM_GETETAG, /* PROP_GETETAG */
-	CALELEM_GETLASTMODIFIED,/* PROP_GETLASTMODIFIED */
-	CALELEM_LOCKDISCOVERY,/* PROP_LOCKDISCOVERY */
+	CALELEM_PRINCIPAL_URL,/* PROP_PRINCIPAL_URL */
 	CALELEM_RESOURCETYPE,/* PROP_RESOURCETYPE */
-	CALELEM_SOURCE, /* PROP_SOURCE */
-	CALELEM_SUPPORTLOCK, /* PROP_SUPPORTLOCK */
-	CALELEM_EXECUTABLE, /* PROP_EXECUTABLE */
-	CALELEM_CHECKEDIN, /* CALELEM_CHECKEDIN */
-	CALELEM_CHECKEDOUT, /* CALELEM_CHECKEDOUT */
 };
 
 const enum proptype *calprops = __calprops;
 const enum calelem *calpropelems = __calpropelems;
 
 const char *const __calelems[CALELEM__MAX] = {
-	"mkcalendar", /* CALELEM_MKCALENDAR */
-	"propfind", /* CALELEM_PROPFIND */
-	"proplist", /* CALELEM_PROPLIST */
+	"calendar-home-set", /* CALELEM_CALENDAR_HOME_SET */
+	"calendar-multiget", /* CALELEM_CALENDAR_MULTIGET */
+	"calendar-query", /* CALELEM_CALENDAR_QUERY */
 	"displayname", /* CALELEM_DISPLAYNAME */
-	"calendar-description", /* CALELEM_CALDESC */
-	"calendar-query", /* CALELEM_CALQUERY */
-	"calendar-timezone", /* CALELEM_CALTIMEZONE */
-	"creationdate", /* CALELEM_CREATIONDATE */
-	"getcontentlanguage", /* CALELEM_GETCONTENTLANGUAGE */
-	"getcontentlength", /* CALELEM_GETCONTENTLENGTH */
-	"getcontenttype", /* CALELEM_GETCONTENTTYPE */
 	"getetag", /* CALELEM_GETETAG */
-	"getlastmodified", /* CALELEM_GETLASTMODIFIED */
-	"lockdiscovery", /* CALELEM_LOCKDISCOVERY */
+	"href", /* CALELEM_HREF */
+	"mkcalendar", /* CALELEM_MKCALENDAR */
+	"principal-URL", /* CALELEM_PRINCIPAL_URL */
+	"prop", /* CALELEM_PROP */
+	"propfind", /* CALELEM_PROPFIND */
 	"resourcetype", /* CALELEM_RESOURCETYPE */
-	"source", /* CALELEM_SOURCE */
-	"supportlock", /* CALELEM_SUPPORTLOCK */
-	"executable", /* CALELEM_EXECUTABLE */
-	"checked-in", /* CALELEM_CHECKEDIN */
-	"checked-out", /* CALELEM_CHECKEDOUT */
 };
 
 const char *const *calelems = __calelems;
+
+static void	parseclose(void *, const XML_Char *);
+static void	propclose(void *, const XML_Char *);
+static void	propopen(void *, const XML_Char *, const XML_Char **);
+static void	parseopen(void *, const XML_Char *, const XML_Char **);
 
 static enum calelem
 calelem_find(const XML_Char *name)
@@ -201,34 +177,56 @@ parseclose(void *dat, const XML_Char *s)
 	struct parse	*p = dat;
 	enum calelem	 elem;
 
-	fprintf(stderr, "End parsing: </%s>\n", s);
 	s = strip(s);
 
 	switch ((elem = calelem_find(s))) {
 	case (CALELEM_MKCALENDAR):
-	case (CALELEM_CALQUERY):
+	case (CALELEM_CALENDAR_MULTIGET):
+	case (CALELEM_CALENDAR_QUERY):
 	case (CALELEM_PROPFIND):
-	case (CALELEM_PROPLIST):
 		/* Clear our parsing context. */
 		XML_SetDefaultHandler(p->xp, NULL);
 		XML_SetElementHandler(p->xp, NULL, NULL);
 		break;
+	case (CALELEM_HREF):
+		if (0 == p->buf.sz)
+			break;
+		p->p->hrefs = realloc(p->p->hrefs, 
+			(p->p->hrefsz + 1) * sizeof(char *));
+		if (NULL == p->p->hrefs) {
+			caldav_err(p, "memory exhausted");
+			break;
+		}
+		p->p->hrefs[p->p->hrefsz] = strdup(p->buf.buf);
+		if (NULL == p->p->hrefs[p->p->hrefsz]) {
+			caldav_err(p, "memory exhausted");
+			break;
+		}
+		p->p->hrefsz++;
+		XML_SetDefaultHandler(p->xp, NULL);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+propclose(void *dat, const XML_Char *s)
+{
+	struct parse	*p = dat;
+	enum calelem	 elem;
+
+	s = strip(s);
+
+	switch ((elem = calelem_find(s))) {
+	case (CALELEM_PROP):
+		XML_SetElementHandler(p->xp, parseopen, parseclose);
+		break;
+	case (CALELEM_CALENDAR_HOME_SET):
 	case (CALELEM_DISPLAYNAME):
-	case (CALELEM_CALDESC):
-	case (CALELEM_CALTIMEZONE):
-	case (CALELEM_CREATIONDATE):
-	case (CALELEM_GETCONTENTLANGUAGE):
-	case (CALELEM_GETCONTENTLENGTH):
-	case (CALELEM_GETCONTENTTYPE):
 	case (CALELEM_GETETAG):
-	case (CALELEM_GETLASTMODIFIED):
-	case (CALELEM_LOCKDISCOVERY):
+	case (CALELEM_PRINCIPAL_URL):
 	case (CALELEM_RESOURCETYPE):
-	case (CALELEM_SOURCE):
-	case (CALELEM_SUPPORTLOCK):
-	case (CALELEM_EXECUTABLE):
-	case (CALELEM_CHECKEDIN):
-	case (CALELEM_CHECKEDOUT):
 		propadd(p, calprops[elem], p->buf.buf);
 		XML_SetDefaultHandler(p->xp, NULL);
 		break;
@@ -249,9 +247,34 @@ parsebuffer(void *dat, const XML_Char *s, int len)
 }
 
 static void
+propopen(void *dat, const XML_Char *s, const XML_Char **atts)
+{
+	struct parse	*p = dat;
+	const XML_Char	*sv = s;
+
+	fprintf(stderr, "Parsing (property): <%s>\n", s);
+	s = strip(s);
+
+	switch (calelem_find(s)) {
+	case (CALELEM_CALENDAR_HOME_SET):
+	case (CALELEM_DISPLAYNAME):
+	case (CALELEM_GETETAG):
+	case (CALELEM_PRINCIPAL_URL):
+	case (CALELEM_RESOURCETYPE):
+		p->buf.sz = 0;
+		XML_SetDefaultHandler(p->xp, parsebuffer);
+		break;
+	default:
+		fprintf(stderr, "Unknown property: <%s>\n", sv);
+		break;
+	}
+}
+
+static void
 parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 {
 	struct parse	*p = dat;
+	const XML_Char	*sv = s;
 
 	fprintf(stderr, "Parsing: <%s>\n", s);
 	s = strip(s);
@@ -263,33 +286,18 @@ parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 	case (CALELEM_PROPFIND):
 		caldav_alloc(p, TYPE_PROPFIND);
 		break;
-	case (CALELEM_CALQUERY):
+	case (CALELEM_CALENDAR_QUERY):
 		caldav_alloc(p, TYPE_CALQUERY);
 		break;
-	case (CALELEM_PROPLIST):
-		caldav_alloc(p, TYPE_PROPLIST);
-		break;
-	case (CALELEM_DISPLAYNAME):
-	case (CALELEM_CALDESC):
-	case (CALELEM_CALTIMEZONE):
-	case (CALELEM_CREATIONDATE):
-	case (CALELEM_GETCONTENTLANGUAGE):
-	case (CALELEM_GETCONTENTLENGTH):
-	case (CALELEM_GETCONTENTTYPE):
-	case (CALELEM_GETETAG):
-	case (CALELEM_GETLASTMODIFIED):
-	case (CALELEM_LOCKDISCOVERY):
-	case (CALELEM_RESOURCETYPE):
-	case (CALELEM_SOURCE):
-	case (CALELEM_SUPPORTLOCK):
-	case (CALELEM_EXECUTABLE):
-	case (CALELEM_CHECKEDIN):
-	case (CALELEM_CHECKEDOUT):
+	case (CALELEM_HREF):
 		p->buf.sz = 0;
 		XML_SetDefaultHandler(p->xp, parsebuffer);
 		break;
+	case (CALELEM_PROP):
+		XML_SetElementHandler(p->xp, propopen, propclose);
+		break;
 	default:
-		fprintf(stderr, "Unknown: <%s>\n", s);
+		fprintf(stderr, "Unknown: <%s>\n", sv);
 		break;
 	}
 }
