@@ -12,7 +12,10 @@ enum	calelem {
 	CALELEM_CALENDAR_HOME_SET,
 	CALELEM_CALENDAR_MULTIGET,
 	CALELEM_CALENDAR_QUERY,
+	CALELEM_CALENDAR_USER_ADDRESS_SET,
+	CALELEM_CURRENT_USER_PRINCIPAL,
 	CALELEM_DISPLAYNAME,
+	CALELEM_EMAIL_ADDRESS_SET,
 	CALELEM_GETETAG,
 	CALELEM_HREF,
 	CALELEM_MKCALENDAR,
@@ -25,7 +28,10 @@ enum	calelem {
 
 enum	proptype {
 	PROP_CALENDAR_HOME_SET,
+	PROP_CALENDAR_USER_ADDRESS_SET,
+	PROP_CURRENT_USER_PRINCIPAL,
 	PROP_DISPLAYNAME,
+	PROP_EMAIL_ADDRESS_SET,
 	PROP_GETETAG,
 	PROP_PRINCIPAL_URL,
 	PROP_RESOURCETYPE,
@@ -54,7 +60,7 @@ struct	ical {
 struct	prop {
 	enum proptype	 key;
 	char		*name;
-	char		*value;
+	char		*xmlns;
 };
 
 struct	caldav {
@@ -66,8 +72,10 @@ struct	caldav {
 };
 
 struct	config {
+	char		 *calendarhome;
+	char		 *calendaruseraddress;
 	char		 *displayname;
-	char		 *calendarhomeset;
+	char		 *emailaddress;
 };
 
 __BEGIN_DECLS
@@ -91,7 +99,7 @@ struct caldav	*caldav_parsefile(const char *);
 struct caldav 	*caldav_parse(const char *, size_t);
 void		 caldav_free(struct caldav *);
 
-struct config	*config_parse(const char *);
+struct config	*config_parse(const char *, const char *);
 void		 config_free(struct config *);
 
 const enum proptype *calprops;
