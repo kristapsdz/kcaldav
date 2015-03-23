@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+		<meta charset='utf-8' /> 
+		<title>kcaldav | simple CalDav server</title>
+		<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" />
+		<link rel="stylesheet" href="index.css" type="text/css" />
+	</head>
+	<body>
+		<header>
+			<nav>
+				<a href="snapshots/kcaldav.tgz"><i class="fa fa-fw fa-gears"></i></a>
+				<a href="snapshots/kcaldav.tgz.sha512"><i class="fa fa-fw fa-lock"></i></a>
+				<a href="snapshots"><i class="fa fa-fw fa-archive"></i></a>
+			</nav>
+			<h1>kcaldav</h1>
+			<div>Version @VERSION@</div>
+		</header>
+		<article>
+			<section>
+				<h2>Description</h2>
+				<p>
+					<span class="nm">kcaldav</span> is a simple CalDav server depending only on <a
+						href="http://kristaps.bsd.lv/kcgi">kcgi</a> and <a
+						href="http://expat.sourceforge.net/">libexpat</a>.
+					It implements the minimal subset of a large number of standards, including <a
+						href="https://tools.ietf.org/html/rfc5545">iCalendar</a>, <a
+						href="https://tools.ietf.org/html/rfc3744">CalDav</a>, and <a
+						href="https://tools.ietf.org/html/rfc2616">HTTP</a>.
+					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
+				</p>
+				<p>
+					At the moment, <span class="nm">kcaldav</span> only supports sharing of iCalendar files using HTTP.
+					The CalDav components are still under development.
+				</p>
+			</section>
+			<section>
+				<h2>Release History</h2>
+				<nav data-sblg-nav="1" data-sblg-navsz="3" data-sblg-navcontent="1">
+					Version <span class="version">${sblg-title}</span> (<time datetime="${sblg-date}">${sblg-date}</time>): ${sblg-aside}
+				</nav>
+			</section>
+		</article>
+		<footer>
+			<div>&#169; 2015 <a rel="author" href="http://kristaps.bsd.lv">Kristaps Dzonsons</a></div>
+			<div>
+				$Date$
+				<a href="snapshots/kcaldav.tgz"><i class="fa fa-fw fa-gears"></i></a>
+				<a href="snapshots/kcaldav.tgz.sha512"><i class="fa fa-fw fa-lock"></i></a>
+				<a href="snapshots"><i class="fa fa-fw fa-archive"></i></a>
+			</div>
+		</footer>
+	</body>
+</html>

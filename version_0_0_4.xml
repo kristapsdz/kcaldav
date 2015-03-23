@@ -1,0 +1,12 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.0.4</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-03-23">2015-03-23</time>
+	</header>
+	<aside>
+		Initial public release.
+		This features only direct iCalendar access, tested on <a href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla
+			Lightning</a>.
+	</aside>
+</article>
