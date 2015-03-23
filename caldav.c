@@ -1,3 +1,19 @@
+/*	$Id$ */
+/*
+ * Copyright (c) 2015 Kristaps Dzonsons <kristaps@bsd.lv>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -116,6 +132,11 @@ propadd(struct parse *p, size_t ns,
 	const char *name, enum proptype prop, const char *cp)
 {
 
+	if (NULL == p->p) {
+		caldav_err(p, "property list in unknown request");
+		return;
+	}
+
 	assert(ns < p->xmlnsz);
 	p->p->props = realloc(p->p->props,
 		sizeof(struct prop) * (p->p->propsz + 1));
@@ -126,6 +147,7 @@ propadd(struct parse *p, size_t ns,
 	}
 
 	p->p->props[p->p->propsz].key = prop;
+
 	p->p->props[p->p->propsz].name = strdup(name);
 	if (NULL == p->p->props[p->p->propsz].name) {
 		caldav_err(p, "memory exhausted");
