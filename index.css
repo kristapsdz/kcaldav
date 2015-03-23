@@ -1,0 +1,15 @@
+body, html		{ margin: 0; }
+body			{ background-color: #ccc; }
+header			{ background-color: #336699; 
+			  padding: 12pt 24pt;
+			  color: #def; }
+header a		{ color: #ccc; }
+header a:hover		{ color: #eec; }
+article 		{ padding: 8pt 24pt; 
+			  background-color: #eee; }
+article a		{ color: blue; }
+footer 			{ padding: 8pt 24pt; 
+			  color: #444;
+			  text-align: center; }
+footer a		{ color: #000; }
+a			{ text-decoration: none; }
