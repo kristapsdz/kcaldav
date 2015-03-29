@@ -15,25 +15,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <assert.h>
-#include <limits.h>
+#include <ctype.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <util.h>
 
 #include "extern.h"
-
-static int
-xstrlcat(char *file, const char *p, size_t sz)
-{
-
-	if (strlcat(file, p, sz) < sz)
-		return(1);
-	fprintf(stderr, "%s: name too long\n", file);
-	return(0);
-}
 
 static int
 config_set(char **p, const char *val)
@@ -47,119 +35,200 @@ config_set(char **p, const char *val)
 }
 
 static int
-config_defaults(const char *path, struct config *cfg)
+config_defaults(const char *file, struct config *cfg)
 {
-	char		 file[PATH_MAX];
-	size_t		 sz;
 
-	file[0] = '\0';
-
-	if ( ! xstrlcat(file, path, sizeof(file)))
+	if (NULL == cfg->emailaddress) {
+		fprintf(stderr, "%s: no email-address\n", file);
 		return(0);
+	}
 
-	sz = strlen(path);
-	if (0 == sz || '/' != path[sz - 1]) 
-		if ( ! xstrlcat(file, "/", sizeof(file)))
-			return(0);
-
-	if ( ! xstrlcat(file, "calendars", sizeof(file)))
-		return(0);
-
-	if (NULL == cfg->calendarhome)
-		if ( ! config_set(&cfg->calendarhome, path))
-			return(0);
-	if (NULL == cfg->calendaruseraddress)
-		if ( ! config_set(&cfg->calendaruseraddress, "mailto:foo@example.com"))
-			return(0);
 	if (NULL == cfg->displayname)
 		if ( ! config_set(&cfg->displayname, ""))
-			return(0);
-	if (NULL == cfg->emailaddress)
-		if ( ! config_set(&cfg->emailaddress, "foo@example.com"))
-			return(0);
+			return(-1);
 
 	return(1);
 }
 
-struct config *
-config_parse(const char *root, const char *path)
+static int
+config_prvlg(struct config *cfg, const char *file, 
+	size_t line, const char *val)
+{
+	const char	*name;
+	size_t		 namesz;
+	void		*pp;
+
+	if ('\0' == *val) {
+		fprintf(stderr, "%s:%zu: empty?\n", file, line);
+		return(0);
+	}
+
+	name = val;
+	while ('\0' != *val && ! isspace((int)*val))
+		val++;
+
+	if (0 == (namesz = val - name)) {
+		fprintf(stderr, "%s:%zu: empty?\n", file, line);
+		return(0);
+	}
+
+	pp = realloc(cfg->prvlgs, 
+		(cfg->prvlgsz + 1) * sizeof(struct prvlg));
+	if (NULL == pp) {
+		perror(NULL);
+		return(-1);
+	}
+	cfg->prvlgs = pp;
+
+	cfg->prvlgs[cfg->prvlgsz].perms = PERMS_NONE;
+	cfg->prvlgs[cfg->prvlgsz].name = malloc(namesz + 1);
+	if (NULL == cfg->prvlgs[cfg->prvlgsz].name) {
+		perror(NULL);
+		return(-1);
+	}
+	memcpy(cfg->prvlgs[cfg->prvlgsz].name, name, namesz);
+	cfg->prvlgs[cfg->prvlgsz].name[namesz] = '\0';
+
+	while ('\0' != *val) {
+		while (isspace((int)*val))
+			val++;
+		if (0 == strncasecmp(val, "READ", 4)) {
+			cfg->prvlgs[cfg->prvlgsz].perms |= PERMS_READ;
+			val += 4;
+			continue;
+		} else if (0 == strncasecmp(val, "WRITE", 5)) {
+			cfg->prvlgs[cfg->prvlgsz].perms |= PERMS_WRITE;
+			val += 5;
+			continue;
+		} else if (0 == strncasecmp(val, "NONE", 4)) {
+			cfg->prvlgs[cfg->prvlgsz].perms = PERMS_NONE;
+			break;
+		} 
+		fprintf(stderr, "%s:%zu: bad priv\n", file, line);
+		cfg->prvlgsz++;
+		return(0);
+	}
+
+	cfg->prvlgsz++;
+	return(1);
+}
+
+/*
+ * Parse our configuration file.
+ * Return 0 on parse failure or file-not-found.
+ * Return <0 on memory allocation failure.
+ * Return >0 otherwise.
+ */
+int
+config_parse(const char *file, struct config **pp)
 {
 	FILE		*f;
-	char		 file[PATH_MAX];
-	size_t		 sz, len, line;
-	char		*key, *val, *cp;
-	int		 rc;
-	struct config	*cfg;
-
-	file[0] = '\0';
-	if ( ! xstrlcat(file, path, sizeof(file)))
-		return(NULL);
-
-	sz = strlen(path);
-	if (0 == sz || '/' != path[sz - 1]) 
-		if ( ! xstrlcat(file, "/", sizeof(file)))
-			return(NULL);
-
-	if ( ! xstrlcat(file, "kcaldav.conf", sizeof(file)))
-		return(NULL);
+	size_t		 len, line;
+	char		*key, *val, *cp, *end;
+	int		 rc, fl;
 
 	if (NULL == (f = fopen(file, "r"))) {
 		perror(file);
-		return(NULL);
+		return(0);
 	}
 
 	line = 0;
 	cp = NULL;
-	if (NULL == (cfg = calloc(1, sizeof(struct config)))) {
+	if (NULL == (*pp = calloc(1, sizeof(struct config)))) {
 		perror(NULL);
 		fclose(f);
-		return(NULL);
+		return(-1);
 	}
 
-	while (NULL != (cp = fparseln(f, &len, &line, NULL, 0))) {
-		key = cp;
-		if (NULL == (val = strchr(key, '='))) {
-			fprintf(stderr, "%s:%zu: no "
-				"\"=\"", file, line + 1);
+	rc = 1;
+	fl = FPARSELN_UNESCALL;
+	while (NULL != (cp = fparseln(f, &len, &line, NULL, fl))) {
+		/* Strip trailing whitespace. */
+		while (len > 0 && isspace((int)cp[len - 1]))
+			cp[--len] = '\0';
+
+		/* Strip leading whitespace. */
+		for (key = cp; isspace((int)*key); key++)
+			/* Spin. */ ;
+
+		/* Skip blank lines. */
+		if ('\0' == *key) {
+			free(cp);
+			continue;
+		}
+
+		if (NULL == (val = end = strchr(key, '='))) {
+			fprintf(stderr, "%s:%zu: ???\n", file, line + 1);
+			rc = 0;
 			break;
 		}
 		*val++ = '\0';
-		if (0 == strcmp(key, "calendar-home-set"))
-			rc = config_set(&cfg->calendarhome, val);
-		else if (0 == strcmp(key, "calendar-user-address-set"))
-			rc = config_set(&cfg->calendaruseraddress, val);
+
+		/* Ignore space before equal sign. */
+		for (--end; end > key && isspace((int)*end); end--)
+			*end = '\0';
+
+		/* Ignore space after equal sign. */
+		while (isspace((int)*val))
+			val++;
+
+		if (0 == strcmp(key, "privilege"))
+			rc = config_prvlg(*pp, file, line, val);
 		else if (0 == strcmp(key, "displayname"))
-			rc = config_set(&cfg->displayname, val);
+			rc = config_set(&(*pp)->displayname, val);
 		else if (0 == strcmp(key, "email-address-set"))
-			rc = config_set(&cfg->emailaddress, val);
+			rc = config_set(&(*pp)->emailaddress, val);
 		else
 			rc = 1;
 
-		if (0 == rc) 
+		if (rc <= 0) 
 			break;
 
 		free(cp);
 		cp = NULL;
 	}
 
+	/* 
+	 * Error-check.
+	 * This is confusing between fparseln() doesn't tell us what's
+	 * really wrong.
+	 * We should be at EOF, so check that.
+	 */
+	if ( ! feof(f)) {
+		if (rc > 0)
+			perror(file);
+		fclose(f);
+		free(cp);
+		config_free(*pp);
+		*pp = NULL;
+		/* Elevate to -1 if fparseln() errors occur. */
+		return(rc > 1 ? -1 : rc);
+	}
+
+	assert(rc > 0);
 	free(cp);
 	fclose(f);
-	if (NULL != cp || ! config_defaults(root, cfg)) {
-		config_free(cfg);
-		cfg = NULL;
+
+	if ((rc = config_defaults(file, *pp)) <= 0) {
+		config_free(*pp);
+		*pp = NULL;
 	}
-	return(cfg);
+
+	return(rc);
 }
 
 void
 config_free(struct config *p)
 {
+	size_t	 i;
 
 	if (NULL == p)
 		return;
 
-	free(p->calendarhome);
-	free(p->calendaruseraddress);
+	for (i = 0; i < p->prvlgsz; i++) 
+		free(p->prvlgs[i].name);
+
+	free(p->prvlgs);
 	free(p->displayname);
 	free(p->emailaddress);
 	free(p);

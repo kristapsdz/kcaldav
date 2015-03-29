@@ -57,6 +57,7 @@ static	const enum proptype __calprops[CALELEM__MAX] = {
 	PROP__MAX, /* CALELEM_MKCALENDAR */
 	PROP_PRINCIPAL_URL, /* CALELEM_PRINCIPAL_URL */
 	PROP__MAX, /* CALELEM_PROP */
+	PROP__MAX, /* CALELEM_PROPERTYUPDATE */
 	PROP__MAX, /* CALELEM_PROPFIND */
 	PROP_RESOURCETYPE, /* CALELEM_RESOURCETYPE */
 };
@@ -85,6 +86,7 @@ const char *const __calelems[CALELEM__MAX] = {
 	"mkcalendar", /* CALELEM_MKCALENDAR */
 	"principal-URL", /* CALELEM_PRINCIPAL_URL */
 	"prop", /* CALELEM_PROP */
+	"propertyupdate", /* CALELEM_PROPERTYUPDATE */
 	"propfind", /* CALELEM_PROPFIND */
 	"resourcetype", /* CALELEM_RESOURCETYPE */
 };
@@ -305,6 +307,7 @@ parseclose(void *dat, const XML_Char *s)
 	case (CALELEM_MKCALENDAR):
 	case (CALELEM_CALENDAR_MULTIGET):
 	case (CALELEM_CALENDAR_QUERY):
+	case (CALELEM_PROPERTYUPDATE):
 	case (CALELEM_PROPFIND):
 		/* Clear our parsing context. */
 		XML_SetDefaultHandler(p->xp, NULL);
@@ -406,14 +409,17 @@ parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 		return;
 
 	switch (calelem_find(s)) {
+	case (CALELEM_CALENDAR_QUERY):
+		caldav_alloc(p, TYPE_CALQUERY);
+		break;
 	case (CALELEM_MKCALENDAR):
 		caldav_alloc(p, TYPE_MKCALENDAR);
 		break;
+	case (CALELEM_PROPERTYUPDATE):
+		caldav_alloc(p, TYPE_PROPERTYUPDATE);
+		break;
 	case (CALELEM_PROPFIND):
 		caldav_alloc(p, TYPE_PROPFIND);
-		break;
-	case (CALELEM_CALENDAR_QUERY):
-		caldav_alloc(p, TYPE_CALQUERY);
 		break;
 	case (CALELEM_HREF):
 		p->buf.sz = 0;
