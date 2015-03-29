@@ -62,9 +62,16 @@ all: $(BINS)
 
 www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
-install: all
+installcgi: all
 	mkdir -p $(PREFIX)
 	install -m 0755 kcaldav $(PREFIX)/kcaldav.cgi
+
+install: all
+	mkdir -p $(PREFIX)/man8
+	mkdir -p $(PREFIX)/man5
+	install -m 0444 kcaldav.conf.5 $(PREFIX)/man5
+	install -m 0444 kcaldav.passwd.5 $(PREFIX)/man5
+	install -m 0444 kcaldav.8 $(PREFIX)/man8
 
 installwww: www
 	mkdir -p $(PREFIX)/snapshots
@@ -113,4 +120,3 @@ clean:
 
 .8.8.html .5.5.html:
 	mandoc -Thtml $< >$@
-
