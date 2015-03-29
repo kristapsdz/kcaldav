@@ -39,6 +39,14 @@
 #error "CALDIR token not defined!"
 #endif
 
+/*
+ * We carry this state around with us after successfully setting up our
+ * environment: HTTP authorised (auth), HTTP authorisation matched with
+ * a local principal (prncpl), and configuration file read for the
+ * relevant directory (cfg).
+ * The "path" component is the subject of the HTTP query mapped to the
+ * local CALDIR.
+ */
 struct	state {
 	struct prncpl	*prncpl;
 	struct config	*cfg;
@@ -46,6 +54,7 @@ struct	state {
 	char		 path[PATH_MAX];
 };
 
+/* Canned XML responses. */
 enum	xml {
 	XML_CALDAV_CALENDAR,
 	XML_DAV_COLLECTION,
@@ -115,8 +124,13 @@ send401(struct kreq *r)
 	khttp_body(r);
 }
 
+/*
+ * Make sure that path "p" is sane, then append it to our local calendar
+ * root (CALDIR).
+ * Returns zero on failure or non-zero on success.
+ */
 static int
-pathnorm(const char *p, char *path)
+pathnorm(const char *p, char *path, size_t pathsz)
 {
 	int	 sz;
 
@@ -124,8 +138,8 @@ pathnorm(const char *p, char *path)
 		return(0);
 	if (strstr(p, "../") || strstr(p, "/.."))
 		return(0);
-	sz = snprintf(path, PATH_MAX, "%s%s", CALDIR, p);
-	return(sz < PATH_MAX);
+	sz = snprintf(path, pathsz, "%s%s", CALDIR, p);
+	return((size_t)sz < pathsz);
 }
 
 /* 
@@ -169,33 +183,14 @@ ical_putc(int c, void *arg)
 }
 
 /*
- * Given a path (or filename) "path", resolve the configuration file
- * that's at the path or within the path containing the file "path".
+ * See req2config().
  */
 static int
-req2config(const char *path, struct config **pp)
+req2config_file(struct kreq *r, char *buf)
 {
-	char		 buf[PATH_MAX], np[PATH_MAX];
 	char		*dir;
-	struct stat	 st;
-	size_t		 sz;
-
-	if (strlcpy(buf, path, sizeof(buf)) >= sizeof(buf)) {
-		fprintf(stderr, "%s: too long\n", buf);
-		return(0);
-	}
-
-	if (-1 == stat(buf, &st)) {
-		perror(buf);
-		return(0);
-	} else if (S_IFDIR & st.st_mode) {
-		sz = strlcat(buf, "/kcaldav.conf", sizeof(buf));
-		if (sz >= sizeof(buf)) {
-			fprintf(stderr, "%s: too long\n", buf);
-			return(0);
-		}
-		return(config_parse(buf, pp));
-	} 
+	char		 np[PATH_MAX];
+	struct state	*st = r->arg;
 
 	dir = dirname(buf);
 	if (strlcpy(np, dir, sizeof(np)) >= sizeof(np)) {
@@ -206,7 +201,55 @@ req2config(const char *path, struct config **pp)
 		fprintf(stderr, "%s: too long\n", buf);
 		return(0);
 	}
-	return(config_parse(np, pp));
+	return(config_parse(np, &st->cfg));
+}
+
+/*
+ * See req2config().
+ */
+static int
+req2config_dir(struct kreq *r, char *buf, size_t bufsz)
+{
+	struct state	*st = r->arg;
+
+	if (strlcat(buf, "/kcaldav.conf", bufsz) >= bufsz) {
+		fprintf(stderr, "%s: too long\n", buf);
+		return(0);
+	}
+	return(config_parse(buf, &st->cfg));
+}
+
+/*
+ * Given a path (or filename) "path", resolve the configuration file
+ * that's at the path or within the path containing the file "path".
+ */
+static int
+req2config(struct kreq *r)
+{
+	struct state	*st = r->arg;
+	char		 buf[PATH_MAX];
+	struct stat	 p;
+
+	if (strlcpy(buf, st->path, sizeof(buf)) >= sizeof(buf)) {
+		fprintf(stderr, "%s: too long\n", buf);
+		return(0);
+	}
+
+	/*
+	 * Special case: when we PUT something, it's probably not there.
+	 * We only PUT files, so assume we're a file.
+	 */
+	if (KMETHOD_PUT == r->method) 
+		return(req2config_file(r, buf));
+
+	if (-1 == stat(buf, &p)) {
+		perror(buf);
+		return(0);
+	} 
+	
+	return(S_IFDIR & p.st_mode ?
+		req2config_dir(r, buf, sizeof(buf)) :
+		req2config_file(r, buf));
 }
 
 /*
@@ -697,7 +740,7 @@ main(void)
 	 * We don't allow backtracking paths, and we reconstitute all of
 	 * our paths to be in the CALDIR preprocessor variable.
 	 */
-	if ( ! pathnorm(r.fullpath, st.path)) {
+	if ( ! pathnorm(r.fullpath, st.path, sizeof(st.path))) {
 		fprintf(stderr, "%s: insecure path\n", r.fullpath);
 		send403(&r);
 		goto out;
@@ -770,7 +813,7 @@ main(void)
 	 * been requested to introspect.
 	 * It's ok if "path" is a directory.
 	 */
-	if ((rc = req2config(st.path, &st.cfg)) < 0) {
+	if ((rc = req2config(&r)) < 0) {
 		fprintf(stderr, "%s/kcaldav.conf: memory failure "
 			"during configuration parse\n", st.path);
 		send505(&r);
