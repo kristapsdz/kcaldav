@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <libgen.h>
 #include <limits.h>
 #include <paths.h>
 #include <stdio.h>
@@ -38,26 +39,11 @@
 #error "CALDIR token not defined!"
 #endif
 
-static	const char *const kmethods[KMETHOD__MAX + 1] = {
-	"acl", /* KMETHOD_ACL */
-	"connect", /* KMETHOD_CONNECT */
-	"copy", /* KMETHOD_COPY */
-	"delete", /* KMETHOD_DELETE */
-	"get", /* KMETHOD_GET */
-	"head", /* KMETHOD_HEAD */
-	"lock", /* KMETHOD_LOCK */
-	"mkcalendar", /* KMETHOD_MKCALENDAR */
-	"mkcol", /* KMETHOD_MKCOL */
-	"move", /* KMETHOD_MOVE */
-	"options", /* KMETHOD_OPTIONS */
-	"post", /* KMETHOD_POST */
-	"propfind", /* KMETHOD_PROPFIND */
-	"proppatch", /* KMETHOD_PROPPATCH */
-	"put", /* KMETHOD_PUT */
-	"report", /* KMETHOD_REPORT */
-	"trace", /* KMETHOD_TRACE */
-	"unlock", /* KMETHOD_UNLOCK */
-	"unknown", /* KMETHOD__MAX */
+struct	state {
+	struct prncpl	*prncpl;
+	struct config	*cfg;
+	struct httpauth	*auth;
+	char		 path[PATH_MAX];
 };
 
 enum	xml {
@@ -139,6 +125,29 @@ ical_putc(int c, void *arg)
 }
 
 /*
+ * Given a path (or filename) "path", resolve the configuration file
+ * that's at the path or within the path containing the file "path".
+ */
+static int
+req2config(const char *path, struct config **pp)
+{
+	char	 buf[PATH_MAX], np[PATH_MAX];
+	char	*dir;
+
+	if (strlcpy(buf, path, sizeof(buf)) >= sizeof(buf))
+		abort();
+
+	dir = dirname(buf);
+	if (strlcpy(np, dir, sizeof(np)) >= sizeof(np)) 
+		abort();
+
+	if (strlcat(np, "/kcaldav.conf", sizeof(np)) >= sizeof(np))
+		return(0);
+
+	return(config_parse(np, pp));
+}
+
+/*
  * If found, convert the (already-validated) iCalendar.
  */
 static struct ical *
@@ -191,6 +200,7 @@ req2caldav(struct kreq *r, enum type type)
 		return(NULL);
 	}
 
+	fprintf(stderr, "%s", r->fieldmap[0]->val);
 	return(p);
 }
 
@@ -202,6 +212,7 @@ static void
 put(struct kreq *r)
 {
 	struct ical	*p, *cur;
+	struct state	*st = r->arg;
 	int		 fd;
 	size_t		 sz;
 	const char	*d;
@@ -221,7 +232,7 @@ put(struct kreq *r)
 		 * then we replace it with the PUT.  If it doesn't, then
 		 * we don't do the replacement.
 		 */
-		cur = ical_parsefile_open(r->arg, &fd);
+		cur = ical_parsefile_open(st->path, &fd);
 		d = r->reqmap[KREQU_IF]->val + 2;
 		if (NULL == cur) {
 			khttp_head(r, kresps[KRESP_STATUS], 
@@ -231,7 +242,7 @@ put(struct kreq *r)
 				"%s", khttps[KHTTP_412]);
 		} else if (-1 == lseek(fd, 0, SEEK_SET) ||
 				-1 == ftruncate(fd, 0)) {
-			perror(r->arg);
+			perror(st->path);
 			khttp_head(r, kresps[KRESP_STATUS], 
 				"%s", khttps[KHTTP_505]);
 		} else {
@@ -241,14 +252,14 @@ put(struct kreq *r)
 			khttp_head(r, kresps[KRESP_ETAG], 
 				"%s", p->digest);
 		}
-		ical_parsefile_close(r->arg, fd);
+		ical_parsefile_close(st->path, fd);
 		ical_free(cur);
-	} else if (ical_putfile(r->arg, p)) {
+	} else if (ical_putfile(st->path, p)) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_201]);
 		khttp_head(r, kresps[KRESP_ETAG], 
 			"%s", p->digest);
-	} else if (NULL == (cur = ical_parsefile(r->arg))) {
+	} else if (NULL == (cur = ical_parsefile(st->path))) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_505]);
 	} else {
@@ -271,9 +282,10 @@ static void
 get(struct kreq *r)
 {
 	struct ical	*p;
+	struct state	*st = r->arg;
 	const char	*cp;
 
-	if (NULL == (p = ical_parsefile(r->arg))) {
+	if (NULL == (p = ical_parsefile(st->path))) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_404]);
 		khttp_body(r);
@@ -315,11 +327,11 @@ get(struct kreq *r)
 static void
 propfind_collection(const struct caldav *dav, struct kreq *r)
 {
+	struct state	*st = r->arg;
 	size_t	 	 i, nf;
 	struct kxmlreq	 xml;
-	struct config	*cfg;
 	const char	*tag;
-	int 		 accepted[PROP__MAX];
+	int 		 accepted[PROP__MAX + 1];
 
 	memset(accepted, 0, sizeof(accepted));
 	accepted[PROP_CALENDAR_HOME_SET] = 1;
@@ -330,23 +342,12 @@ propfind_collection(const struct caldav *dav, struct kreq *r)
 	accepted[PROP_PRINCIPAL_URL] = 1;
 	accepted[PROP_RESOURCETYPE] = 1;
 
-	/*
-	 * If we can't find the configuration file within this current
-	 * directory, then exit with an HTTP 404.
-	 */
-	if (NULL == (cfg = config_parse(r->fullpath, r->arg))) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_403]);
-		khttp_body(r);
-		return;
-	}
-
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
-
 	khttp_body(r);
+
 	kxml_open(&xml, r, xmls, XML__MAX);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
 		"xmlns:B", "http://calendarserver.org/ns/",
@@ -364,6 +365,8 @@ propfind_collection(const struct caldav *dav, struct kreq *r)
 	for (nf = i = 0; i < dav->propsz; i++) {
 		if ( ! accepted[dav->props[i].key]) {
 			nf++;
+			fprintf(stderr, "Unknown property: %s (%s)\n", 
+				dav->props[i].name, dav->props[i].xmlns);
 			continue;
 		}
 		tag = calelems[calpropelems[dav->props[i].key]];
@@ -378,20 +381,35 @@ propfind_collection(const struct caldav *dav, struct kreq *r)
 			kxml_text(&xml, "http://");
 			kxml_text(&xml, r->host);
 			kxml_text(&xml, r->pname);
-			kxml_text(&xml, cfg->calendarhome);
+			kxml_text(&xml, r->fullpath);
 			kxml_pop(&xml);
+			fprintf(stderr, "Known property: %s (%s): "
+				"http://%s%s%s\n", tag, 
+				dav->props[i].xmlns,
+				r->host, r->pname, r->fullpath);
 			break;
 		case (PROP_CALENDAR_USER_ADDRESS_SET):
-			kxml_text(&xml, cfg->calendaruseraddress);
+			kxml_push(&xml, XML_DAV_HREF);
+			kxml_text(&xml, "mailto:");
+			kxml_text(&xml, st->cfg->emailaddress);
+			fprintf(stderr, "Known property: %s (%s): "
+				"mailto:%s\n", tag, dav->props[i].xmlns,
+				st->cfg->emailaddress);
 			break;
 		case (PROP_CURRENT_USER_PRINCIPAL):
 			kxml_pushnull(&xml, XML_DAV_UNAUTHENTICATED);
 			break;
 		case (PROP_DISPLAYNAME):
-			kxml_text(&xml, cfg->displayname);
+			kxml_text(&xml, st->cfg->displayname);
+			fprintf(stderr, "Known property: %s (%s): %s\n", 
+				tag, dav->props[i].xmlns,
+				st->cfg->displayname);
 			break;
 		case (PROP_EMAIL_ADDRESS_SET):
-			kxml_text(&xml, cfg->emailaddress);
+			kxml_text(&xml, st->cfg->emailaddress);
+			fprintf(stderr, "Known property: %s (%s): %s\n", 
+				tag, dav->props[i].xmlns,
+				st->cfg->emailaddress);
 			break;
 		case (PROP_PRINCIPAL_URL):
 			kxml_push(&xml, XML_DAV_HREF);
@@ -400,10 +418,16 @@ propfind_collection(const struct caldav *dav, struct kreq *r)
 			kxml_text(&xml, r->pname);
 			kxml_text(&xml, r->fullpath);
 			kxml_pop(&xml);
+			fprintf(stderr, "Known property: %s (%s): "
+				"http://%s%s%s\n", tag, 
+				dav->props[i].xmlns,
+				r->host, r->pname, r->fullpath);
 			break;
 		case (PROP_RESOURCETYPE):
 			kxml_pushnull(&xml, XML_DAV_COLLECTION);
 			kxml_pushnull(&xml, XML_CALDAV_CALENDAR);
+			fprintf(stderr, "Known property: %s (%s)\n", 
+				tag, dav->props[i].xmlns);
 			break;
 		default:
 			abort();
@@ -444,7 +468,6 @@ propfind_collection(const struct caldav *dav, struct kreq *r)
 
 	kxml_popall(&xml);
 	kxml_close(&xml);
-	config_free(cfg);
 }
 
 /*
@@ -453,13 +476,14 @@ propfind_collection(const struct caldav *dav, struct kreq *r)
 static void
 propfind_resource(const struct caldav *dav, struct kreq *r)
 {
+	struct state	*st = r->arg;
 	struct ical	*ical;
 	size_t		 i, nf;
 	const char	*tag;
 	struct kxmlreq	 xml;
 
 	/* We can only request iCal object, so parse now. */
-	if (NULL == (ical = ical_parsefile(r->arg))) {
+	if (NULL == (ical = ical_parsefile(st->path))) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_403]);
 		khttp_body(r);
@@ -550,16 +574,9 @@ propfind(struct kreq *r)
 	struct caldav	*dav;
 	struct stat	 st;
 
-	/* Resource doesn't exist or request doesn't parse. */
-	if (-1 == stat(r->arg, &st)) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_403]);
-		khttp_body(r);
-		return;
-	} else if (NULL == (dav = req2caldav(r, TYPE_PROPFIND)))
+	if (NULL == (dav = req2caldav(r, TYPE_PROPFIND)))
 		return;
 
-	/* Pass request to collection/resource. */
 	if (S_IFDIR & st.st_mode)
 		propfind_collection(dav, r);
 	else
@@ -571,21 +588,14 @@ propfind(struct kreq *r)
 static void
 options(struct kreq *r)
 {
-	struct config	*cfg;
 
-	if (NULL != (cfg = config_parse(r->fullpath, r->arg))) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_200]);
-		khttp_head(r, kresps[KRESP_ALLOW], "%s", 
-			"OPTIONS, GET, PUT, PROPFIND");
-		khttp_head(r, "DAV", "1, 2, "
-			"access-control, calendar-access");
-	} else
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_404]);
-
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_200]);
+	khttp_head(r, kresps[KRESP_ALLOW], "%s", 
+		"OPTIONS, GET, PUT, PROPFIND");
+	khttp_head(r, "DAV", "1, 2, "
+		"access-control, calendar-access");
 	khttp_body(r);
-	config_free(cfg);
 }
 
 int
@@ -593,37 +603,94 @@ main(void)
 {
 	struct kreq	 r;
 	struct kvalid	 valid = { kvalid, "" };
-	char		 path[PATH_MAX];
+	char		 nonce[33];
+	size_t		 i;
+	struct state	 st;
+	int		 rc;
+
+	memset(&st, 0, sizeof(struct state));
+	r.arg = &st;
 
 	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
 
 	/*
-	 * Begin by resolving a path from the HTTP request.
+	 * Parse our HTTP credentials.
+	 * This must be digest authorisation passed from the web server.
+	 * NOTE: Apache will strip this out, so it's necessary to add a
+	 * rewrite rule to keep these.
+	 */
+	st.auth = httpauth_parse
+		(NULL == r.reqmap[KREQU_AUTHORIZATION] ?
+		 NULL : r.reqmap[KREQU_AUTHORIZATION]->val);
+
+	/* Allocation failure! */
+	if (NULL == st.auth) {
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_505]);
+		khttp_body(&r);
+		goto out;
+	}
+
+	/*
+	 * Resolve a path from the HTTP request.
 	 * We don't allow backtracking paths, and we reconstitute all of
 	 * our paths to be in the CALDIR preprocessor variable.
 	 */
-	if ( ! pathnorm(r.fullpath, path)) {
+	if ( ! pathnorm(r.fullpath, st.path)) {
 		fprintf(stderr, "%s: insecure path\n", r.fullpath);
 		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_404]);
+			"%s", khttps[KHTTP_403]);
 		khttp_body(&r);
-		khttp_free(&r);
-		return(EXIT_FAILURE);
-	} else
-		r.arg = path;
+		goto out;
+	} 
+
+	/* 
+	 * We require a configuration file in the directory where we've
+	 * been requested to introspect.
+	 * It's ok if "path" is a directory.
+	 */
+	if ((rc = req2config(st.path, &st.cfg)) < 0) {
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_505]);
+		khttp_body(&r);
+		goto out;
+	} else if (0 == rc) {
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_403]);
+		khttp_body(&r);
+		goto out;
+	}
+
+	if (NULL == (st.prncpl = prncpl_parse(st.cfg, st.auth))) {
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_401]);
+		for (i = 0; i < 16; i++)
+			snprintf(nonce + i * 2, 
+				sizeof(nonce) - i * 2,
+				"%.2X", arc4random_uniform(256));
+		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
+			"Digest realm=\"%s\", nonce=\"%s\"",
+			st.cfg->displayname, nonce);
+		khttp_body(&r);
+		goto out;
+	} 
 
 	switch (r.method) {
 	case (KMETHOD_OPTIONS):
+		fprintf(stderr, "OPTIONS: %s (%s)\n", r.fullpath, st.path);
 		options(&r);
 		break;
 	case (KMETHOD_PUT):
+		fprintf(stderr, "PUT: %s (%s)\n", r.fullpath, st.path);
 		put(&r);
 		break;
 	case (KMETHOD_PROPFIND):
+		fprintf(stderr, "PROPFIND: %s (%s)\n", r.fullpath, st.path);
 		propfind(&r);
 		break;
 	case (KMETHOD_GET):
+		fprintf(stderr, "GET: %s (%s)\n", r.fullpath, st.path);
 		get(&r);
 		break;
 	default:
@@ -633,6 +700,10 @@ main(void)
 		break;
 	}
 
+out:
 	khttp_free(&r);
+	config_free(st.cfg);
+	prncpl_free(st.prncpl);
+	httpauth_free(st.auth);
 	return(EXIT_SUCCESS);
 }

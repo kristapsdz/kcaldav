@@ -21,6 +21,7 @@ enum	type {
 	TYPE_CALMULTIGET,
 	TYPE_CALQUERY,
 	TYPE_MKCALENDAR,
+	TYPE_PROPERTYUPDATE,
 	TYPE_PROPFIND,
 };
 
@@ -37,6 +38,7 @@ enum	calelem {
 	CALELEM_MKCALENDAR,
 	CALELEM_PRINCIPAL_URL,
 	CALELEM_PROP,
+	CALELEM_PROPERTYUPDATE,
 	CALELEM_PROPFIND,
 	CALELEM_RESOURCETYPE,
 	CALELEM__MAX
@@ -87,11 +89,38 @@ struct	caldav {
 	size_t		  hrefsz;
 };
 
+/*
+ * Parsed HTTP ``Authorization'' header (RFC 2617).
+ * We only keep the critical parts required for authentication.
+ */
+struct	httpauth {
+	char		*user;
+	char		*uri;
+	char		*realm;
+	char		*nonce;
+	char		*response;
+};
+
+struct	prncpl {
+	unsigned int	 perms;
+#define	PERMS_NONE	 0x00
+#define	PERMS_READ	 0x01
+#define	PERMS_WRITE	 0x02
+};
+
+struct	prvlg {
+	char		*name;
+	unsigned int	 perms;
+#define	PERMS_NONE	 0x00
+#define	PERMS_READ	 0x01
+#define	PERMS_WRITE	 0x02
+};
+
 struct	config {
-	char		 *calendarhome;
-	char		 *calendaruseraddress;
 	char		 *displayname;
 	char		 *emailaddress;
+	struct prvlg	 *prvlgs;
+	size_t		  prvlgsz;
 };
 
 __BEGIN_DECLS
@@ -115,8 +144,14 @@ struct caldav	*caldav_parsefile(const char *);
 struct caldav 	*caldav_parse(const char *, size_t);
 void		 caldav_free(struct caldav *);
 
-struct config	*config_parse(const char *, const char *);
+int		 config_parse(const char *, struct config **);
 void		 config_free(struct config *);
+
+struct prncpl	*prncpl_parse(const struct config *, const struct httpauth *);
+void		 prncpl_free(struct prncpl *);
+
+struct httpauth	*httpauth_parse(const char *);
+void		 httpauth_free(struct httpauth *);
 
 const enum proptype *calprops;
 const enum calelem *calpropelems;
