@@ -603,7 +603,7 @@ main(void)
 {
 	struct kreq	 r;
 	struct kvalid	 valid = { kvalid, "" };
-	char		 nonce[33];
+	char		 nonce[33], prncpl[PATH_MAX];
 	size_t		 i;
 	struct state	 st;
 	int		 rc;
@@ -613,6 +613,30 @@ main(void)
 
 	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
+
+	/*
+	 * Resolve a path from the HTTP request.
+	 * We do this first because it doesn't require any allocation.
+	 * We don't allow backtracking paths, and we reconstitute all of
+	 * our paths to be in the CALDIR preprocessor variable.
+	 */
+	if ( ! pathnorm(r.fullpath, st.path)) {
+		fprintf(stderr, "%s: insecure path\n", r.fullpath);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_403]);
+		khttp_body(&r);
+		goto out;
+	} 
+
+	strlcpy(prncpl, CALDIR, sizeof(prncpl));
+	i = strlcat(prncpl, "/kcaldav.passwd", sizeof(prncpl));
+	if (i >= sizeof(prncpl)) {
+		fprintf(stderr, "%s: too long\n", prncpl);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_403]);
+		khttp_body(&r);
+		goto out;
+	}
 
 	/*
 	 * Parse our HTTP credentials.
@@ -626,24 +650,62 @@ main(void)
 
 	/* Allocation failure! */
 	if (NULL == st.auth) {
+		fprintf(stderr, "%s: memory failure during "
+			"HTTP authorisation\n", r.fullpath);
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_505]);
+		khttp_body(&r);
+		goto out;
+	} else if (0 == st.auth->authorised) {
+		fprintf(stderr, "%s: invalid HTTP "
+			"authorisation\n", r.fullpath);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_401]);
+		for (i = 0; i < 16; i++)
+			snprintf(nonce + i * 2, 
+				sizeof(nonce) - i * 2,
+				"%.2X", arc4random_uniform(256));
+		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
+			"Digest nonce=\"%s\"", nonce);
 		khttp_body(&r);
 		goto out;
 	}
 
 	/*
-	 * Resolve a path from the HTTP request.
-	 * We don't allow backtracking paths, and we reconstitute all of
-	 * our paths to be in the CALDIR preprocessor variable.
+	 * Next, parse the our passwd file and look up the given HTTP
+	 * authorisation name within the database.
+	 * This will return -1 on allocation failure or 0 if the password
+	 * file doesn't exist or is malformed.
+	 * It might set the principal to NULL if not found.
 	 */
-	if ( ! pathnorm(r.fullpath, st.path)) {
-		fprintf(stderr, "%s: insecure path\n", r.fullpath);
+	if ((rc = prncpl_parse(prncpl, st.auth, &st.prncpl)) < 0) {
+		fprintf(stderr, "%s: memory failure during "
+			"principal authorisation\n", r.fullpath);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_505]);
+		khttp_body(&r);
+		goto out;
+	} else if (0 == rc) {
+		fprintf(stderr, "%s/kcaldav.passwd: not a valid "
+			"principal authorisation file\n", CALDIR);
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_403]);
 		khttp_body(&r);
 		goto out;
-	} 
+	} else if (NULL == st.prncpl) {
+		fprintf(stderr, "%s: invalid principal "
+			"authorisation\n", r.fullpath);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_401]);
+		for (i = 0; i < 16; i++)
+			snprintf(nonce + i * 2, 
+				sizeof(nonce) - i * 2,
+				"%.2X", arc4random_uniform(256));
+		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
+			"Digest nonce=\"%s\"", nonce);
+		khttp_body(&r);
+		goto out;
+	}
 
 	/* 
 	 * We require a configuration file in the directory where we've
@@ -661,20 +723,6 @@ main(void)
 		khttp_body(&r);
 		goto out;
 	}
-
-	if (NULL == (st.prncpl = prncpl_parse(st.cfg, st.auth))) {
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_401]);
-		for (i = 0; i < 16; i++)
-			snprintf(nonce + i * 2, 
-				sizeof(nonce) - i * 2,
-				"%.2X", arc4random_uniform(256));
-		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
-			"Digest realm=\"%s\", nonce=\"%s\"",
-			st.cfg->displayname, nonce);
-		khttp_body(&r);
-		goto out;
-	} 
 
 	switch (r.method) {
 	case (KMETHOD_OPTIONS):

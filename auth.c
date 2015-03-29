@@ -153,6 +153,7 @@ httpauth_parse(const char *cp)
 		return(NULL);
 	}
 
+	auth->authorised = 1;
 	return(auth);
 }
 
