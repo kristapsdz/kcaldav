@@ -25,17 +25,74 @@
 
 #include "extern.h"
 
-struct prncpl *
-prncpl_parse(const struct config *cfg, const struct httpauth *auth)
-{
+#ifndef CALDIR
+#error "CALDIR token not defined!"
+#endif
 
-	return(NULL);
+int
+prncpl_parse(const char *file, 
+	const struct httpauth *auth, struct prncpl **pp)
+{
+	size_t	 len, i;
+	char	*cp, *string, *token;
+	FILE	*f;
+	int	 rc;
+
+	*pp = NULL;
+
+	if (NULL == (f = fopen(file, "r"))) {
+		perror(file);
+		return(0);
+	}
+
+	rc = 0;
+	i = 0;
+	while (NULL != (cp = fgetln(f, &len))) {
+		string = cp;
+		if (NULL == (token = strsep(&string, ":"))) 
+			break;
+		if (strcmp(token, auth->user)) {
+			free(cp);
+			continue;
+		}
+		*pp = calloc(1, sizeof(struct prncpl));
+		if (NULL == *pp) {
+			perror(NULL);
+			rc = -1;
+			break;
+		} else if (NULL == ((*pp)->name = strdup(token))) {
+			perror(NULL);
+			rc = -1;
+			break;
+		}
+
+		rc = 1;
+		break;
+	}
+
+	if ( ! feof(f) && rc <= 0) {
+		if (rc > 0)
+			perror(file);
+		free(cp);
+		fclose(f);
+		prncpl_free(*pp);
+		pp = NULL;
+		return(rc > 0 ? -1 : rc);
+	}
+
+	free(cp);
+	fclose(f);
+	return(1);
 }
 
 void
 prncpl_free(struct prncpl *p)
 {
 
+	if (NULL == p)
+		return;
+
+	free(p->name);
 	free(p);
 }
 

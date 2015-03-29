@@ -94,6 +94,7 @@ struct	caldav {
  * We only keep the critical parts required for authentication.
  */
 struct	httpauth {
+	int		 authorised;
 	char		*user;
 	char		*uri;
 	char		*realm;
@@ -102,10 +103,7 @@ struct	httpauth {
 };
 
 struct	prncpl {
-	unsigned int	 perms;
-#define	PERMS_NONE	 0x00
-#define	PERMS_READ	 0x01
-#define	PERMS_WRITE	 0x02
+	char		*name;
 };
 
 struct	prvlg {
@@ -147,7 +145,8 @@ void		 caldav_free(struct caldav *);
 int		 config_parse(const char *, struct config **);
 void		 config_free(struct config *);
 
-struct prncpl	*prncpl_parse(const struct config *, const struct httpauth *);
+int		 prncpl_parse(const char *, 
+			const struct httpauth *, struct prncpl **);
 void		 prncpl_free(struct prncpl *);
 
 struct httpauth	*httpauth_parse(const char *);
