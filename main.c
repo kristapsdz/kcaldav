@@ -71,6 +71,50 @@ static	const char *const xmls[XML__MAX] = {
 	"D:unauthenticated", /* XML_DAV_UNAUTHENTICATED */
 };
 
+static void
+send403(struct kreq *r)
+{
+
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_403]);
+	khttp_body(r);
+}
+
+static void
+send405(struct kreq *r)
+{
+
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_405]);
+	khttp_body(r);
+}
+
+static void
+send505(struct kreq *r)
+{
+
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_505]);
+	khttp_body(r);
+}
+
+static void
+send401(struct kreq *r)
+{
+	char	 nonce[33];
+	size_t	 i;
+
+	for (i = 0; i < 16; i++)
+		snprintf(nonce + i * 2, sizeof(nonce) - i * 2,
+			"%.2X", arc4random_uniform(256));
+
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_401]);
+	khttp_head(r, kresps[KRESP_WWW_AUTHENTICATE],
+		"Digest realm=\"foo\" nonce=\"%s\"", nonce);
+	khttp_body(r);
+}
+
 static int
 pathnorm(const char *p, char *path)
 {
@@ -131,19 +175,37 @@ ical_putc(int c, void *arg)
 static int
 req2config(const char *path, struct config **pp)
 {
-	char	 buf[PATH_MAX], np[PATH_MAX];
-	char	*dir;
+	char		 buf[PATH_MAX], np[PATH_MAX];
+	char		*dir;
+	struct stat	 st;
+	size_t		 sz;
 
-	if (strlcpy(buf, path, sizeof(buf)) >= sizeof(buf))
-		abort();
+	if (strlcpy(buf, path, sizeof(buf)) >= sizeof(buf)) {
+		fprintf(stderr, "%s: too long\n", buf);
+		return(0);
+	}
+
+	if (-1 == stat(buf, &st)) {
+		perror(buf);
+		return(0);
+	} else if (S_IFDIR & st.st_mode) {
+		sz = strlcat(buf, "/kcaldav.conf", sizeof(buf));
+		if (sz >= sizeof(buf)) {
+			fprintf(stderr, "%s: too long\n", buf);
+			return(0);
+		}
+		return(config_parse(buf, pp));
+	} 
 
 	dir = dirname(buf);
-	if (strlcpy(np, dir, sizeof(np)) >= sizeof(np)) 
-		abort();
-
-	if (strlcat(np, "/kcaldav.conf", sizeof(np)) >= sizeof(np))
+	if (strlcpy(np, dir, sizeof(np)) >= sizeof(np)) {
+		fprintf(stderr, "%s: too long\n", np);
 		return(0);
-
+	}
+	if (strlcat(np, "/kcaldav.conf", sizeof(np)) >= sizeof(np)) {
+		fprintf(stderr, "%s: too long\n", buf);
+		return(0);
+	}
 	return(config_parse(np, pp));
 }
 
@@ -392,12 +454,23 @@ propfind_collection(const struct caldav *dav, struct kreq *r)
 			kxml_push(&xml, XML_DAV_HREF);
 			kxml_text(&xml, "mailto:");
 			kxml_text(&xml, st->cfg->emailaddress);
+			kxml_pop(&xml);
 			fprintf(stderr, "Known property: %s (%s): "
 				"mailto:%s\n", tag, dav->props[i].xmlns,
 				st->cfg->emailaddress);
 			break;
 		case (PROP_CURRENT_USER_PRINCIPAL):
-			kxml_pushnull(&xml, XML_DAV_UNAUTHENTICATED);
+			kxml_push(&xml, XML_DAV_HREF);
+			kxml_text(&xml, "http://");
+			kxml_text(&xml, r->host);
+			kxml_text(&xml, r->pname);
+			kxml_text(&xml, st->prncpl->homedir);
+			kxml_pop(&xml);
+			fprintf(stderr, "Known property: %s (%s): "
+				"http://%s%s%s\n", 
+				tag, dav->props[i].xmlns,
+				r->host, r->pname,
+				st->prncpl->homedir);
 			break;
 		case (PROP_DISPLAYNAME):
 			kxml_text(&xml, st->cfg->displayname);
@@ -572,14 +645,18 @@ static void
 propfind(struct kreq *r)
 {
 	struct caldav	*dav;
-	struct stat	 st;
+	struct stat	 p;
+	struct state	*st = r->arg;
 
 	if (NULL == (dav = req2caldav(r, TYPE_PROPFIND)))
 		return;
 
-	if (S_IFDIR & st.st_mode)
+	if (-1 == stat(st->path, &p)) {
+		perror(st->path);
+		send403(r);
+	} else if (S_IFDIR & p.st_mode) {
 		propfind_collection(dav, r);
-	else
+	} else 
 		propfind_resource(dav, r);
 
 	caldav_free(dav);
@@ -603,16 +680,16 @@ main(void)
 {
 	struct kreq	 r;
 	struct kvalid	 valid = { kvalid, "" };
-	char		 nonce[33], prncpl[PATH_MAX];
+	char		 prncpl[PATH_MAX];
 	size_t		 i;
 	struct state	 st;
 	int		 rc;
 
-	memset(&st, 0, sizeof(struct state));
-	r.arg = &st;
-
 	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
+
+	memset(&st, 0, sizeof(struct state));
+	r.arg = &st;
 
 	/*
 	 * Resolve a path from the HTTP request.
@@ -622,9 +699,7 @@ main(void)
 	 */
 	if ( ! pathnorm(r.fullpath, st.path)) {
 		fprintf(stderr, "%s: insecure path\n", r.fullpath);
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_403]);
-		khttp_body(&r);
+		send403(&r);
 		goto out;
 	} 
 
@@ -632,9 +707,7 @@ main(void)
 	i = strlcat(prncpl, "/kcaldav.passwd", sizeof(prncpl));
 	if (i >= sizeof(prncpl)) {
 		fprintf(stderr, "%s: too long\n", prncpl);
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_403]);
-		khttp_body(&r);
+		send403(&r);
 		goto out;
 	}
 
@@ -648,28 +721,22 @@ main(void)
 		(NULL == r.reqmap[KREQU_AUTHORIZATION] ?
 		 NULL : r.reqmap[KREQU_AUTHORIZATION]->val);
 
-	/* Allocation failure! */
 	if (NULL == st.auth) {
+		/* Allocation failure! */
 		fprintf(stderr, "%s: memory failure during "
 			"HTTP authorisation\n", r.fullpath);
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_505]);
-		khttp_body(&r);
+		send505(&r);
 		goto out;
 	} else if (0 == st.auth->authorised) {
+		/* No authorisation found (or failed). */
 		fprintf(stderr, "%s: invalid HTTP "
 			"authorisation\n", r.fullpath);
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_401]);
-		for (i = 0; i < 16; i++)
-			snprintf(nonce + i * 2, 
-				sizeof(nonce) - i * 2,
-				"%.2X", arc4random_uniform(256));
-		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
-			"Digest nonce=\"%s\"", nonce);
-		khttp_body(&r);
+		send401(&r);
 		goto out;
 	}
+
+	fprintf(stderr, "%s: valid HTTP: %s\n", 
+		r.fullpath, st.auth->user);
 
 	/*
 	 * Next, parse the our passwd file and look up the given HTTP
@@ -681,31 +748,22 @@ main(void)
 	if ((rc = prncpl_parse(prncpl, st.auth, &st.prncpl)) < 0) {
 		fprintf(stderr, "%s: memory failure during "
 			"principal authorisation\n", r.fullpath);
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_505]);
-		khttp_body(&r);
+		send505(&r);
 		goto out;
 	} else if (0 == rc) {
 		fprintf(stderr, "%s/kcaldav.passwd: not a valid "
 			"principal authorisation file\n", CALDIR);
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_403]);
-		khttp_body(&r);
+		send403(&r);
 		goto out;
 	} else if (NULL == st.prncpl) {
 		fprintf(stderr, "%s: invalid principal "
 			"authorisation\n", r.fullpath);
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_401]);
-		for (i = 0; i < 16; i++)
-			snprintf(nonce + i * 2, 
-				sizeof(nonce) - i * 2,
-				"%.2X", arc4random_uniform(256));
-		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
-			"Digest nonce=\"%s\"", nonce);
-		khttp_body(&r);
+		send401(&r);
 		goto out;
 	}
+
+	fprintf(stderr, "%s: valid principle: %s\n", 
+		r.fullpath, st.prncpl->name);
 
 	/* 
 	 * We require a configuration file in the directory where we've
@@ -713,14 +771,14 @@ main(void)
 	 * It's ok if "path" is a directory.
 	 */
 	if ((rc = req2config(st.path, &st.cfg)) < 0) {
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_505]);
-		khttp_body(&r);
+		fprintf(stderr, "%s/kcaldav.conf: memory failure "
+			"during configuration parse\n", st.path);
+		send505(&r);
 		goto out;
 	} else if (0 == rc) {
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_403]);
-		khttp_body(&r);
+		fprintf(stderr, "%s/kcaldav.conf: not a valid "
+			"configuration file\n", st.path);
+		send403(&r);
 		goto out;
 	}
 
@@ -742,9 +800,7 @@ main(void)
 		get(&r);
 		break;
 	default:
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_405]);
-		khttp_body(&r);
+		send405(&r);
 		break;
 	}
 

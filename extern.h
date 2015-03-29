@@ -104,6 +104,7 @@ struct	httpauth {
 
 struct	prncpl {
 	char		*name;
+	char		*homedir;
 };
 
 struct	prvlg {

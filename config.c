@@ -197,6 +197,8 @@ config_parse(const char *file, struct config **pp)
 	if ( ! feof(f)) {
 		if (rc > 0)
 			perror(file);
+		else
+			fprintf(stderr, "%s: parse failed\n", file);
 		fclose(f);
 		free(cp);
 		config_free(*pp);

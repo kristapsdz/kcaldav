@@ -8,13 +8,22 @@
 .\" For sections 2, 3, and 9 only.
 .\" Not used in OpenBSD.
 .Sh SYNOPSIS
-.Nm progname
-.Op Fl options
-.Ar
+.Nm kcaldav
 .Sh DESCRIPTION
 The
 .Nm
-CGI script minimally implements CalDAV.
+CGI program minimally implements CalDAV, with an emphasis on strong
+authorisation and simplicity.
+To use
+.Nm ,
+you'll need to first populate your
+.Dv CALDIR
+with a password file (for HTTP authorisation, see
+.Xr kcaldav.passwd 5 ) ,
+then for each collection (calendar directory), create a configuration
+file ( see
+.Xr kcaldav.conf 5 )
+defining the permissions of that collection and other information.
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .\" .Sh IMPLEMENTATION NOTES
