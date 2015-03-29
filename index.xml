@@ -31,8 +31,19 @@
 					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
 				</p>
 				<p>
-					At the moment, <span class="nm">kcaldav</span> only supports sharing of iCalendar files using HTTP.
-					The CalDav components are still under development.
+					To use <span class="nm">kcaldav</span>, you'll need a directory set aside for operation, e.g.,
+					<span class="file">/var/www/caldav</span>.
+					This should be within a protected <a
+						href="http://www.openbsd.org/cgi-bin/man.cgi/OpenBSD-current/man2/chroot.2">chroot(2)</a>, for
+					which you may need to configure your web server.
+					You must then edit the <span class="file">Makefile</span>'s <code>CALDIR</code> to be the path to this
+					directory, e.g., <code>/caldav</code>.
+					In that directory you'll need a <a href="kcaldav.passwd.5.html">kcaldav.passwd(5)</a> file defining the
+					principals (<q>users</q>) of your system.
+					For each collection (directory consisting of user calendars) in <span
+						class="file">/var/www/caldav</span>, you'll then need a <a
+						href="kcaldav.conf.5.html">kcaldav.conf(5)</a> defining the collection and its principals.
+					That's it!
 				</p>
 			</section>
 			<section>
