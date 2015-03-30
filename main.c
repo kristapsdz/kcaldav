@@ -44,7 +44,8 @@
  * We carry this state around with us after successfully setting up our
  * environment: HTTP authorised (auth), HTTP authorisation matched with
  * a local principal (prncpl), and configuration file read for the
- * relevant directory (cfg).
+ * relevant directory (cfg) with permission mapped to the current
+ * principal.
  * The "path" component is the subject of the HTTP query mapped to the
  * local CALDIR.
  */
@@ -218,7 +219,7 @@ req2config_file(struct kreq *r, char *buf)
 		fprintf(stderr, "%s: too long\n", buf);
 		return(0);
 	}
-	return(config_parse(np, &st->cfg));
+	return(config_parse(np, &st->cfg, st->prncpl));
 }
 
 /*
@@ -233,7 +234,7 @@ req2config_dir(struct kreq *r, char *buf, size_t bufsz)
 		fprintf(stderr, "%s: too long\n", buf);
 		return(0);
 	}
-	return(config_parse(buf, &st->cfg));
+	return(config_parse(buf, &st->cfg, st->prncpl));
 }
 
 /*
@@ -286,7 +287,7 @@ req2ical(struct kreq *r)
  * So we really only check its media type.
  */
 static struct caldav *
-req2caldav(struct kreq *r, enum type type)
+req2caldav(struct kreq *r)
 {
 	struct caldav	*p;
 
@@ -302,17 +303,45 @@ req2caldav(struct kreq *r, enum type type)
 		 r->fieldmap[0]->valsz);
 	assert(NULL != p);
 
-	/* Check our media type. */
-	if (type != p->type) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_415]);
-		khttp_body(r);
-		caldav_free(p);
-		return(NULL);
-	}
-
-	fprintf(stderr, "%s", r->fieldmap[0]->val);
+	/*fprintf(stderr, "%s", r->fieldmap[0]->val);*/
 	return(p);
+}
+
+/*
+ * If we have an conditional header (e.g., "If", "If-Match"), then we
+ * see if the existing object matches the requested Etag (MD5).  
+ * If it does, * then we replace it with the PUT.  
+ * If it doesn't, then we don't do the replacement.
+ */
+static void
+put_conditional(struct kreq *r, 
+	const struct ical *p, const char *hash)
+{
+	struct ical	*cur;
+	struct state	*st = r->arg;
+	int		 fd;
+
+	cur = ical_parsefile_open(st->path, &fd);
+	if (NULL == cur) {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_404]);
+	} else if (strncmp(cur->digest, hash, 32)) {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_412]);
+	} else if (-1 == lseek(fd, 0, SEEK_SET) ||
+			-1 == ftruncate(fd, 0)) {
+		perror(st->path);
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_505]);
+	} else {
+		ical_printfile(fd, p);
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_201]);
+		khttp_head(r, kresps[KRESP_ETAG], 
+			"%s", p->digest);
+	}
+	ical_parsefile_close(st->path, fd);
+	ical_free(cur);
 }
 
 /*
@@ -324,64 +353,69 @@ put(struct kreq *r)
 {
 	struct ical	*p, *cur;
 	struct state	*st = r->arg;
-	int		 fd;
-	size_t		 sz;
-	const char	*d;
+
+	if ( ! (PERMS_WRITE & st->cfg->perms)) {
+		fprintf(stderr, "%s: principal does not "
+			"have write acccess\n", st->path);
+		send403(r);
+		return;
+	}
 
 	if (NULL == (p = req2ical(r)))
 		return;
-
-	if (NULL != r->reqmap[KREQU_IF] &&
-		(sz = strlen(r->reqmap[KREQU_IF]->val)) == 36 &&
+	
+	cur = NULL;
+	if (NULL != r->reqmap[KREQU_IF_MATCH] &&
+		(32 == strlen(r->reqmap[KREQU_IF_MATCH]->val))) {
+		/*
+		 * This operation is safe: we replace the file (CalDAV
+		 * PUT of iCalendar data) directly if it matches our
+		 * hash.
+		 */
+		put_conditional(r, p, r->reqmap[KREQU_IF_MATCH]->val);
+	} else if (NULL != r->reqmap[KREQU_IF] &&
+		(36 == strlen(r->reqmap[KREQU_IF]->val)) &&
 		'(' == r->reqmap[KREQU_IF]->val[0] &&
 		'[' == r->reqmap[KREQU_IF]->val[1] &&
-		']' == r->reqmap[KREQU_IF]->val[sz - 2] &&
-		')' == r->reqmap[KREQU_IF]->val[sz - 1]) {
+		']' == r->reqmap[KREQU_IF]->val[34] &&
+		')' == r->reqmap[KREQU_IF]->val[35]) {
 		/*
-		 * If we have an If header, then we see if the existing
-		 * object matches the requested Etag (MD5).  If it does,
-		 * then we replace it with the PUT.  If it doesn't, then
-		 * we don't do the replacement.
+		 * This operation is safe: we replace the file (it's an
+		 * iCalendar PUT) directly if it matches our hash.
 		 */
-		cur = ical_parsefile_open(st->path, &fd);
-		d = r->reqmap[KREQU_IF]->val + 2;
-		if (NULL == cur) {
-			khttp_head(r, kresps[KRESP_STATUS], 
-				"%s", khttps[KHTTP_404]);
-		} else if (strncmp(cur->digest, d, 32)) {
-			khttp_head(r, kresps[KRESP_STATUS], 
-				"%s", khttps[KHTTP_412]);
-		} else if (-1 == lseek(fd, 0, SEEK_SET) ||
-				-1 == ftruncate(fd, 0)) {
-			perror(st->path);
-			khttp_head(r, kresps[KRESP_STATUS], 
-				"%s", khttps[KHTTP_505]);
-		} else {
-			ical_printfile(fd, p);
-			khttp_head(r, kresps[KRESP_STATUS], 
-				"%s", khttps[KHTTP_201]);
-			khttp_head(r, kresps[KRESP_ETAG], 
-				"%s", p->digest);
-		}
-		ical_parsefile_close(st->path, fd);
-		ical_free(cur);
+		put_conditional(r, p, r->reqmap[KREQU_IF]->val + 2);
 	} else if (ical_putfile(st->path, p)) {
+		/*
+		 * This operation was safe: the file creation is atomic
+		 * and unique, so that's fine.
+		 */
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_201]);
 		khttp_head(r, kresps[KRESP_ETAG], 
 			"%s", p->digest);
 	} else if (NULL == (cur = ical_parsefile(st->path))) {
+		fprintf(stderr, "%s: ERROR: file was successfully "
+			"PUT but does not parse\n", st->path);
+		/*
+		 * We were able to create the new file, but for some
+		 * reason that file won't parse--this shouldn't happen
+		 * and something is seriously wrong.
+		 */
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_505]);
 	} else {
+		/*
+		 * A file alreay exists.
+		 * Return its etag.
+		 */
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_412]);
 		khttp_head(r, kresps[KRESP_ETAG], 
 			"%s", cur->digest);
-		ical_free(cur);
 	}
 	khttp_body(r);
 	ical_free(p);
+	ical_free(cur);
 }
 
 /*
@@ -396,7 +430,12 @@ get(struct kreq *r)
 	struct state	*st = r->arg;
 	const char	*cp;
 
-	if (NULL == (p = ical_parsefile(st->path))) {
+	if ( ! (PERMS_READ & st->cfg->perms)) {
+		fprintf(stderr, "%s: principal does not "
+			"have read acccess\n", st->path);
+		send403(r);
+		return;
+	} else if (NULL == (p = ical_parsefile(st->path))) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_404]);
 		khttp_body(r);
@@ -463,8 +502,6 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_PROPSTAT);
 	kxml_push(xml, XML_DAV_PROP);
-
-	fprintf(stderr, "%s: %s: (self)\n", st->path, __func__);
 
 	for (nf = i = 0; i < dav->propsz; i++) {
 		if (0 == accepted[dav->props[i].key]) {
@@ -601,20 +638,27 @@ propfind_resource(struct kxmlreq *xml,
 	memset(accepted, 0, sizeof(accepted));
 	accepted[PROP_GETCONTENTTYPE] = 1;
 	accepted[PROP_GETETAG] = 1;
+	accepted[PROP_CALENDAR_DATA] = 1;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_text(xml, xml->req->pname);
 	kxml_text(xml, xml->req->fullpath);
-	if (NULL != name) {
+	if (NULL != name)
 		kxml_text(xml, name);
-		fprintf(stderr, "%s: %s: %s%s%s\n", st->path, __func__, xml->req->pname, xml->req->fullpath, name);
-	} else
-		fprintf(stderr, "%s: %s: %s%s\n", st->path, __func__, xml->req->pname, xml->req->fullpath);
 	kxml_pop(xml);
 
 	/* See if we must reconstitute the file to open. */
 	if (NULL != name) {
+		if (strchr(name, '/')) {
+			fprintf(stderr, "%s: insecure path\n", name);
+			kxml_push(xml, XML_DAV_STATUS);
+			kxml_text(xml, "HTTP/1.1 ");
+			kxml_text(xml, khttps[KHTTP_403]);
+			kxml_pop(xml);
+			kxml_pop(xml);
+			return;
+		}
 		pathp = buf;
 		strlcpy(buf, st->path, sizeof(buf));
 		sz = strlcat(buf, name, sizeof(buf));
@@ -671,6 +715,11 @@ propfind_resource(struct kxmlreq *xml,
 				"%s\n", tag, dav->props[i].xmlns, 
 				ical->digest);
 			break;
+		case (PROP_CALENDAR_DATA):
+			ical_print(ical, ical_putc, xml->req);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"(not showing)\n", tag, dav->props[i].xmlns);
+			break;
 		default:
 			abort();
 		}
@@ -715,6 +764,199 @@ propfind_resource(struct kxmlreq *xml,
 }
 
 /*
+ * Go through several phases to conditionally remove a file.
+ * First, open the file in O_EXLOCK mode.
+ * Then, make sure the hash matches.
+ * Unlink the file while holding the lock.
+ * Then release.
+ * XXX: does this actually work atomically!?!?
+ */
+static void
+delete_conditional(struct kreq *r, const char *hash)
+{
+	struct ical	*cur;
+	struct state	*st = r->arg;
+	int		 fd;
+
+	cur = ical_parsefile_open(st->path, &fd);
+	if (NULL == cur) {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_404]);
+	} else if (strncmp(cur->digest, hash, 32)) {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_412]);
+	} else if (-1 == unlink(st->path)) {
+		perror(st->path);
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_403]);
+	} else
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_204]);
+
+	khttp_body(r);
+	ical_parsefile_close(st->path, fd);
+	ical_free(cur);
+}
+
+static void
+delete(struct kreq *r)
+{
+	struct state	*st = r->arg;
+	DIR		*dirp;
+	struct dirent	*dp;
+	int		 errs;
+	size_t		 sz;
+	char		 buf[PATH_MAX];
+
+	if ( ! (PERMS_DELETE & st->cfg->perms)) {
+		fprintf(stderr, "%s: principal does not "
+			"have delete acccess\n", st->path);
+		send403(r);
+		return;
+	} 
+
+	if (NULL != r->reqmap[KREQU_IF_MATCH] &&
+		(32 == strlen(r->reqmap[KREQU_IF_MATCH]->val))) {
+		/*
+		 * This is a safe operation: we only remove the file if
+		 * it's current with what we know.
+		 * Obviously, this only works on resources.
+		 */
+		delete_conditional(r, r->reqmap[KREQU_IF_MATCH]->val);
+		return;
+	} else if ( ! st->isdir) {
+		/*
+		 * This it NOT safe: we're blindly removing a file
+		 * without checking whether it's been modified!
+		 */
+		fprintf(stderr, "%s: WARNING: unsafe deletion "
+			"of resource\n", st->path);
+
+		if (-1 == unlink(st->path)) {
+			perror(st->path);
+			khttp_head(r, kresps[KRESP_STATUS], 
+				"%s", khttps[KHTTP_403]);
+		} else 
+			khttp_head(r, kresps[KRESP_STATUS], 
+				"%s", khttps[KHTTP_204]);
+		khttp_body(r);
+		return;
+	} 
+
+	/*
+	 * This is NOT safe: we're blindly removing the contents
+	 * of a collection (NOT its configuration) without any
+	 * sort of checks on the collection data.
+	 */
+	fprintf(stderr, "%s: WARNING: unsafe deletion "
+		"of collection files\n", st->path);
+
+	if (NULL == (dirp = opendir(st->path))) {
+		perror(st->path);
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_403]);
+		khttp_body(r);
+		return;
+	}
+
+	errs = 0;
+	while (NULL != dirp && NULL != (dp = readdir(dirp))) {
+		if ('.' == dp->d_name[0])
+			continue;
+		if (0 == strcmp(dp->d_name, "kcaldav.conf"))
+			continue;
+		strlcpy(buf, st->path, sizeof(buf));
+		sz = strlcat(buf, dp->d_name, sizeof(buf));
+		if (sz >= sizeof(buf)) {
+			fprintf(stderr, "%s: too long\n", buf);
+			errs = 1;
+		} else if (-1 == unlink(st->path)) {
+			perror(st->path);
+			errs = 1;
+		}
+	}
+	closedir(dirp);
+
+	khttp_head(r, kresps[KRESP_STATUS], "%s", 
+		khttps[errs > 0 ? KHTTP_403 : KHTTP_204]);
+	khttp_body(r);
+}
+
+static void
+report(struct kreq *r)
+{
+	struct caldav	*dav;
+	struct state	*st = r->arg;
+	struct kxmlreq	 xml;
+	size_t		 i, sz;
+	char		 buf[PATH_MAX];
+
+	if ( ! (PERMS_READ & st->cfg->perms)) {
+		fprintf(stderr, "%s: principal does not "
+			"have read acccess\n", st->path);
+		send403(r);
+		return;
+	}
+
+	if (NULL == (dav = req2caldav(r)))
+		return;
+
+	if (TYPE_CALMULTIGET != dav->type) {
+		fprintf(stderr, "%s: unknown request "
+			"type\n", st->path);
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_415]);
+		khttp_body(r);
+		caldav_free(dav);
+		return;
+	}
+
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_207]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+		"%s", kmimetypes[KMIME_TEXT_XML]);
+	khttp_body(r);
+	kxml_open(&xml, r, xmls, XML__MAX);
+	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
+		"xmlns:B", "http://calendarserver.org/ns/",
+		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
+		"xmlns:D", "DAV:", NULL);
+
+	if (st->isdir) {
+		strlcpy(buf, r->pname, sizeof(buf));
+		sz = strlcat(buf, r->fullpath, sizeof(buf));
+		/* XXX */
+		assert(sz < sizeof(buf));
+		assert(sz > 0);
+		for (i = 0; i < dav->hrefsz; i++) {
+			if (strncmp(dav->hrefs[i], buf, sz)) {
+				fprintf(stderr, "%s: does not reside "
+					"in root: %s\n", st->path,
+					dav->hrefs[i]);
+				kxml_push(&xml, XML_DAV_RESPONSE);
+				kxml_push(&xml, XML_DAV_HREF);
+				kxml_text(&xml, r->pname);
+				kxml_text(&xml, dav->hrefs[i]);
+				kxml_pop(&xml);
+				kxml_push(&xml, XML_DAV_STATUS);
+				kxml_text(&xml, "HTTP/1.1 ");
+				kxml_text(&xml, khttps[KHTTP_403]);
+				kxml_pop(&xml);
+				kxml_pop(&xml);
+				continue;
+			}
+			propfind_resource(&xml, dav, 
+				dav->hrefs[i] + sz);
+		}
+	} else
+		propfind_resource(&xml, dav, NULL);
+
+	caldav_free(dav);
+	kxml_popall(&xml);
+	kxml_close(&xml);
+}
+
+/*
  * PROPFIND is used to define properties for calendar collections (i.e.,
  * directories consisting of calendar resources) or resources
  * themselves.
@@ -730,8 +972,25 @@ propfind(struct kreq *r)
 	DIR		*dirp;
 	struct dirent	*dp;
 
-	if (NULL == (dav = req2caldav(r, TYPE_PROPFIND)))
+	if ( ! (PERMS_READ & st->cfg->perms)) {
+		fprintf(stderr, "%s: principal does not "
+			"have read acccess\n", st->path);
+		send403(r);
 		return;
+	}
+
+	if (NULL == (dav = req2caldav(r)))
+		return;
+
+	if (TYPE_PROPFIND != dav->type) {
+		fprintf(stderr, "%s: unknown request "
+			"type\n", st->path);
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_415]);
+		khttp_body(r);
+		caldav_free(dav);
+		return;
+	}
 
 	/* Only accept depth of 0 or 1 (not infinity). */
 	if (NULL == r->reqmap[KREQU_DEPTH])
@@ -850,9 +1109,6 @@ main(void)
 		goto out;
 	}
 
-	fprintf(stderr, "%s: valid HTTP: %s\n", 
-		r.fullpath, st.auth->user);
-
 	/*
 	 * Next, parse the our passwd file and look up the given HTTP
 	 * authorisation name within the database.
@@ -877,9 +1133,6 @@ main(void)
 		goto out;
 	}
 
-	fprintf(stderr, "%s: valid principal: %s\n", 
-		r.fullpath, st.prncpl->name);
-
 	/* 
 	 * We require a configuration file in the directory where we've
 	 * been requested to introspect.
@@ -893,6 +1146,13 @@ main(void)
 	} else if (0 == rc) {
 		fprintf(stderr, "%s/kcaldav.conf: not a valid "
 			"configuration file\n", st.path);
+		send403(&r);
+		goto out;
+	} 
+	
+	if (PERMS_NONE == st.cfg->perms) {
+		fprintf(stderr, "%s: principal without "
+			"any privilege\n", st.path);
 		send403(&r);
 		goto out;
 	}
@@ -913,6 +1173,14 @@ main(void)
 	case (KMETHOD_GET):
 		fprintf(stderr, "GET: %s (%s)\n", r.fullpath, st.path);
 		get(&r);
+		break;
+	case (KMETHOD_REPORT):
+		fprintf(stderr, "REPORT: %s (%s)\n", r.fullpath, st.path);
+		report(&r);
+		break;
+	case (KMETHOD_DELETE):
+		fprintf(stderr, "DELETE: %s (%s)\n", r.fullpath, st.path);
+		delete(&r);
 		break;
 	default:
 		send405(&r);

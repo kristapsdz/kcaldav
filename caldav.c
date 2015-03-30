@@ -45,6 +45,7 @@ struct	parse {
 };
 
 static	const enum proptype __calprops[CALELEM__MAX] = {
+	PROP_CALENDAR_DATA, /* CALELEM_CALENDAR_DATA */
 	PROP_CALENDAR_HOME_SET, /* CALELEM_CALENDAR_HOME_SET */
 	PROP__MAX, /* CALELEM_CALENDAR_MULTIGET */
 	PROP__MAX, /* CALELEM_CALENDAR_QUERY */
@@ -64,6 +65,7 @@ static	const enum proptype __calprops[CALELEM__MAX] = {
 };
 
 static	const enum calelem __calpropelems[PROP__MAX] = {
+	CALELEM_CALENDAR_DATA, /* PROP_CALENDAR_DATA */
 	CALELEM_CALENDAR_HOME_SET, /* PROP_CALENDAR_HOME_SET */
 	CALELEM_CALENDAR_USER_ADDRESS_SET, /* PROP_CALENDAR_USER_ADDRESS_SET */
 	CALELEM_CURRENT_USER_PRINCIPAL, /* PROP_CURRENT_USER_PRINCIPAL */
@@ -76,6 +78,7 @@ static	const enum calelem __calpropelems[PROP__MAX] = {
 };
 
 const char *const __calelems[CALELEM__MAX] = {
+	"calendar-data", /* CALELEM_CALENDAR_DATA */
 	"calendar-home-set", /* CALELEM_CALENDAR_HOME_SET */
 	"calendar-multiget", /* CALELEM_CALENDAR_MULTIGET */
 	"calendar-query", /* CALELEM_CALENDAR_QUERY */
@@ -414,6 +417,9 @@ parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 	switch (calelem_find(s)) {
 	case (CALELEM_CALENDAR_QUERY):
 		caldav_alloc(p, TYPE_CALQUERY);
+		break;
+	case (CALELEM_CALENDAR_MULTIGET):
+		caldav_alloc(p, TYPE_CALMULTIGET);
 		break;
 	case (CALELEM_MKCALENDAR):
 		caldav_alloc(p, TYPE_MKCALENDAR);

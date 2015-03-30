@@ -26,6 +26,7 @@ enum	type {
 };
 
 enum	calelem {
+	CALELEM_CALENDAR_DATA,
 	CALELEM_CALENDAR_HOME_SET,
 	CALELEM_CALENDAR_MULTIGET,
 	CALELEM_CALENDAR_QUERY,
@@ -46,6 +47,7 @@ enum	calelem {
 };
 
 enum	proptype {
+	PROP_CALENDAR_DATA,
 	PROP_CALENDAR_HOME_SET,
 	PROP_CALENDAR_USER_ADDRESS_SET,
 	PROP_CURRENT_USER_PRINCIPAL,
@@ -109,19 +111,15 @@ struct	prncpl {
 	char		*homedir;
 };
 
-struct	prvlg {
-	char		*name;
-	unsigned int	 perms;
-#define	PERMS_NONE	 0x00
-#define	PERMS_READ	 0x01
-#define	PERMS_WRITE	 0x02
-};
-
 struct	config {
 	char		 *displayname;
 	char		 *emailaddress;
-	struct prvlg	 *prvlgs;
-	size_t		  prvlgsz;
+	unsigned int	  perms;
+#define	PERMS_NONE	  0x00
+#define	PERMS_READ	  0x01
+#define	PERMS_WRITE	  0x02
+#define	PERMS_DELETE	  0x04
+#define	PERMS_ALL	 (0x04|0x02|0x01)
 };
 
 __BEGIN_DECLS
@@ -145,7 +143,7 @@ struct caldav	*caldav_parsefile(const char *);
 struct caldav 	*caldav_parse(const char *, size_t);
 void		 caldav_free(struct caldav *);
 
-int		 config_parse(const char *, struct config **);
+int		 config_parse(const char *, struct config **, const struct prncpl *);
 void		 config_free(struct config *);
 
 int		 prncpl_parse(const char *, 
