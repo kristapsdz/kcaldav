@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 
 #include <assert.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
@@ -52,6 +53,7 @@ struct	state {
 	struct config	*cfg;
 	struct httpauth	*auth;
 	char		 path[PATH_MAX];
+	int		 isdir;
 };
 
 /* Canned XML responses. */
@@ -125,21 +127,36 @@ send401(struct kreq *r)
 }
 
 /*
- * Make sure that path "p" is sane, then append it to our local calendar
- * root (CALDIR).
+ * Make sure that requrested path is sane, then append it to our local
+ * calendar root (CALDIR).
  * Returns zero on failure or non-zero on success.
  */
 static int
-pathnorm(const char *p, char *path, size_t pathsz)
+req2path(struct kreq *r)
 {
-	int	 sz;
+	struct state	*st = r->arg;
+	int	 	 sz;
 
-	if (NULL == p || '\0' == p[0])
+	if (NULL == r->fullpath || '\0' == r->fullpath[0]) {
+		fprintf(stderr, "empty path!?\n");
 		return(0);
-	if (strstr(p, "../") || strstr(p, "/.."))
+	} 
+
+	if (strstr(r->fullpath, "../") || strstr(r->fullpath, "/..")) {
+		fprintf(stderr, "%s: insecure path\n", r->fullpath);
 		return(0);
-	sz = snprintf(path, pathsz, "%s%s", CALDIR, p);
-	return((size_t)sz < pathsz);
+	}
+
+	sz = snprintf(st->path, sizeof(st->path), 
+		"%s%s", CALDIR, r->fullpath);
+
+	if ((size_t)sz >= sizeof(st->path)) {
+		fprintf(stderr, "%s%s: too long\n", CALDIR, r->fullpath);
+		return(0);
+	}
+
+	st->isdir = '/' == st->path[sz - 1];
+	return(1);
 }
 
 /* 
@@ -228,26 +245,15 @@ req2config(struct kreq *r)
 {
 	struct state	*st = r->arg;
 	char		 buf[PATH_MAX];
-	struct stat	 p;
+	size_t		 sz;
 
-	if (strlcpy(buf, st->path, sizeof(buf)) >= sizeof(buf)) {
+	sz = strlcpy(buf, st->path, sizeof(buf));
+	if (sz >= sizeof(buf)) {
 		fprintf(stderr, "%s: too long\n", buf);
 		return(0);
 	}
 
-	/*
-	 * Special case: when we PUT something, it's probably not there.
-	 * We only PUT files, so assume we're a file.
-	 */
-	if (KMETHOD_PUT == r->method) 
-		return(req2config_file(r, buf));
-
-	if (-1 == stat(buf, &p)) {
-		perror(buf);
-		return(0);
-	} 
-	
-	return(S_IFDIR & p.st_mode ?
+	return('/' == buf[sz - 1] ? 
 		req2config_dir(r, buf, sizeof(buf)) :
 		req2config_file(r, buf));
 }
@@ -428,13 +434,14 @@ get(struct kreq *r)
 
 /*
  * Defines the PROPFIND method for a collection (directory).
+ * The directory we search is always the root of the request, i.e.,
+ * st->path.
  */
 static void
-propfind_collection(const struct caldav *dav, struct kreq *r)
+propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 {
-	struct state	*st = r->arg;
+	struct state	*st = xml->req->arg;
 	size_t	 	 i, nf;
-	struct kxmlreq	 xml;
 	const char	*tag;
 	int 		 accepted[PROP__MAX + 1];
 
@@ -447,234 +454,239 @@ propfind_collection(const struct caldav *dav, struct kreq *r)
 	accepted[PROP_PRINCIPAL_URL] = 1;
 	accepted[PROP_RESOURCETYPE] = 1;
 
-	khttp_head(r, kresps[KRESP_STATUS], 
-		"%s", khttps[KHTTP_207]);
-	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
-		"%s", kmimetypes[KMIME_TEXT_XML]);
-	khttp_body(r);
+	kxml_push(xml, XML_DAV_RESPONSE);
+	kxml_push(xml, XML_DAV_HREF);
+	kxml_text(xml, xml->req->pname);
+	kxml_text(xml, xml->req->fullpath);
+	kxml_pop(xml);
+	kxml_push(xml, XML_DAV_PROPSTAT);
+	kxml_push(xml, XML_DAV_PROP);
 
-	kxml_open(&xml, r, xmls, XML__MAX);
-	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
-		"xmlns:B", "http://calendarserver.org/ns/",
-		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
-		"xmlns:D", "DAV:", NULL);
-	kxml_push(&xml, XML_DAV_RESPONSE);
-	kxml_push(&xml, XML_DAV_HREF);
-	kxml_text(&xml, "http://");
-	kxml_text(&xml, r->host);
-	kxml_text(&xml, r->pname);
-	kxml_text(&xml, r->fullpath);
-	kxml_pop(&xml);
-	kxml_push(&xml, XML_DAV_PROPSTAT);
-	kxml_push(&xml, XML_DAV_PROP);
+	fprintf(stderr, "%s: %s: (self)\n", st->path, __func__);
+
 	for (nf = i = 0; i < dav->propsz; i++) {
 		if ( ! accepted[dav->props[i].key]) {
 			nf++;
-			fprintf(stderr, "Unknown property: %s (%s)\n", 
-				dav->props[i].name, dav->props[i].xmlns);
+			fprintf(stderr, "Unknown prop: %s (%s)\n", 
+				dav->props[i].name, 
+				dav->props[i].xmlns);
 			continue;
 		}
 		tag = calelems[calpropelems[dav->props[i].key]];
-		khttp_puts(r, "<X:");
-		khttp_puts(r, tag);
-		khttp_puts(r, " xmlns:X=\"");
-		khttp_puts(r, dav->props[i].xmlns);
-		khttp_puts(r, "\">");
+		khttp_puts(xml->req, "<X:");
+		khttp_puts(xml->req, tag);
+		khttp_puts(xml->req, " xmlns:X=\"");
+		khttp_puts(xml->req, dav->props[i].xmlns);
+		khttp_puts(xml->req, "\">");
 		switch (dav->props[i].key) {
 		case (PROP_CALENDAR_HOME_SET):
-			kxml_push(&xml, XML_DAV_HREF);
-			kxml_text(&xml, "http://");
-			kxml_text(&xml, r->host);
-			kxml_text(&xml, r->pname);
-			kxml_text(&xml, r->fullpath);
-			kxml_pop(&xml);
-			fprintf(stderr, "Known property: %s (%s): "
-				"http://%s%s%s\n", tag, 
-				dav->props[i].xmlns,
-				r->host, r->pname, r->fullpath);
+			kxml_push(xml, XML_DAV_HREF);
+			kxml_text(xml, xml->req->pname);
+			kxml_text(xml, xml->req->fullpath);
+			kxml_pop(xml);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"%s%s\n", tag, dav->props[i].xmlns, 
+				xml->req->pname, xml->req->fullpath);
 			break;
 		case (PROP_CALENDAR_USER_ADDRESS_SET):
-			kxml_push(&xml, XML_DAV_HREF);
-			kxml_text(&xml, "mailto:");
-			kxml_text(&xml, st->cfg->emailaddress);
-			kxml_pop(&xml);
-			fprintf(stderr, "Known property: %s (%s): "
-				"mailto:%s\n", tag, dav->props[i].xmlns,
+			kxml_push(xml, XML_DAV_HREF);
+			kxml_text(xml, "mailto:");
+			kxml_text(xml, st->cfg->emailaddress);
+			kxml_pop(xml);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"mailto:%s\n", tag, 
+				dav->props[i].xmlns,
 				st->cfg->emailaddress);
 			break;
 		case (PROP_CURRENT_USER_PRINCIPAL):
-			kxml_push(&xml, XML_DAV_HREF);
-			kxml_text(&xml, "http://");
-			kxml_text(&xml, r->host);
-			kxml_text(&xml, r->pname);
-			kxml_text(&xml, st->prncpl->homedir);
-			kxml_pop(&xml);
-			fprintf(stderr, "Known property: %s (%s): "
-				"http://%s%s%s\n", 
-				tag, dav->props[i].xmlns,
-				r->host, r->pname,
-				st->prncpl->homedir);
+			kxml_push(xml, XML_DAV_HREF);
+			kxml_text(xml, xml->req->pname);
+			kxml_text(xml, st->prncpl->homedir);
+			kxml_pop(xml);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"%s%s\n", tag, dav->props[i].xmlns, 
+				xml->req->pname, st->prncpl->homedir);
 			break;
 		case (PROP_DISPLAYNAME):
-			kxml_text(&xml, st->cfg->displayname);
-			fprintf(stderr, "Known property: %s (%s): %s\n", 
-				tag, dav->props[i].xmlns,
+			kxml_text(xml, st->cfg->displayname);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"%s\n", tag, dav->props[i].xmlns,
 				st->cfg->displayname);
 			break;
 		case (PROP_EMAIL_ADDRESS_SET):
-			kxml_text(&xml, st->cfg->emailaddress);
-			fprintf(stderr, "Known property: %s (%s): %s\n", 
-				tag, dav->props[i].xmlns,
+			kxml_text(xml, st->cfg->emailaddress);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"%s\n", tag, dav->props[i].xmlns,
 				st->cfg->emailaddress);
 			break;
 		case (PROP_PRINCIPAL_URL):
-			kxml_push(&xml, XML_DAV_HREF);
-			kxml_text(&xml, "http://");
-			kxml_text(&xml, r->host);
-			kxml_text(&xml, r->pname);
-			kxml_text(&xml, r->fullpath);
-			kxml_pop(&xml);
-			fprintf(stderr, "Known property: %s (%s): "
-				"http://%s%s%s\n", tag, 
-				dav->props[i].xmlns,
-				r->host, r->pname, r->fullpath);
+			kxml_push(xml, XML_DAV_HREF);
+			kxml_text(xml, xml->req->pname);
+			kxml_text(xml, xml->req->fullpath);
+			kxml_pop(xml);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"%s%s\n", tag, dav->props[i].xmlns, 
+				xml->req->pname, xml->req->fullpath);
 			break;
 		case (PROP_RESOURCETYPE):
-			kxml_pushnull(&xml, XML_DAV_COLLECTION);
-			kxml_pushnull(&xml, XML_CALDAV_CALENDAR);
-			fprintf(stderr, "Known property: %s (%s)\n", 
+			kxml_pushnull(xml, XML_DAV_COLLECTION);
+			kxml_pushnull(xml, XML_CALDAV_CALENDAR);
+			fprintf(stderr, "Known prop: %s (%s)\n", 
 				tag, dav->props[i].xmlns);
 			break;
 		default:
 			abort();
 			break;
 		} 
-		khttp_puts(r, "</X:");
-		khttp_puts(r, tag);
-		khttp_putc(r, '>');
+		khttp_puts(xml->req, "</X:");
+		khttp_puts(xml->req, tag);
+		khttp_putc(xml->req, '>');
 	}
-	kxml_pop(&xml);
-	kxml_push(&xml, XML_DAV_STATUS);
-	kxml_text(&xml, "HTTP/1.1 ");
-	kxml_text(&xml, khttps[KHTTP_200]);
-	kxml_pop(&xml);
-	kxml_pop(&xml);
+	kxml_pop(xml);
+	kxml_push(xml, XML_DAV_STATUS);
+	kxml_text(xml, "HTTP/1.1 ");
+	kxml_text(xml, khttps[KHTTP_200]);
+	kxml_pop(xml);
+	kxml_pop(xml);
 
 	/*
 	 * If we had any properties for which we're not going to report,
 	 * then indicate that now with a 404.
 	 */
 	if (nf > 0) {
-		kxml_push(&xml, XML_DAV_PROPSTAT);
-		kxml_push(&xml, XML_DAV_PROP);
+		kxml_push(xml, XML_DAV_PROPSTAT);
+		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
 			if (accepted[dav->props[i].key])
 				continue;
-			khttp_puts(r, "<X:");
-			khttp_puts(r, dav->props[i].name);
-			khttp_puts(r, " xmlns:X=\"");
-			khttp_puts(r, dav->props[i].xmlns);
-			khttp_puts(r, "\" />");
+			khttp_puts(xml->req, "<X:");
+			khttp_puts(xml->req, dav->props[i].name);
+			khttp_puts(xml->req, " xmlns:X=\"");
+			khttp_puts(xml->req, dav->props[i].xmlns);
+			khttp_puts(xml->req, "\" />");
 		}
-		kxml_pop(&xml);
-		kxml_push(&xml, XML_DAV_STATUS);
-		kxml_text(&xml, "HTTP/1.1 ");
-		kxml_text(&xml, khttps[KHTTP_404]);
+		kxml_pop(xml);
+		kxml_push(xml, XML_DAV_STATUS);
+		kxml_text(xml, "HTTP/1.1 ");
+		kxml_text(xml, khttps[KHTTP_404]);
+		kxml_pop(xml);
+		kxml_pop(xml);
+		kxml_pop(xml);
 	}
 
-	kxml_popall(&xml);
-	kxml_close(&xml);
+	kxml_pop(xml);
 }
 
 /*
  * A PROPFIND request for a specified calendar resource (file).
  */
 static void
-propfind_resource(const struct caldav *dav, struct kreq *r)
+propfind_resource(struct kxmlreq *xml, 
+	const struct caldav *dav, const char *name)
 {
-	struct state	*st = r->arg;
+	struct state	*st = xml->req->arg;
 	struct ical	*ical;
-	size_t		 i, nf;
-	const char	*tag;
-	struct kxmlreq	 xml;
+	size_t		 i, nf, sz;
+	const char	*tag, *pathp;
+	char		 buf[PATH_MAX];
+
+	kxml_push(xml, XML_DAV_RESPONSE);
+	kxml_push(xml, XML_DAV_HREF);
+	kxml_text(xml, xml->req->pname);
+	kxml_text(xml, xml->req->fullpath);
+	if (NULL != name)
+		kxml_text(xml, name);
+	kxml_pop(xml);
+
+	/* See if we must reconstitute the file to open. */
+	if (NULL != name) {
+		pathp = buf;
+		strlcpy(buf, st->path, sizeof(buf));
+		sz = strlcat(buf, name, sizeof(buf));
+		if (sz >= sizeof(buf)) {
+			fprintf(stderr, "%s: too long\n", buf);
+			kxml_push(xml, XML_DAV_STATUS);
+			kxml_text(xml, "HTTP/1.1 ");
+			kxml_text(xml, khttps[KHTTP_403]);
+			kxml_pop(xml);
+			kxml_pop(xml);
+			return;
+		}
+	} else 
+		pathp = name;
+
+	fprintf(stderr, "%s: %s: %s\n", st->path, __func__, pathp);
 
 	/* We can only request iCal object, so parse now. */
-	if (NULL == (ical = ical_parsefile(st->path))) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_403]);
-		khttp_body(r);
+	if (NULL == (ical = ical_parsefile(pathp))) {
+		fprintf(stderr, "%s: parse error\n", pathp);
+		kxml_push(xml, XML_DAV_STATUS);
+		kxml_text(xml, "HTTP/1.1 ");
+		kxml_text(xml, khttps[KHTTP_403]);
+		kxml_pop(xml);
+		kxml_pop(xml);
 		return;
 	} 
 
-	khttp_head(r, kresps[KRESP_STATUS], 
-		"%s", khttps[KHTTP_207]);
-	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
-		"%s", kmimetypes[KMIME_TEXT_XML]);
-	khttp_body(r);
-	kxml_open(&xml, r, xmls, XML__MAX);
-	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
-		"xmlns:B", "http://calendarserver.org/ns/",
-		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
-		"xmlns:D", "DAV:", NULL);
-	kxml_push(&xml, XML_DAV_RESPONSE);
-	kxml_push(&xml, XML_DAV_HREF);
-	kxml_text(&xml, "http://");
-	kxml_text(&xml, r->host);
-	kxml_text(&xml, r->pname);
-	kxml_text(&xml, r->fullpath);
-	kxml_pop(&xml);
-	kxml_push(&xml, XML_DAV_PROPSTAT);
-	kxml_push(&xml, XML_DAV_PROP);
+	kxml_push(xml, XML_DAV_PROPSTAT);
+	kxml_push(xml, XML_DAV_PROP);
 	for (nf = i = 0; i < dav->propsz; i++) {
 		if (PROP_GETETAG != dav->props[i].key) {
+			fprintf(stderr, "Unknown prop: %s (%s)\n", 
+				dav->props[i].name, 
+				dav->props[i].xmlns);
 			nf++;
 			continue;
 		}
 		tag = calelems[calpropelems[dav->props[i].key]];
-		khttp_puts(r, "<X:");
-		khttp_puts(r, tag);
-		khttp_puts(r, " xmlns:X=\"");
-		khttp_puts(r, dav->props[i].xmlns);
-		khttp_puts(r, "\">");
-		khttp_puts(r, ical->digest);
-		khttp_puts(r, "</X:");
-		khttp_puts(r, tag);
-		khttp_putc(r, '>');
+		khttp_puts(xml->req, "<X:");
+		khttp_puts(xml->req, tag);
+		khttp_puts(xml->req, " xmlns:X=\"");
+		khttp_puts(xml->req, dav->props[i].xmlns);
+		khttp_puts(xml->req, "\">");
+		khttp_puts(xml->req, ical->digest);
+		khttp_puts(xml->req, "</X:");
+		khttp_puts(xml->req, tag);
+		khttp_putc(xml->req, '>');
+		fprintf(stderr, "Known prop: %s (%s): %s\n", 
+			tag, dav->props[i].xmlns, ical->digest);
 	}
-	kxml_pop(&xml);
-	kxml_push(&xml, XML_DAV_STATUS);
-	kxml_text(&xml, "HTTP/1.1 ");
-	kxml_text(&xml, khttps[KHTTP_200]);
-	kxml_pop(&xml);
-	kxml_pop(&xml);
+	kxml_pop(xml);
+	kxml_push(xml, XML_DAV_STATUS);
+	kxml_text(xml, "HTTP/1.1 ");
+	kxml_text(xml, khttps[KHTTP_200]);
+	kxml_pop(xml);
+	kxml_pop(xml);
 
 	/*
 	 * If we had any properties for which we're not going to report,
 	 * then indicate that now with a 404.
 	 */
 	if (nf > 0) {
-		kxml_push(&xml, XML_DAV_PROPSTAT);
-		kxml_push(&xml, XML_DAV_PROP);
+		kxml_push(xml, XML_DAV_PROPSTAT);
+		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
 			/* Note which properties we supported. */
 			if (PROP_GETETAG == dav->props[i].key) 
 				continue;
 			
 			/* Otherwise... */
-			khttp_puts(r, "<X:");
-			khttp_puts(r, dav->props[i].name);
-			khttp_puts(r, " xmlns:X=\"");
-			khttp_puts(r, dav->props[i].xmlns);
-			khttp_puts(r, "\" />");
+			khttp_puts(xml->req, "<X:");
+			khttp_puts(xml->req, dav->props[i].name);
+			khttp_puts(xml->req, " xmlns:X=\"");
+			khttp_puts(xml->req, dav->props[i].xmlns);
+			khttp_puts(xml->req, "\" />");
 		}
-		kxml_pop(&xml);
-		kxml_push(&xml, XML_DAV_STATUS);
-		kxml_text(&xml, "HTTP/1.1 ");
-		kxml_text(&xml, khttps[KHTTP_404]);
+		kxml_pop(xml);
+		kxml_push(xml, XML_DAV_STATUS);
+		kxml_text(xml, "HTTP/1.1 ");
+		kxml_text(xml, khttps[KHTTP_404]);
+		kxml_pop(xml);
+		kxml_pop(xml);
+		kxml_pop(xml);
 	}
 
-	kxml_popall(&xml);
-	kxml_close(&xml);
+	kxml_pop(xml);
 	ical_free(ical);
 }
 
@@ -688,21 +700,60 @@ static void
 propfind(struct kreq *r)
 {
 	struct caldav	*dav;
-	struct stat	 p;
 	struct state	*st = r->arg;
+	struct kxmlreq	 xml;
+	int		 depth;
+	DIR		*dirp;
+	struct dirent	*dp;
 
 	if (NULL == (dav = req2caldav(r, TYPE_PROPFIND)))
 		return;
 
-	if (-1 == stat(st->path, &p)) {
-		perror(st->path);
-		send403(r);
-	} else if (S_IFDIR & p.st_mode) {
-		propfind_collection(dav, r);
-	} else 
-		propfind_resource(dav, r);
+	/* Only accept depth of 0 or 1 (not infinity). */
+	if (NULL == r->reqmap[KREQU_DEPTH])
+		depth = 1;
+	else if (0 == strcmp(r->reqmap[KREQU_DEPTH]->val, "0"))
+		depth = 0;
+	else
+		depth = 1;
+
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_207]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+		"%s", kmimetypes[KMIME_TEXT_XML]);
+	khttp_body(r);
+	kxml_open(&xml, r, xmls, XML__MAX);
+	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
+		"xmlns:B", "http://calendarserver.org/ns/",
+		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
+		"xmlns:D", "DAV:", NULL);
+
+	/* Root of request. */
+	if (st->isdir) 
+		propfind_collection(&xml, dav);
+	else
+		propfind_resource(&xml, dav, NULL);
+
+	/* Scan directory contents. */
+	if (st->isdir && depth) {
+		if (NULL == (dirp = opendir(st->path))) {
+			perror(st->path);
+		}
+		while (NULL != dirp && NULL != (dp = readdir(dirp))) {
+			fprintf(stderr, "%s: scanning: %s\n", st->path, dp->d_name);
+			if ('.' == dp->d_name[0])
+				continue;
+			if (0 == strcmp(dp->d_name, "kcaldav.conf"))
+				continue;
+			propfind_resource(&xml, dav, dp->d_name);
+		}
+		if (NULL != dirp)
+			closedir(dirp);
+	}
 
 	caldav_free(dav);
+	kxml_popall(&xml);
+	kxml_close(&xml);
 }
 
 static void
@@ -737,11 +788,8 @@ main(void)
 	/*
 	 * Resolve a path from the HTTP request.
 	 * We do this first because it doesn't require any allocation.
-	 * We don't allow backtracking paths, and we reconstitute all of
-	 * our paths to be in the CALDIR preprocessor variable.
 	 */
-	if ( ! pathnorm(r.fullpath, st.path, sizeof(st.path))) {
-		fprintf(stderr, "%s: insecure path\n", r.fullpath);
+	if ( ! req2path(&r)) {
 		send403(&r);
 		goto out;
 	} 
@@ -805,7 +853,7 @@ main(void)
 		goto out;
 	}
 
-	fprintf(stderr, "%s: valid principle: %s\n", 
+	fprintf(stderr, "%s: valid principal: %s\n", 
 		r.fullpath, st.prncpl->name);
 
 	/* 
