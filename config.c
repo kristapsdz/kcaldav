@@ -51,12 +51,11 @@ config_defaults(const char *file, struct config *cfg)
 }
 
 static int
-config_prvlg(struct config *cfg, const char *file, 
-	size_t line, const char *val)
+config_prvlg(struct config *cfg, const struct prncpl *prncpl,
+	const char *file, size_t line, const char *val)
 {
 	const char	*name;
 	size_t		 namesz;
-	void		*pp;
 
 	if ('\0' == *val) {
 		fprintf(stderr, "%s:%zu: empty?\n", file, line);
@@ -72,44 +71,40 @@ config_prvlg(struct config *cfg, const char *file,
 		return(0);
 	}
 
-	pp = realloc(cfg->prvlgs, 
-		(cfg->prvlgsz + 1) * sizeof(struct prvlg));
-	if (NULL == pp) {
-		perror(NULL);
-		return(-1);
-	}
-	cfg->prvlgs = pp;
+	if (namesz != strlen(prncpl->name))
+		return(1);
+	else if (strncmp(prncpl->name, name, namesz))
+		return(1);
 
-	cfg->prvlgs[cfg->prvlgsz].perms = PERMS_NONE;
-	cfg->prvlgs[cfg->prvlgsz].name = malloc(namesz + 1);
-	if (NULL == cfg->prvlgs[cfg->prvlgsz].name) {
-		perror(NULL);
-		return(-1);
-	}
-	memcpy(cfg->prvlgs[cfg->prvlgsz].name, name, namesz);
-	cfg->prvlgs[cfg->prvlgsz].name[namesz] = '\0';
+	cfg->perms = PERMS_NONE;
 
 	while ('\0' != *val) {
 		while (isspace((int)*val))
 			val++;
 		if (0 == strncasecmp(val, "READ", 4)) {
-			cfg->prvlgs[cfg->prvlgsz].perms |= PERMS_READ;
+			cfg->perms |= PERMS_READ;
 			val += 4;
 			continue;
 		} else if (0 == strncasecmp(val, "WRITE", 5)) {
-			cfg->prvlgs[cfg->prvlgsz].perms |= PERMS_WRITE;
+			cfg->perms |= PERMS_WRITE;
 			val += 5;
 			continue;
 		} else if (0 == strncasecmp(val, "NONE", 4)) {
-			cfg->prvlgs[cfg->prvlgsz].perms = PERMS_NONE;
+			cfg->perms = PERMS_NONE;
 			break;
+		} else if (0 == strncasecmp(val, "DELETE", 6)) {
+			cfg->perms |= PERMS_DELETE;
+			val += 6;
+			continue;
+		} else if (0 == strncasecmp(val, "ALL", 3)) {
+			cfg->perms = PERMS_ALL;
+			val += 3;
+			continue;
 		} 
 		fprintf(stderr, "%s:%zu: bad priv\n", file, line);
-		cfg->prvlgsz++;
 		return(0);
 	}
 
-	cfg->prvlgsz++;
 	return(1);
 }
 
@@ -120,7 +115,7 @@ config_prvlg(struct config *cfg, const char *file,
  * Return >0 otherwise.
  */
 int
-config_parse(const char *file, struct config **pp)
+config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 {
 	FILE		*f;
 	size_t		 len, line;
@@ -173,7 +168,7 @@ config_parse(const char *file, struct config **pp)
 			val++;
 
 		if (0 == strcmp(key, "privilege"))
-			rc = config_prvlg(*pp, file, line, val);
+			rc = config_prvlg(*pp, prncpl, file, line, val);
 		else if (0 == strcmp(key, "displayname"))
 			rc = config_set(&(*pp)->displayname, val);
 		else if (0 == strcmp(key, "email-address-set"))
@@ -222,15 +217,10 @@ config_parse(const char *file, struct config **pp)
 void
 config_free(struct config *p)
 {
-	size_t	 i;
 
 	if (NULL == p)
 		return;
 
-	for (i = 0; i < p->prvlgsz; i++) 
-		free(p->prvlgs[i].name);
-
-	free(p->prvlgs);
 	free(p->displayname);
 	free(p->emailaddress);
 	free(p);
