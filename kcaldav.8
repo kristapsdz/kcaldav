@@ -18,17 +18,47 @@ To use
 .Nm ,
 you'll need to first populate your
 .Dv CALDIR
+.Pq set during compile time
 with a password file (for HTTP authorisation, see
 .Xr kcaldav.passwd 5 ) ,
 then for each collection (calendar directory), create a configuration
-file ( see
+file (see
 .Xr kcaldav.conf 5 )
 defining the permissions of that collection and other information.
+.Pp
+Once finished, you can point your calendar client to the owned
+collection within
+.Dv CALDIR .
+.Pp
+For example, assume the script has been installed into
+.Pa /var/www/cgi-bin
+and is reachable at
+.Pp
+.D1 http://localhost/cgi-bin/kcaldav.cgi
+.Pp
+Moreover, assume
+.Dv CALDIR
+is set to
+.Pa /var/www/caldav ,
+which contains
+.Pa kcaldav.passwd ;
+and you have installed a single collection at
+.Pa /var/www/caldav/kristaps
+consisting of
+.Pa kcaldav.conf
+and some calendars.
+You can point your browser to the following:
+.Pp
+.D1 http://localhost/cgi-bin/kcaldav.cgi/kristaps/
+.Pp
+Note the trailing slash, otherwise the request is interpreted as for a
+resource (file), not a collection (directory).
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .\" .Sh IMPLEMENTATION NOTES
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
+.
 .\" For sections 2, 3, and 9 function return values only.
 .\" .Sh ENVIRONMENT
 .\" For sections 1, 6, 7, and 8 only.
@@ -41,9 +71,9 @@ root set during compilation time.
 Authorisation for all principals.
 See
 .Xr kcaldav.passwd 5 .
-.It Pa /collection/kcaldav.conf
+.It Pa /<collection>/kcaldav.conf
 Given a directory path
-.Pa collection ,
+.Pa <collection> ,
 the
 .Pa kcaldav.conf
 file defines the collection properties.
