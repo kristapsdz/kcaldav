@@ -26,7 +26,6 @@ main(int argc, char *argv[])
 {
 	int		 c;
 	struct config	*p = NULL;
-	size_t		 i;
 
 	if (-1 != (c = getopt(argc, argv, "")))
 		return(EXIT_FAILURE);
@@ -37,23 +36,21 @@ main(int argc, char *argv[])
 	if (0 == argc)
 		return(EXIT_FAILURE);
 
-	if ((c = config_parse(argv[0], &p)) > 0) {
+	if ((c = config_parse(argv[0], &p, NULL /* FIXME */)) > 0) {
 		printf("displayname = [%s]\n",
 			NULL == p->displayname ?
 			"(none)" : p->displayname);
 		printf("emailaddress = [%s]\n",
 			NULL == p->emailaddress ?
 			"(none)" : p->emailaddress);
-		for (i = 0; i < p->prvlgsz; i++) {
-			printf("privilege = [%s]:", p->prvlgs[i].name);
-			if (PERMS_NONE == p->prvlgs[i].perms)
-				printf(" NONE");
-			if (PERMS_READ & p->prvlgs[i].perms) 
-				printf(" READ");
-			if (PERMS_WRITE & p->prvlgs[i].perms)
-				printf(" WRITE");
-			putchar('\n');
-		}
+		printf("privilege = ");
+		if (PERMS_NONE == p->perms)
+			printf(" NONE");
+		if (PERMS_READ & p->perms) 
+			printf(" READ");
+		if (PERMS_WRITE & p->perms)
+			printf(" WRITE");
+		putchar('\n');
 	}
 	config_free(p);
 	return(c <= 0 ? EXIT_FAILURE : EXIT_SUCCESS);

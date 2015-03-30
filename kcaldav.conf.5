@@ -59,12 +59,16 @@ for the anonymous principal (no credentials).
 Privileges are case insensitive and may be
 .Qq NONE ,
 .Qq READ ,
+.Qq DELETE ,
 or
 .Qq WRITE.
 If at any time
 .Qq NONE
 occurs, or the set of privileges is empty, the principal is assigned no
 privileges.
+You may use the
+.Qq ALL
+token to assign all privileges.
 .El
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
