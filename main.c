@@ -450,6 +450,8 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	accepted[PROP_CALENDAR_USER_ADDRESS_SET] = 1;
 	accepted[PROP_CURRENT_USER_PRINCIPAL] = 1;
 	accepted[PROP_DISPLAYNAME] = 1;
+	accepted[PROP_GETCONTENTTYPE] = -1;
+	accepted[PROP_GETETAG] = -1;
 	accepted[PROP_EMAIL_ADDRESS_SET] = 1;
 	accepted[PROP_PRINCIPAL_URL] = 1;
 	accepted[PROP_RESOURCETYPE] = 1;
@@ -465,9 +467,14 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	fprintf(stderr, "%s: %s: (self)\n", st->path, __func__);
 
 	for (nf = i = 0; i < dav->propsz; i++) {
-		if ( ! accepted[dav->props[i].key]) {
+		if (0 == accepted[dav->props[i].key]) {
 			nf++;
 			fprintf(stderr, "Unknown prop: %s (%s)\n", 
+				dav->props[i].name, 
+				dav->props[i].xmlns);
+			continue;
+		} else if (accepted[dav->props[i].key] < 0) {
+			fprintf(stderr, "Ignored prop: %s (%s)\n", 
 				dav->props[i].name, 
 				dav->props[i].xmlns);
 			continue;
@@ -557,7 +564,7 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			if (accepted[dav->props[i].key])
+			if (1 == accepted[dav->props[i].key])
 				continue;
 			khttp_puts(xml->req, "<X:");
 			khttp_puts(xml->req, dav->props[i].name);
@@ -589,13 +596,21 @@ propfind_resource(struct kxmlreq *xml,
 	size_t		 i, nf, sz;
 	const char	*tag, *pathp;
 	char		 buf[PATH_MAX];
+	int 		 accepted[PROP__MAX + 1];
+
+	memset(accepted, 0, sizeof(accepted));
+	accepted[PROP_GETCONTENTTYPE] = 1;
+	accepted[PROP_GETETAG] = 1;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_text(xml, xml->req->pname);
 	kxml_text(xml, xml->req->fullpath);
-	if (NULL != name)
+	if (NULL != name) {
 		kxml_text(xml, name);
+		fprintf(stderr, "%s: %s: %s%s%s\n", st->path, __func__, xml->req->pname, xml->req->fullpath, name);
+	} else
+		fprintf(stderr, "%s: %s: %s%s\n", st->path, __func__, xml->req->pname, xml->req->fullpath);
 	kxml_pop(xml);
 
 	/* See if we must reconstitute the file to open. */
@@ -615,8 +630,6 @@ propfind_resource(struct kxmlreq *xml,
 	} else 
 		pathp = name;
 
-	fprintf(stderr, "%s: %s: %s\n", st->path, __func__, pathp);
-
 	/* We can only request iCal object, so parse now. */
 	if (NULL == (ical = ical_parsefile(pathp))) {
 		fprintf(stderr, "%s: parse error\n", pathp);
@@ -631,11 +644,11 @@ propfind_resource(struct kxmlreq *xml,
 	kxml_push(xml, XML_DAV_PROPSTAT);
 	kxml_push(xml, XML_DAV_PROP);
 	for (nf = i = 0; i < dav->propsz; i++) {
-		if (PROP_GETETAG != dav->props[i].key) {
+		if ( ! accepted[dav->props[i].key]) {
+			nf++;
 			fprintf(stderr, "Unknown prop: %s (%s)\n", 
 				dav->props[i].name, 
 				dav->props[i].xmlns);
-			nf++;
 			continue;
 		}
 		tag = calelems[calpropelems[dav->props[i].key]];
@@ -644,12 +657,26 @@ propfind_resource(struct kxmlreq *xml,
 		khttp_puts(xml->req, " xmlns:X=\"");
 		khttp_puts(xml->req, dav->props[i].xmlns);
 		khttp_puts(xml->req, "\">");
-		khttp_puts(xml->req, ical->digest);
+		switch (dav->props[i].key) {
+		case (PROP_GETCONTENTTYPE):
+			khttp_puts(xml->req, 
+				kmimetypes[KMIME_TEXT_CALENDAR]);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"%s\n", tag, dav->props[i].xmlns, 
+				kmimetypes[KMIME_TEXT_CALENDAR]);
+			break;
+		case (PROP_GETETAG):
+			khttp_puts(xml->req, ical->digest);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"%s\n", tag, dav->props[i].xmlns, 
+				ical->digest);
+			break;
+		default:
+			abort();
+		}
 		khttp_puts(xml->req, "</X:");
 		khttp_puts(xml->req, tag);
 		khttp_putc(xml->req, '>');
-		fprintf(stderr, "Known prop: %s (%s): %s\n", 
-			tag, dav->props[i].xmlns, ical->digest);
 	}
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_STATUS);
@@ -666,11 +693,8 @@ propfind_resource(struct kxmlreq *xml,
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			/* Note which properties we supported. */
-			if (PROP_GETETAG == dav->props[i].key) 
+			if (accepted[dav->props[i].key])
 				continue;
-			
-			/* Otherwise... */
 			khttp_puts(xml->req, "<X:");
 			khttp_puts(xml->req, dav->props[i].name);
 			khttp_puts(xml->req, " xmlns:X=\"");
