@@ -491,7 +491,7 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	accepted[PROP_DISPLAYNAME] = 1;
 	accepted[PROP_GETCONTENTTYPE] = -1;
 	accepted[PROP_GETETAG] = -1;
-	accepted[PROP_EMAIL_ADDRESS_SET] = 1;
+	accepted[PROP_OWNER] = 1;
 	accepted[PROP_PRINCIPAL_URL] = 1;
 	accepted[PROP_RESOURCETYPE] = 1;
 
@@ -557,10 +557,13 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 				"%s\n", tag, dav->props[i].xmlns,
 				st->cfg->displayname);
 			break;
-		case (PROP_EMAIL_ADDRESS_SET):
+		case (PROP_OWNER):
+			kxml_push(xml, XML_DAV_HREF);
+			kxml_text(xml, "mailto:");
 			kxml_text(xml, st->cfg->emailaddress);
+			kxml_pop(xml);
 			fprintf(stderr, "Known prop: %s (%s): "
-				"%s\n", tag, dav->props[i].xmlns,
+				"mailto:%s\n", tag, dav->props[i].xmlns,
 				st->cfg->emailaddress);
 			break;
 		case (PROP_PRINCIPAL_URL):
@@ -639,6 +642,8 @@ propfind_resource(struct kxmlreq *xml,
 	accepted[PROP_GETCONTENTTYPE] = 1;
 	accepted[PROP_GETETAG] = 1;
 	accepted[PROP_CALENDAR_DATA] = 1;
+	accepted[PROP_OWNER] = 1;
+	accepted[PROP_RESOURCETYPE] = 1;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
@@ -719,6 +724,19 @@ propfind_resource(struct kxmlreq *xml,
 			ical_print(ical, ical_putc, xml->req);
 			fprintf(stderr, "Known prop: %s (%s): "
 				"(not showing)\n", tag, dav->props[i].xmlns);
+			break;
+		case (PROP_OWNER):
+			kxml_push(xml, XML_DAV_HREF);
+			kxml_text(xml, "mailto:");
+			kxml_text(xml, st->cfg->emailaddress);
+			kxml_pop(xml);
+			fprintf(stderr, "Known prop: %s (%s): "
+				"mailto:%s\n", tag, dav->props[i].xmlns,
+				st->cfg->emailaddress);
+			break;
+		case (PROP_RESOURCETYPE):
+			fprintf(stderr, "Known prop: %s (%s): (empty)\n",
+				tag, dav->props[i].xmlns);
 			break;
 		default:
 			abort();
@@ -1068,6 +1086,11 @@ main(void)
 	memset(&st, 0, sizeof(struct state));
 	r.arg = &st;
 
+	if (KMETHOD_OPTIONS == r.method) {
+		options(&r);
+		goto out;
+	}
+
 	/*
 	 * Resolve a path from the HTTP request.
 	 * We do this first because it doesn't require any allocation.
@@ -1158,16 +1181,15 @@ main(void)
 	}
 
 	switch (r.method) {
-	case (KMETHOD_OPTIONS):
-		fprintf(stderr, "OPTIONS: %s (%s)\n", r.fullpath, st.path);
-		options(&r);
-		break;
 	case (KMETHOD_PUT):
 		fprintf(stderr, "PUT: %s (%s)\n", r.fullpath, st.path);
 		put(&r);
 		break;
 	case (KMETHOD_PROPFIND):
-		fprintf(stderr, "PROPFIND: %s (%s)\n", r.fullpath, st.path);
+		fprintf(stderr, "PROPFIND: %s (%s) (depth=%s)\n", 
+			r.fullpath, st.path,
+			NULL != r.reqmap[KREQU_DEPTH] ?
+			r.reqmap[KREQU_DEPTH]->val : "infinity");
 		propfind(&r);
 		break;
 	case (KMETHOD_GET):

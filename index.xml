@@ -29,6 +29,8 @@
 						href="https://tools.ietf.org/html/rfc3744">CalDav</a>, and <a
 						href="https://tools.ietf.org/html/rfc2616">HTTP</a>.
 					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
+					It's known to work with <a href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>
+					and Mac OS X iCal, both having simple calendar setups.
 				</p>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
