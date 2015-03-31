@@ -47,6 +47,13 @@ explicit_bzero(void *buf, size_t len)
 }
 #endif
 
+static int
+validate(const char *pass, const struct httpauth *auth)
+{
+
+	return(1);
+}
+
 /*
  * Parse the passwd(5)-style database from "file".
  * Look for the principal matching the username in "auth", and fill in
@@ -140,6 +147,9 @@ prncpl_parse(const char *file,
 
 		/* Is this the user we're looking for? */
 		if (strcmp(user, auth->user)) {
+			explicit_bzero(cp, len);
+			continue;
+		} else if ( ! validate(pass, auth)) {
 			explicit_bzero(cp, len);
 			continue;
 		}
