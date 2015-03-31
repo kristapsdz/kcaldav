@@ -35,23 +35,32 @@ MANS		 = kcaldav.8 \
 ALLSRCS		 = Makefile \
 		   $(TESTSRCS) \
 		   $(MANS) \
-		   auth.c \
 		   buf.c \
 		   caldav.c \
+		   collection.c \
 		   config.c \
+		   ctagcache.c \
+		   httpauth.c \
 		   ical.c \
 		   main.c \
 		   md5.c \
-		   principal.c 
-OBJS		 = auth.o \
-		   buf.o \
+		   principal.c \
+		   resource.c \
+		   xml.c
+OBJS		 = buf.o \
 		   caldav.o \
 		   config.o \
+		   ctagcache.o \
+		   httpauth.o \
 		   ical.o \
 		   md5.o \
 		   principal.o
-ALLOBJS		 = $(TESTOBJS) \
+BINOBJS		 = collection.o \
 		   main.o \
+		   resource.o \
+		   xml.o
+ALLOBJS		 = $(TESTOBJS) \
+		   $(BINOBJS) \
 		   $(OBJS)
 VERSIONS	 = version_0_0_4.xml
 VERSION		 = 0.0.4
@@ -90,8 +99,8 @@ kcaldav.tgz:
 	(cd .dist && tar zcf ../$@ kcaldav-$(VERSION))
 	rm -rf .dist
 
-kcaldav: main.o $(OBJS)
-	$(CC) -o $@ main.o $(OBJS) -lkcgi -lkcgixml -lexpat -lz
+kcaldav: $(BINOBJS) $(OBJS)
+	$(CC) -o $@ $(BINOBJS) $(OBJS) -lkcgi -lkcgixml -lexpat -lz
 
 test-ical: test-ical.o $(OBJS)
 	$(CC) -o $@ test-ical.o $(OBJS) -lexpat
@@ -109,6 +118,8 @@ test-prncpl: test-prncpl.o $(OBJS)
 	$(CC) -o $@ test-prncpl.o $(OBJS) -lexpat
 
 $(ALLOBJS): extern.h md5.h
+
+$(BINOBJS): main.h
 
 index.html: index.xml $(VERSIONS)
 	sblg -t index.xml -o- $(VERSIONS) | sed "s!@VERSION@!$(VERSION)!g" >$@

@@ -34,6 +34,7 @@ enum	calelem {
 	CALELEM_CURRENT_USER_PRINCIPAL,
 	CALELEM_DISPLAYNAME,
 	CALELEM_GETCONTENTTYPE,
+	CALELEM_GETCTAG,
 	CALELEM_GETETAG,
 	CALELEM_HREF,
 	CALELEM_MKCALENDAR,
@@ -53,6 +54,7 @@ enum	proptype {
 	PROP_CURRENT_USER_PRINCIPAL,
 	PROP_DISPLAYNAME,
 	PROP_GETCONTENTTYPE,
+	PROP_GETCTAG,
 	PROP_GETETAG,
 	PROP_OWNER,
 	PROP_PRINCIPAL_URL,
@@ -106,11 +108,21 @@ struct	httpauth {
 	char		*response;
 };
 
+/*
+ * A principal is a user of the system.
+ * The HTTP authorised user (struct httpauth) is matched against a list
+ * of principals when the password file is read.
+ */
 struct	prncpl {
 	char		*name;
 	char		*homedir;
 };
 
+/*
+ * A collection configuration.
+ * A principal (struct prncpl) is matched against the configuration list
+ * to produce the permissions.
+ */
 struct	config {
 	char		 *displayname;
 	char		 *emailaddress;
@@ -142,6 +154,9 @@ void		 ical_printfile(int, const struct ical *);
 struct caldav	*caldav_parsefile(const char *);
 struct caldav 	*caldav_parse(const char *, size_t);
 void		 caldav_free(struct caldav *);
+
+void		 ctagcache_get(const char *, char *);
+int		 ctagcache_update(const char *);
 
 int		 config_parse(const char *, struct config **, const struct prncpl *);
 void		 config_free(struct config *);
