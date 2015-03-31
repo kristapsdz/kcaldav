@@ -21,7 +21,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <libgen.h>
 #include <limits.h>
 #include <paths.h>
 #include <stdio.h>
@@ -35,53 +34,11 @@
 #include <kcgixml.h>
 
 #include "extern.h"
+#include "main.h"
 
 #ifndef CALDIR
 #error "CALDIR token not defined!"
 #endif
-
-/*
- * We carry this state around with us after successfully setting up our
- * environment: HTTP authorised (auth), HTTP authorisation matched with
- * a local principal (prncpl), and configuration file read for the
- * relevant directory (cfg) with permission mapped to the current
- * principal.
- * The "path" component is the subject of the HTTP query mapped to the
- * local CALDIR.
- */
-struct	state {
-	struct prncpl	*prncpl;
-	struct config	*cfg;
-	struct httpauth	*auth;
-	char		 path[PATH_MAX];
-	int		 isdir;
-};
-
-/* Canned XML responses. */
-enum	xml {
-	XML_CALDAV_CALENDAR,
-	XML_DAV_COLLECTION,
-	XML_DAV_HREF,
-	XML_DAV_MULTISTATUS,
-	XML_DAV_PROP,
-	XML_DAV_PROPSTAT,
-	XML_DAV_RESPONSE,
-	XML_DAV_STATUS,
-	XML_DAV_UNAUTHENTICATED,
-	XML__MAX
-};
-
-static	const char *const xmls[XML__MAX] = {
-	"C:calendar", /* XML_CALDAV_CALENDAR */
-	"D:collection", /* XML_DAV_COLLECTION */
-	"D:href", /* XML_DAV_HREF */
-	"D:multistatus", /* XML_DAV_MULTISTATUS */
-	"D:prop", /* XML_DAV_PROP */
-        "D:propstat", /* XML_DAV_PROPSTAT */
-	"D:response", /* XML_DAV_RESPONSE */
-	"D:status", /* XML_DAV_STATUS */
-	"D:unauthenticated", /* XML_DAV_UNAUTHENTICATED */
-};
 
 static void
 send403(struct kreq *r)
@@ -136,27 +93,85 @@ static int
 req2path(struct kreq *r)
 {
 	struct state	*st = r->arg;
-	int	 	 sz;
+	size_t	 	 sz;
+	char		*cp;
 
+	/* Absolutely don't let it empty paths! */
 	if (NULL == r->fullpath || '\0' == r->fullpath[0]) {
-		fprintf(stderr, "empty path!?\n");
+		fprintf(stderr, "empty request\n");
 		return(0);
 	} 
 
-	if (strstr(r->fullpath, "../") || strstr(r->fullpath, "/..")) {
-		fprintf(stderr, "%s: insecure path\n", r->fullpath);
+	/* Don't let in relative paths (server issue). */
+	if (strstr(r->fullpath, "../") || 
+			strstr(r->fullpath, "/..") ||
+			'/' != r->fullpath[0]) {
+		fprintf(stderr, "%s: insecure request\n", r->fullpath);
 		return(0);
 	}
 
-	sz = snprintf(st->path, sizeof(st->path), 
-		"%s%s", CALDIR, r->fullpath);
-
-	if ((size_t)sz >= sizeof(st->path)) {
-		fprintf(stderr, "%s%s: too long\n", CALDIR, r->fullpath);
+	/* Check our calendar directory for security. */
+	if (strstr(CALDIR, "../") || strstr(CALDIR, "/..")) {
+		fprintf(stderr, "%s: insecure CALDIR\n", CALDIR);
+		return(0);
+	} else if ('\0' == CALDIR[0]) {
+		fprintf(stderr, "empty CALDIR\n");
 		return(0);
 	}
 
+	/* Create our principal filename. */
+	sz = strlcpy(st->prncplfile, CALDIR, sizeof(st->prncplfile));
+	if (sz >= sizeof(st->prncplfile)) {
+		fprintf(stderr, "%s: too long\n", st->prncplfile);
+		return(0);
+	} else if ('/' != st->prncplfile[sz - 1])
+		strlcat(st->prncplfile, "/", sizeof(st->prncplfile));
+	sz = strlcat(st->prncplfile, 
+		"kcaldav.passwd", sizeof(st->prncplfile));
+	if (sz > sizeof(st->prncplfile)) {
+		fprintf(stderr, "%s: too long\n", st->prncplfile);
+		return(0);
+	}
+
+	/* Create our file-system mapped pathname. */
+	sz = strlcpy(st->path, CALDIR, sizeof(st->path));
+	if ('/' == st->path[sz - 1])
+		st->path[sz - 1] = '\0';
+	sz = strlcat(st->path, r->fullpath, sizeof(st->path));
+	if (sz >= sizeof(st->path)) {
+		fprintf(stderr, "%s: too long\n", st->path);
+		return(0);
+	}
+
+	/* Is the request on a collection? */
 	st->isdir = '/' == st->path[sz - 1];
+	
+	/* If we're not a directory, adjust our dir component. */
+	strlcpy(st->dir, st->path, sizeof(st->dir));
+	if ( ! st->isdir) {
+		cp = strrchr(st->dir, '/');
+		assert(NULL != cp);
+		cp[1] = '\0';
+	} 
+
+	/* Create our ctag filename. */
+	strlcpy(st->ctagfile, st->dir, sizeof(st->ctagfile));
+	sz = strlcat(st->ctagfile, 
+		"/kcaldav.ctag", sizeof(st->ctagfile));
+	if (sz >= sizeof(st->ctagfile)) {
+		fprintf(stderr, "%s: too long\n", st->ctagfile);
+		return(0);
+	}
+
+	/* Create our configuration filename. */
+	strlcpy(st->configfile, st->dir, sizeof(st->configfile));
+	sz = strlcat(st->configfile, 
+		"/kcaldav.conf", sizeof(st->configfile));
+	if (sz >= sizeof(st->configfile)) {
+		fprintf(stderr, "%s: too long\n", st->configfile);
+		return(0);
+	}
+
 	return(1);
 }
 
@@ -185,78 +200,6 @@ kvalid(struct kpair *kp)
 	dav = caldav_parse(kp->val, kp->valsz);
 	caldav_free(dav);
 	return(NULL != dav);
-}
-
-/*
- * Put a character into a request stream.
- * We use this instead of just fputc because the stream might be
- * compressed, so we need kcgi(3)'s function.
- */
-static void
-ical_putc(int c, void *arg)
-{
-	struct kreq	*r = arg;
-
-	khttp_putc(r, c);
-}
-
-/*
- * See req2config().
- */
-static int
-req2config_file(struct kreq *r, char *buf)
-{
-	char		*dir;
-	char		 np[PATH_MAX];
-	struct state	*st = r->arg;
-
-	dir = dirname(buf);
-	if (strlcpy(np, dir, sizeof(np)) >= sizeof(np)) {
-		fprintf(stderr, "%s: too long\n", np);
-		return(0);
-	}
-	if (strlcat(np, "/kcaldav.conf", sizeof(np)) >= sizeof(np)) {
-		fprintf(stderr, "%s: too long\n", buf);
-		return(0);
-	}
-	return(config_parse(np, &st->cfg, st->prncpl));
-}
-
-/*
- * See req2config().
- */
-static int
-req2config_dir(struct kreq *r, char *buf, size_t bufsz)
-{
-	struct state	*st = r->arg;
-
-	if (strlcat(buf, "/kcaldav.conf", bufsz) >= bufsz) {
-		fprintf(stderr, "%s: too long\n", buf);
-		return(0);
-	}
-	return(config_parse(buf, &st->cfg, st->prncpl));
-}
-
-/*
- * Given a path (or filename) "path", resolve the configuration file
- * that's at the path or within the path containing the file "path".
- */
-static int
-req2config(struct kreq *r)
-{
-	struct state	*st = r->arg;
-	char		 buf[PATH_MAX];
-	size_t		 sz;
-
-	sz = strlcpy(buf, st->path, sizeof(buf));
-	if (sz >= sizeof(buf)) {
-		fprintf(stderr, "%s: too long\n", buf);
-		return(0);
-	}
-
-	return('/' == buf[sz - 1] ? 
-		req2config_dir(r, buf, sizeof(buf)) :
-		req2config_file(r, buf));
 }
 
 /*
@@ -335,6 +278,7 @@ put_conditional(struct kreq *r,
 			"%s", khttps[KHTTP_505]);
 	} else {
 		ical_printfile(fd, p);
+		ctagcache_update(st->ctagfile);
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_201]);
 		khttp_head(r, kresps[KRESP_ETAG], 
@@ -389,6 +333,7 @@ put(struct kreq *r)
 		 * This operation was safe: the file creation is atomic
 		 * and unique, so that's fine.
 		 */
+		ctagcache_update(st->ctagfile);
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_201]);
 		khttp_head(r, kresps[KRESP_ETAG], 
@@ -467,7 +412,7 @@ get(struct kreq *r)
 		"%s", kmimetypes[KMIME_TEXT_CALENDAR]);
 	khttp_head(r, kresps[KRESP_ETAG], "%s", p->digest);
 	khttp_body(r);
-	ical_print(p, ical_putc, r);
+	ical_print(p, http_ical_putc, r);
 	ical_free(p);
 }
 
@@ -479,133 +424,75 @@ get(struct kreq *r)
 static void
 propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 {
-	struct state	*st = xml->req->arg;
 	size_t	 	 i, nf;
+	struct state	*st = xml->req->arg;
 	const char	*tag;
-	int 		 accepted[PROP__MAX + 1];
+	collectionfp	 accepted[PROP__MAX + 1];
+
+	fprintf(stderr, "%s: getting properties\n", st->path);
 
 	memset(accepted, 0, sizeof(accepted));
-	accepted[PROP_CALENDAR_HOME_SET] = 1;
-	accepted[PROP_CALENDAR_USER_ADDRESS_SET] = 1;
-	accepted[PROP_CURRENT_USER_PRINCIPAL] = 1;
-	accepted[PROP_DISPLAYNAME] = 1;
-	accepted[PROP_GETCONTENTTYPE] = -1;
-	accepted[PROP_GETETAG] = -1;
-	accepted[PROP_OWNER] = 1;
-	accepted[PROP_PRINCIPAL_URL] = 1;
-	accepted[PROP_RESOURCETYPE] = 1;
+	accepted[PROP_CALENDAR_HOME_SET] = 
+		collection_calendar_home_set;
+	accepted[PROP_CALENDAR_USER_ADDRESS_SET] = 
+		collection_user_address_set;
+	accepted[PROP_CURRENT_USER_PRINCIPAL] = 
+		collection_current_user_principal;
+	accepted[PROP_DISPLAYNAME] = collection_displayname;
+	accepted[PROP_GETCTAG] = collection_getctag;
+	accepted[PROP_OWNER] = collection_owner;
+	accepted[PROP_PRINCIPAL_URL] = collection_principal_url;
+	accepted[PROP_RESOURCETYPE] = collection_resourcetype;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_text(xml, xml->req->pname);
-	kxml_text(xml, xml->req->fullpath);
+	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, xml->req->fullpath);
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_PROPSTAT);
 	kxml_push(xml, XML_DAV_PROP);
 
 	for (nf = i = 0; i < dav->propsz; i++) {
-		if (0 == accepted[dav->props[i].key]) {
+		if (NULL == accepted[dav->props[i].key]) {
 			nf++;
 			fprintf(stderr, "Unknown prop: %s (%s)\n", 
 				dav->props[i].name, 
 				dav->props[i].xmlns);
 			continue;
-		} else if (accepted[dav->props[i].key] < 0) {
-			fprintf(stderr, "Ignored prop: %s (%s)\n", 
-				dav->props[i].name, 
-				dav->props[i].xmlns);
-			continue;
 		}
+		fprintf(stderr, "Known prop: %s (%s)\n", 
+			dav->props[i].name, dav->props[i].xmlns);
 		tag = calelems[calpropelems[dav->props[i].key]];
 		khttp_puts(xml->req, "<X:");
 		khttp_puts(xml->req, tag);
 		khttp_puts(xml->req, " xmlns:X=\"");
 		khttp_puts(xml->req, dav->props[i].xmlns);
 		khttp_puts(xml->req, "\">");
-		switch (dav->props[i].key) {
-		case (PROP_CALENDAR_HOME_SET):
-			kxml_push(xml, XML_DAV_HREF);
-			kxml_text(xml, xml->req->pname);
-			kxml_text(xml, xml->req->fullpath);
-			kxml_pop(xml);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"%s%s\n", tag, dav->props[i].xmlns, 
-				xml->req->pname, xml->req->fullpath);
-			break;
-		case (PROP_CALENDAR_USER_ADDRESS_SET):
-			kxml_push(xml, XML_DAV_HREF);
-			kxml_text(xml, "mailto:");
-			kxml_text(xml, st->cfg->emailaddress);
-			kxml_pop(xml);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"mailto:%s\n", tag, 
-				dav->props[i].xmlns,
-				st->cfg->emailaddress);
-			break;
-		case (PROP_CURRENT_USER_PRINCIPAL):
-			kxml_push(xml, XML_DAV_HREF);
-			kxml_text(xml, xml->req->pname);
-			kxml_text(xml, st->prncpl->homedir);
-			kxml_pop(xml);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"%s%s\n", tag, dav->props[i].xmlns, 
-				xml->req->pname, st->prncpl->homedir);
-			break;
-		case (PROP_DISPLAYNAME):
-			kxml_text(xml, st->cfg->displayname);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"%s\n", tag, dav->props[i].xmlns,
-				st->cfg->displayname);
-			break;
-		case (PROP_OWNER):
-			kxml_push(xml, XML_DAV_HREF);
-			kxml_text(xml, "mailto:");
-			kxml_text(xml, st->cfg->emailaddress);
-			kxml_pop(xml);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"mailto:%s\n", tag, dav->props[i].xmlns,
-				st->cfg->emailaddress);
-			break;
-		case (PROP_PRINCIPAL_URL):
-			kxml_push(xml, XML_DAV_HREF);
-			kxml_text(xml, xml->req->pname);
-			kxml_text(xml, xml->req->fullpath);
-			kxml_pop(xml);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"%s%s\n", tag, dav->props[i].xmlns, 
-				xml->req->pname, xml->req->fullpath);
-			break;
-		case (PROP_RESOURCETYPE):
-			kxml_pushnull(xml, XML_DAV_COLLECTION);
-			kxml_pushnull(xml, XML_CALDAV_CALENDAR);
-			fprintf(stderr, "Known prop: %s (%s)\n", 
-				tag, dav->props[i].xmlns);
-			break;
-		default:
-			abort();
-			break;
-		} 
+		(*accepted[dav->props[i].key])(xml);
 		khttp_puts(xml->req, "</X:");
 		khttp_puts(xml->req, tag);
 		khttp_putc(xml->req, '>');
 	}
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_STATUS);
-	kxml_text(xml, "HTTP/1.1 ");
-	kxml_text(xml, khttps[KHTTP_200]);
+	kxml_puts(xml, "HTTP/1.1 ");
+	kxml_puts(xml, khttps[KHTTP_200]);
 	kxml_pop(xml);
 	kxml_pop(xml);
 
-	/*
-	 * If we had any properties for which we're not going to report,
-	 * then indicate that now with a 404.
-	 */
 	if (nf > 0) {
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			if (1 == accepted[dav->props[i].key])
+			if (NULL != accepted[dav->props[i].key])
 				continue;
+			switch (dav->props[i].key) {
+			case (PROP_GETETAG):
+			case (PROP_GETCONTENTTYPE):
+				continue;
+			default:
+				break;
+			}
 			khttp_puts(xml->req, "<X:");
 			khttp_puts(xml->req, dav->props[i].name);
 			khttp_puts(xml->req, " xmlns:X=\"");
@@ -614,9 +501,8 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 		}
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_STATUS);
-		kxml_text(xml, "HTTP/1.1 ");
-		kxml_text(xml, khttps[KHTTP_404]);
-		kxml_pop(xml);
+		kxml_puts(xml, "HTTP/1.1 ");
+		kxml_puts(xml, khttps[KHTTP_404]);
 		kxml_pop(xml);
 		kxml_pop(xml);
 	}
@@ -636,21 +522,21 @@ propfind_resource(struct kxmlreq *xml,
 	size_t		 i, nf, sz;
 	const char	*tag, *pathp;
 	char		 buf[PATH_MAX];
-	int 		 accepted[PROP__MAX + 1];
+	resourcefp	 accepted[PROP__MAX + 1];
 
 	memset(accepted, 0, sizeof(accepted));
-	accepted[PROP_GETCONTENTTYPE] = 1;
-	accepted[PROP_GETETAG] = 1;
-	accepted[PROP_CALENDAR_DATA] = 1;
-	accepted[PROP_OWNER] = 1;
-	accepted[PROP_RESOURCETYPE] = 1;
+	accepted[PROP_GETCONTENTTYPE] = resource_getcontenttype;
+	accepted[PROP_GETETAG] = resource_getetag;
+	accepted[PROP_CALENDAR_DATA] = resource_calendar_data;
+	accepted[PROP_OWNER] = resource_owner;
+	accepted[PROP_RESOURCETYPE] = resource_resourcetype;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_text(xml, xml->req->pname);
-	kxml_text(xml, xml->req->fullpath);
+	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, xml->req->fullpath);
 	if (NULL != name)
-		kxml_text(xml, name);
+		kxml_puts(xml, name);
 	kxml_pop(xml);
 
 	/* See if we must reconstitute the file to open. */
@@ -658,8 +544,8 @@ propfind_resource(struct kxmlreq *xml,
 		if (strchr(name, '/')) {
 			fprintf(stderr, "%s: insecure path\n", name);
 			kxml_push(xml, XML_DAV_STATUS);
-			kxml_text(xml, "HTTP/1.1 ");
-			kxml_text(xml, khttps[KHTTP_403]);
+			kxml_puts(xml, "HTTP/1.1 ");
+			kxml_puts(xml, khttps[KHTTP_403]);
 			kxml_pop(xml);
 			kxml_pop(xml);
 			return;
@@ -670,8 +556,8 @@ propfind_resource(struct kxmlreq *xml,
 		if (sz >= sizeof(buf)) {
 			fprintf(stderr, "%s: too long\n", buf);
 			kxml_push(xml, XML_DAV_STATUS);
-			kxml_text(xml, "HTTP/1.1 ");
-			kxml_text(xml, khttps[KHTTP_403]);
+			kxml_puts(xml, "HTTP/1.1 ");
+			kxml_puts(xml, khttps[KHTTP_403]);
 			kxml_pop(xml);
 			kxml_pop(xml);
 			return;
@@ -679,12 +565,14 @@ propfind_resource(struct kxmlreq *xml,
 	} else 
 		pathp = name;
 
+	fprintf(stderr, "%s: getting properties\n", pathp);
+
 	/* We can only request iCal object, so parse now. */
 	if (NULL == (ical = ical_parsefile(pathp))) {
 		fprintf(stderr, "%s: parse error\n", pathp);
 		kxml_push(xml, XML_DAV_STATUS);
-		kxml_text(xml, "HTTP/1.1 ");
-		kxml_text(xml, khttps[KHTTP_403]);
+		kxml_puts(xml, "HTTP/1.1 ");
+		kxml_puts(xml, khttps[KHTTP_403]);
 		kxml_pop(xml);
 		kxml_pop(xml);
 		return;
@@ -693,62 +581,31 @@ propfind_resource(struct kxmlreq *xml,
 	kxml_push(xml, XML_DAV_PROPSTAT);
 	kxml_push(xml, XML_DAV_PROP);
 	for (nf = i = 0; i < dav->propsz; i++) {
-		if ( ! accepted[dav->props[i].key]) {
+		if (NULL == accepted[dav->props[i].key]) {
 			nf++;
 			fprintf(stderr, "Unknown prop: %s (%s)\n", 
 				dav->props[i].name, 
 				dav->props[i].xmlns);
 			continue;
 		}
+		fprintf(stderr, "Known prop: %s (%s)\n", 
+			dav->props[i].name, 
+			dav->props[i].xmlns);
 		tag = calelems[calpropelems[dav->props[i].key]];
 		khttp_puts(xml->req, "<X:");
 		khttp_puts(xml->req, tag);
 		khttp_puts(xml->req, " xmlns:X=\"");
 		khttp_puts(xml->req, dav->props[i].xmlns);
 		khttp_puts(xml->req, "\">");
-		switch (dav->props[i].key) {
-		case (PROP_GETCONTENTTYPE):
-			khttp_puts(xml->req, 
-				kmimetypes[KMIME_TEXT_CALENDAR]);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"%s\n", tag, dav->props[i].xmlns, 
-				kmimetypes[KMIME_TEXT_CALENDAR]);
-			break;
-		case (PROP_GETETAG):
-			khttp_puts(xml->req, ical->digest);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"%s\n", tag, dav->props[i].xmlns, 
-				ical->digest);
-			break;
-		case (PROP_CALENDAR_DATA):
-			ical_print(ical, ical_putc, xml->req);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"(not showing)\n", tag, dav->props[i].xmlns);
-			break;
-		case (PROP_OWNER):
-			kxml_push(xml, XML_DAV_HREF);
-			kxml_text(xml, "mailto:");
-			kxml_text(xml, st->cfg->emailaddress);
-			kxml_pop(xml);
-			fprintf(stderr, "Known prop: %s (%s): "
-				"mailto:%s\n", tag, dav->props[i].xmlns,
-				st->cfg->emailaddress);
-			break;
-		case (PROP_RESOURCETYPE):
-			fprintf(stderr, "Known prop: %s (%s): (empty)\n",
-				tag, dav->props[i].xmlns);
-			break;
-		default:
-			abort();
-		}
+		(*accepted[dav->props[i].key])(xml, ical);
 		khttp_puts(xml->req, "</X:");
 		khttp_puts(xml->req, tag);
 		khttp_putc(xml->req, '>');
 	}
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_STATUS);
-	kxml_text(xml, "HTTP/1.1 ");
-	kxml_text(xml, khttps[KHTTP_200]);
+	kxml_puts(xml, "HTTP/1.1 ");
+	kxml_puts(xml, khttps[KHTTP_200]);
 	kxml_pop(xml);
 	kxml_pop(xml);
 
@@ -760,7 +617,7 @@ propfind_resource(struct kxmlreq *xml,
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			if (accepted[dav->props[i].key])
+			if (NULL != accepted[dav->props[i].key])
 				continue;
 			khttp_puts(xml->req, "<X:");
 			khttp_puts(xml->req, dav->props[i].name);
@@ -770,9 +627,8 @@ propfind_resource(struct kxmlreq *xml,
 		}
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_STATUS);
-		kxml_text(xml, "HTTP/1.1 ");
-		kxml_text(xml, khttps[KHTTP_404]);
-		kxml_pop(xml);
+		kxml_puts(xml, "HTTP/1.1 ");
+		kxml_puts(xml, khttps[KHTTP_404]);
 		kxml_pop(xml);
 		kxml_pop(xml);
 	}
@@ -883,6 +739,8 @@ delete(struct kreq *r)
 			continue;
 		if (0 == strcmp(dp->d_name, "kcaldav.conf"))
 			continue;
+		if (0 == strcmp(dp->d_name, "kcaldav.ctag"))
+			continue;
 		strlcpy(buf, st->path, sizeof(buf));
 		sz = strlcat(buf, dp->d_name, sizeof(buf));
 		if (sz >= sizeof(buf)) {
@@ -953,12 +811,12 @@ report(struct kreq *r)
 					dav->hrefs[i]);
 				kxml_push(&xml, XML_DAV_RESPONSE);
 				kxml_push(&xml, XML_DAV_HREF);
-				kxml_text(&xml, r->pname);
-				kxml_text(&xml, dav->hrefs[i]);
+				kxml_puts(&xml, r->pname);
+				kxml_puts(&xml, dav->hrefs[i]);
 				kxml_pop(&xml);
 				kxml_push(&xml, XML_DAV_STATUS);
-				kxml_text(&xml, "HTTP/1.1 ");
-				kxml_text(&xml, khttps[KHTTP_403]);
+				kxml_puts(&xml, "HTTP/1.1 ");
+				kxml_puts(&xml, khttps[KHTTP_403]);
 				kxml_pop(&xml);
 				kxml_pop(&xml);
 				continue;
@@ -1022,6 +880,8 @@ propfind(struct kreq *r)
 		"%s", khttps[KHTTP_207]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
+	khttp_head(r, "DAV", "1, 2, "
+		"access-control, calendar-access");
 	khttp_body(r);
 	kxml_open(&xml, r, xmls, XML__MAX);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
@@ -1037,14 +897,14 @@ propfind(struct kreq *r)
 
 	/* Scan directory contents. */
 	if (st->isdir && depth) {
-		if (NULL == (dirp = opendir(st->path))) {
+		if (NULL == (dirp = opendir(st->path)))
 			perror(st->path);
-		}
 		while (NULL != dirp && NULL != (dp = readdir(dirp))) {
-			fprintf(stderr, "%s: scanning: %s\n", st->path, dp->d_name);
 			if ('.' == dp->d_name[0])
 				continue;
 			if (0 == strcmp(dp->d_name, "kcaldav.conf"))
+				continue;
+			if (0 == strcmp(dp->d_name, "kcaldav.ctag"))
 				continue;
 			propfind_resource(&xml, dav, dp->d_name);
 		}
@@ -1075,8 +935,6 @@ main(void)
 {
 	struct kreq	 r;
 	struct kvalid	 valid = { kvalid, "" };
-	char		 prncpl[PATH_MAX];
-	size_t		 i;
 	struct state	 st;
 	int		 rc;
 
@@ -1086,6 +944,7 @@ main(void)
 	memset(&st, 0, sizeof(struct state));
 	r.arg = &st;
 
+	/* Process options before authentication. */
 	if (KMETHOD_OPTIONS == r.method) {
 		options(&r);
 		goto out;
@@ -1099,14 +958,6 @@ main(void)
 		send403(&r);
 		goto out;
 	} 
-
-	strlcpy(prncpl, CALDIR, sizeof(prncpl));
-	i = strlcat(prncpl, "/kcaldav.passwd", sizeof(prncpl));
-	if (i >= sizeof(prncpl)) {
-		fprintf(stderr, "%s: too long\n", prncpl);
-		send403(&r);
-		goto out;
-	}
 
 	/*
 	 * Parse our HTTP credentials.
@@ -1139,19 +990,19 @@ main(void)
 	 * file doesn't exist or is malformed.
 	 * It might set the principal to NULL if not found.
 	 */
-	if ((rc = prncpl_parse(prncpl, st.auth, &st.prncpl)) < 0) {
+	if ((rc = prncpl_parse(st.prncplfile, st.auth, &st.prncpl)) < 0) {
 		fprintf(stderr, "%s: memory failure during "
-			"principal authorisation\n", r.fullpath);
+			"principal authorisation\n", st.prncplfile);
 		send505(&r);
 		goto out;
 	} else if (0 == rc) {
-		fprintf(stderr, "%s/kcaldav.passwd: not a valid "
-			"principal authorisation file\n", CALDIR);
+		fprintf(stderr, "%s: not a valid principal "
+			"authorisation file\n", st.prncplfile);
 		send403(&r);
 		goto out;
 	} else if (NULL == st.prncpl) {
 		fprintf(stderr, "%s: invalid principal "
-			"authorisation\n", r.fullpath);
+			"authorisation\n", st.prncplfile);
 		send401(&r);
 		goto out;
 	}
@@ -1161,21 +1012,19 @@ main(void)
 	 * been requested to introspect.
 	 * It's ok if "path" is a directory.
 	 */
-	if ((rc = req2config(&r)) < 0) {
-		fprintf(stderr, "%s/kcaldav.conf: memory failure "
-			"during configuration parse\n", st.path);
+	if ((rc = config_parse(st.configfile, &st.cfg, st.prncpl)) < 0) {
+		fprintf(stderr, "%s: memory failure "
+			"during configuration parse\n", st.configfile);
 		send505(&r);
 		goto out;
 	} else if (0 == rc) {
-		fprintf(stderr, "%s/kcaldav.conf: not a valid "
-			"configuration file\n", st.path);
+		fprintf(stderr, "%s: not a valid "
+			"configuration file\n", st.configfile);
 		send403(&r);
 		goto out;
-	} 
-	
-	if (PERMS_NONE == st.cfg->perms) {
+	} else if (PERMS_NONE == st.cfg->perms) {
 		fprintf(stderr, "%s: principal without "
-			"any privilege\n", st.path);
+			"any privilege\n", st.configfile);
 		send403(&r);
 		goto out;
 	}
