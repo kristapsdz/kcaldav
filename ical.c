@@ -149,9 +149,9 @@ ical_parsefile_open(const char *file, int *keep)
 		*keep = -1;
 		flags = O_RDWR | O_EXLOCK;
 	} else
-		flags = O_RDONLY;
+		flags = O_RDONLY | O_SHLOCK;
 
-	if (-1 == (fd = open(file, flags, 0666))) {
+	if (-1 == (fd = open(file, flags, 0600))) {
 		perror(file);
 		return(NULL);
 	} else if (-1 == fstat(fd, &st)) {
@@ -178,7 +178,7 @@ ical_parsefile_open(const char *file, int *keep)
 		return(NULL);
 	}
 	buf[st.st_size] = '\0';
-	if (NULL == keep && -1 == flock(fd, LOCK_UN)) {
+	if (-1 == flock(fd, LOCK_UN)) {
 		perror(file);
 		close(fd);
 		free(buf);
@@ -301,61 +301,74 @@ ical_parse(const char *cp)
 	return(p);
 }
 
-static void
+static int
 icalnode_putc(int c, void *arg)
 {
-	int	fd = *(int *)arg;
+	int	 fd = *(int *)arg;
 
-	write(fd, &c, 1);
+	return(write(fd, &c, 1));
 }
 
-static void
+static int
 icalnode_putchar(char c, size_t *col, ical_putchar fp, void *arg)
 {
 
 	if (74 == *col) {
-		(*fp)('\r', arg);
-		(*fp)('\n', arg);
-		(*fp)(' ', arg);
+		if ((*fp)('\r', arg) < 0)
+			return(-1);
+		if ((*fp)('\n', arg) < 0)
+			return(-1);
+		if ((*fp)(' ', arg) < 0)
+			return(-1);
 		*col = 1;
 	}
-	(*fp)(c, arg);
+	if ((*fp)(c, arg) < 0)
+		return(-1);
 	(*col)++;
+	return(1);
 }
 
-static void
+static int
 icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 {
 	const char	*cp;
 	size_t		 col;
 
 	if (NULL == p) 
-		return;
+		return(1);
 
 	col = 0;
 	for (cp = p->name; '\0' != *cp; cp++) 
-		icalnode_putchar(*cp, &col, fp, arg);
-	icalnode_putchar(':', &col, fp, arg);
+		if (icalnode_putchar(*cp, &col, fp, arg) < 0)
+			return(-1);
+	if (icalnode_putchar(':', &col, fp, arg) < 0)
+		return(-1);
 	for (cp = p->val; '\0' != *cp; cp++) 
-		icalnode_putchar(*cp, &col, fp, arg);
-	(*fp)('\r', arg);
-	(*fp)('\n', arg);
-	icalnode_print(p->first, fp, arg);
-	icalnode_print(p->next, fp, arg);
+		if (icalnode_putchar(*cp, &col, fp, arg) < 0)
+			return(-1);
+	if ((*fp)('\r', arg) < 0)
+		return(-1);
+	if ((*fp)('\n', arg) < 0)
+		return(-1);
+	if (icalnode_print(p->first, fp, arg) < 0)
+		return(-1);
+	if (icalnode_print(p->next, fp, arg) < 0)
+		return(-1);
+	return(1);
 }
 
-void
+int
 ical_print(const struct ical *p, ical_putchar fp, void *arg)
 {
 
-	icalnode_print(p->first, fp, arg);
+	return(icalnode_print(p->first, fp, arg));
 }
 
-void
+int
 ical_printfile(int fd, const struct ical *p)
 {
 
-	icalnode_print(p->first, icalnode_putc, &fd);
+	return(icalnode_print(p->first, icalnode_putc, &fd));
 }
 
 int
@@ -450,7 +463,7 @@ ical_putfile(const char *file, const struct ical *newp)
 	flags = O_RDWR | O_EXLOCK | O_CREAT | O_EXCL;
 
 	/* Open our database with an EXLOCK. */
-	if (-1 == (fd = open(file, flags, 0666))) {
+	if (-1 == (fd = open(file, flags, 0600))) {
 		perror(file);
 		return(0);
 	}

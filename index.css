@@ -1,5 +1,6 @@
 body, html		{ margin: 0; }
-body			{ background-color: #ccc; }
+body			{ background-color: #ccc; 
+			  font-size: 14pt;}
 header			{ background-color: #336699; 
 			  padding: 12pt 24pt;
 			  color: #def; }
@@ -9,7 +10,15 @@ article 		{ padding: 8pt 24pt;
 			  background-color: #eee; }
 article a		{ color: blue; }
 footer 			{ padding: 8pt 24pt; 
+			  font-size: 12pt;
 			  color: #444;
 			  text-align: center; }
 footer a		{ color: #000; }
 a			{ text-decoration: none; }
+h1			{ margin-bottom: 0;
+			  margin-top: 1ex;
+			  font-size: 36pt; }
+h2			{ font-size: 16pt; }
+.version		{ font-weight: bold; }
+nav[data-sblg-nav] ul	{ list-style-type: none; 
+			  padding-left: 0; }

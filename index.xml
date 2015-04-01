@@ -19,21 +19,23 @@
 		</header>
 		<article>
 			<section>
-				<h2>Description</h2>
 				<p>
 					<span class="nm">kcaldav</span> is a simple CalDav server depending only on <a
 						href="http://kristaps.bsd.lv/kcgi">kcgi</a> and <a
 						href="http://expat.sourceforge.net/">libexpat</a>.
 					It implements the minimal subset of a large number of standards, including <a
 						href="https://tools.ietf.org/html/rfc5545">iCalendar</a>, <a
-						href="https://tools.ietf.org/html/rfc3744">CalDav</a>, and <a
-						href="https://tools.ietf.org/html/rfc2616">HTTP</a>.
+						href="https://tools.ietf.org/html/rfc3744">CalDav</a>, <a
+						href="https://tools.ietf.org/html/rfc2616">HTTP</a>, and numerous extensions as detailed in <a
+						href="kcaldav.8.html">kcaldav(8)</a>.
 					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
 					It's known to work with <a href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>
 					and Mac OS X iCal, both having simple calendar setups.
 				</p>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
+					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> and <a
+						href="kcaldav.passwd.5.html">kcaldav.passwd(5)</a>.
 					If it lacks information or clarity, that's a bug.
 					You'll need <a href="http://kristaps.bsd.lv/kcgi">kcgi</a> and <a
 						href="http://expat.sourceforge.net/">libexpat</a> installed as a compile-time dependencies.
@@ -42,7 +44,9 @@
 			<section>
 				<h2>Release History</h2>
 				<nav data-sblg-nav="1" data-sblg-navsz="3" data-sblg-navcontent="1">
-					Version <span class="version">${sblg-title}</span> (<time datetime="${sblg-date}">${sblg-date}</time>): ${sblg-aside}
+					<time datetime="${sblg-date}">${sblg-date}</time>
+					(version <span class="version">${sblg-title}</span>):
+					${sblg-aside}
 				</nav>
 			</section>
 		</article>

@@ -14,12 +14,18 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include <sys/param.h>
+#include <sys/mount.h>
+#include <sys/quota.h>
+
 #include <assert.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <util.h>
+#include <unistd.h>
 
 #include "extern.h"
 
@@ -120,10 +126,32 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 	FILE		*f;
 	size_t		 len, line;
 	char		*key, *val, *cp, *end;
-	int		 rc, fl;
+	int		 rc, fl, fd;
+	struct statfs	 sfs;
+	long long	 bytesused, bytesavail;
+	struct dqblk	 quota;
 
-	if (NULL == (f = fopen(file, "r"))) {
+	if (-1 == (fd = open(file, O_RDONLY, 0))) {
 		perror(file);
+		return(0);
+	} else if (-1 == fstatfs(fd, &sfs)) {
+		perror(file);
+		close(fd);
+		return(0);
+	} 
+	
+	fl = Q_GETQUOTA | USRQUOTA;
+	if (-1 == quotactl(file, fl, getuid(), (char *)&quota)) {
+		bytesused = sfs.f_blocks * sfs.f_bsize;
+		bytesavail = sfs.f_bfree * sfs.f_bsize;
+	} else {
+		bytesused = quota.dqb_curbytes;
+		bytesavail = quota.dqb_bsoftlimit - quota.dqb_curbytes;
+	}
+
+	if (NULL == (f = fdopen(fd, "r"))) {
+		perror(file);
+		close(fd);
 		return(0);
 	}
 
@@ -134,6 +162,9 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 		fclose(f);
 		return(-1);
 	}
+
+	(*pp)->bytesused = bytesused;
+	(*pp)->bytesavail = bytesavail;
 
 	rc = 1;
 	fl = FPARSELN_UNESCALL;

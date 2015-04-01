@@ -31,6 +31,7 @@ struct	state {
 	struct config	*cfg;
 	struct httpauth	*auth;
 	char		 path[PATH_MAX]; /* filesystem path */
+	char		 temp[PATH_MAX]; /* temporary path */
 	char		 dir[PATH_MAX]; /* "path" directory part */
 	char		 ctagfile[PATH_MAX]; /* ctag filename */
 	char		 configfile[PATH_MAX]; /* config filename */
@@ -40,14 +41,19 @@ struct	state {
 
 enum	xml {
 	XML_CALDAV_CALENDAR,
+	XML_DAV_BIND,
 	XML_DAV_COLLECTION,
 	XML_DAV_HREF,
 	XML_DAV_MULTISTATUS,
+	XML_DAV_PRIVILEGE,
 	XML_DAV_PROP,
 	XML_DAV_PROPSTAT,
+	XML_DAV_READ,
+	XML_DAV_READ_CURRENT_USER_PRIVILEGE_SET,
 	XML_DAV_RESPONSE,
 	XML_DAV_STATUS,
-	XML_DAV_UNAUTHENTICATED,
+	XML_DAV_UNBIND,
+	XML_DAV_WRITE_CONTENT,
 	XML__MAX
 };
 
@@ -58,21 +64,37 @@ typedef	 void (*resourcefp)(struct kxmlreq *, const struct ical *);
 
 void	 collection_calendar_home_set(struct kxmlreq *);
 void	 collection_current_user_principal(struct kxmlreq *);
+void	 collection_current_user_privilege_set(struct kxmlreq *);
 void	 collection_displayname(struct kxmlreq *);
 void	 collection_getctag(struct kxmlreq *);
 void	 collection_owner(struct kxmlreq *);
 void	 collection_principal_url(struct kxmlreq *);
+void	 collection_quota_available_bytes(struct kxmlreq *);
+void	 collection_quota_used_bytes(struct kxmlreq *);
 void	 collection_resourcetype(struct kxmlreq *);
 void	 collection_user_address_set(struct kxmlreq *);
 
 void	 resource_calendar_data(struct kxmlreq *, const struct ical *);
+void	 resource_current_user_principal(struct kxmlreq *, const struct ical *);
+void	 resource_current_user_privilege_set(struct kxmlreq *, const struct ical *);
 void	 resource_getcontenttype(struct kxmlreq *, const struct ical *);
 void	 resource_getetag(struct kxmlreq *, const struct ical *);
 void	 resource_owner(struct kxmlreq *, const struct ical *);
+void	 resource_quota_available_bytes(struct kxmlreq *, const struct ical *);
+void	 resource_quota_used_bytes(struct kxmlreq *, const struct ical *);
 void	 resource_resourcetype(struct kxmlreq *, const struct ical *);
 
-void	 xml_ical_putc(int, void *);
-void	 http_ical_putc(int, void *);
+int	 xml_ical_putc(int, void *);
+int	 http_ical_putc(int, void *);
+
+void	 http_error(struct kreq *, enum khttp);
+
+void	 method_delete(struct kreq *);
+void	 method_get(struct kreq *);
+void	 method_options(struct kreq *);
+void	 method_propfind(struct kreq *);
+void	 method_put(struct kreq *);
+void	 method_report(struct kreq *);
 
 const char *const *xmls;
 
