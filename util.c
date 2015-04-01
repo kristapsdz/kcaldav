@@ -73,11 +73,11 @@ http_error(struct kreq *r, enum khttp c)
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[c]);
 	if (KHTTP_401 == c) {
 		for (i = 0; i < sizeof(nonce); i++)
-			snprintf(nonce + i, 2, "%.1X", 
+			snprintf(nonce + i, 2, "%01X", 
 				arc4random_uniform(128));
 		khttp_head(r, kresps[KRESP_WWW_AUTHENTICATE],
 			"Digest realm=\"kcaldav\" "
-			"nonce=\"%s\"", nonce);
+			"quop=\"\" nonce=\"%s\"", nonce);
 	}
 
 	khttp_body(r);

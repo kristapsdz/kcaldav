@@ -16,6 +16,7 @@
  */
 #include <assert.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -35,11 +36,11 @@
 
 /*
  * Make sure that requrested path is sane, then append it to our local
- * calendar root (CALDIR).
+ * calendar root.
  * Returns zero on failure or non-zero on success.
  */
 static int
-req2path(struct kreq *r)
+req2path(struct kreq *r, const char *caldir)
 {
 	struct state	*st = r->arg;
 	size_t	 	 sz;
@@ -70,16 +71,26 @@ req2path(struct kreq *r)
 	}
 	
 	/* Check our calendar directory for security. */
-	if (strstr(CALDIR, "../") || strstr(CALDIR, "/..")) {
-		fprintf(stderr, "%s: insecure CALDIR\n", CALDIR);
+	if (strstr(caldir, "../") || strstr(caldir, "/..")) {
+		fprintf(stderr, "%s: insecure root\n", caldir);
 		return(0);
-	} else if ('\0' == CALDIR[0]) {
-		fprintf(stderr, "empty CALDIR\n");
+	} else if ('\0' == caldir[0]) {
+		fprintf(stderr, "empty root\n");
+		return(0);
+	}
+
+	/* Create our full pathname. */
+	sz = strlcpy(st->rpath, r->pname, sizeof(st->rpath));
+	if (sz && '/' == st->rpath[sz - 1])
+		st->rpath[sz - 1] = '\0';
+	sz = strlcat(st->rpath, r->fullpath, sizeof(st->rpath));
+	if (sz > sizeof(st->rpath)) {
+		fprintf(stderr, "%s: too long\n", st->rpath);
 		return(0);
 	}
 
 	/* Create our principal filename. */
-	sz = strlcpy(st->prncplfile, CALDIR, sizeof(st->prncplfile));
+	sz = strlcpy(st->prncplfile, caldir, sizeof(st->prncplfile));
 	if (sz >= sizeof(st->prncplfile)) {
 		fprintf(stderr, "%s: too long\n", st->prncplfile);
 		return(0);
@@ -93,7 +104,7 @@ req2path(struct kreq *r)
 	}
 
 	/* Create our file-system mapped pathname. */
-	sz = strlcpy(st->path, CALDIR, sizeof(st->path));
+	sz = strlcpy(st->path, caldir, sizeof(st->path));
 	if ('/' == st->path[sz - 1])
 		st->path[sz - 1] = '\0';
 	sz = strlcat(st->path, r->fullpath, sizeof(st->path));
@@ -107,7 +118,7 @@ req2path(struct kreq *r)
 
 	if ( ! st->isdir) {
 		/* Create our file-system mapped temporary pathname. */
-		sz = strlcpy(st->temp, CALDIR, sizeof(st->temp));
+		sz = strlcpy(st->temp, caldir, sizeof(st->temp));
 		if ('/' == st->temp[sz - 1])
 			st->temp[sz - 1] = '\0';
 		strlcat(st->temp, r->fullpath, sizeof(st->temp));
@@ -184,30 +195,49 @@ kvalid(struct kpair *kp)
 }
 
 int
-main(void)
+main(int argc, char *argv[])
 {
 	struct kreq	 r;
 	struct kvalid	 valid = { kvalid, "" };
-	struct state	 st;
+	struct state	*st;
 	int		 rc;
+	const char	*caldir = NULL;
+
+	while (-1 != getopt(argc, argv, "")) 
+		/* Spin. */ ;
+
+	argv += optind;
+	if ((argc -= optind) > 0)
+		caldir = argv[0];
 
 	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
 
-	memset(&st, 0, sizeof(struct state));
-	r.arg = &st;
+	if (NULL == (r.arg = st = calloc(1, sizeof(struct state)))) {
+		fprintf(stderr, "%s: memory failure during "
+			"startup\n", r.fullpath);
+		http_error(&r, KHTTP_505);
+		goto out;
+	}
 
-	/* Process options before authentication. */
+	/* 
+	 * Process options before authentication. 
+	 * FIXME: is this supposed to happen here or after auth?
+	 */
 	if (KMETHOD_OPTIONS == r.method) {
 		method_options(&r);
+		goto out;
+	} else if (KMETHOD__MAX == r.method) {
+		http_error(&r, KHTTP_405);
 		goto out;
 	}
 
 	/*
-	 * Resolve a path from the HTTP request.
-	 * We do this first because it doesn't require any allocation.
+	 * Resolve paths from the HTTP request.
+	 * This sets the many paths we care about--all of which are for
+	 * our convenience--and make sure they're secure.
 	 */
-	if ( ! req2path(&r)) {
+	if ( ! req2path(&r, NULL == caldir ? CALDIR : caldir)) {
 		http_error(&r, KHTTP_403);
 		goto out;
 	} 
@@ -218,23 +248,28 @@ main(void)
 	 * NOTE: Apache will strip this out, so it's necessary to add a
 	 * rewrite rule to keep these.
 	 */
-	st.auth = httpauth_parse
+	st->auth = httpauth_parse
 		(NULL == r.reqmap[KREQU_AUTHORIZATION] ?
 		 NULL : r.reqmap[KREQU_AUTHORIZATION]->val);
 
-	if (NULL == st.auth) {
+	if (NULL == st->auth) {
 		/* Allocation failure! */
 		fprintf(stderr, "%s: memory failure during "
 			"HTTP authorisation\n", r.fullpath);
 		http_error(&r, KHTTP_505);
 		goto out;
-	} else if (0 == st.auth->authorised) {
+	} else if (0 == st->auth->authorised) {
 		/* No authorisation found (or failed). */
 		fprintf(stderr, "%s: invalid HTTP "
 			"authorisation\n", r.fullpath);
 		http_error(&r, KHTTP_401);
 		goto out;
-	}
+	} else if (strcmp(st->auth->uri, st->rpath)) {
+		fprintf(stderr, "%s: HTTP authorisation "
+			"URI path is invalid\n", st->rpath);
+		http_error(&r, KHTTP_401);
+		goto out;
+	} 
 
 	/*
 	 * Next, parse the our passwd file and look up the given HTTP
@@ -243,19 +278,22 @@ main(void)
 	 * file doesn't exist or is malformed.
 	 * It might set the principal to NULL if not found.
 	 */
-	if ((rc = prncpl_parse(st.prncplfile, st.auth, &st.prncpl)) < 0) {
+	rc = prncpl_parse(st->prncplfile, 
+		kmethods[r.method], st->auth, &st->prncpl);
+
+	if (rc < 0) {
 		fprintf(stderr, "%s: memory failure during "
-			"principal authorisation\n", st.prncplfile);
+			"principal authorisation\n", st->prncplfile);
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (0 == rc) {
 		fprintf(stderr, "%s: not a valid principal "
-			"authorisation file\n", st.prncplfile);
+			"authorisation file\n", st->prncplfile);
 		http_error(&r, KHTTP_403);
 		goto out;
-	} else if (NULL == st.prncpl) {
+	} else if (NULL == st->prncpl) {
 		fprintf(stderr, "%s: invalid principal "
-			"authorisation\n", st.prncplfile);
+			"authorisation\n", st->prncplfile);
 		http_error(&r, KHTTP_401);
 		goto out;
 	}
@@ -265,56 +303,53 @@ main(void)
 	 * been requested to introspect.
 	 * It's ok if "path" is a directory.
 	 */
-	if ((rc = config_parse(st.configfile, &st.cfg, st.prncpl)) < 0) {
+	rc = config_parse(st->configfile, &st->cfg, st->prncpl);
+
+	if (rc < 0) {
 		fprintf(stderr, "%s: memory failure "
-			"during configuration parse\n", st.configfile);
+			"during configuration parse\n", st->configfile);
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (0 == rc) {
 		fprintf(stderr, "%s: not a valid "
-			"configuration file\n", st.configfile);
+			"configuration file\n", st->configfile);
 		http_error(&r, KHTTP_403);
 		goto out;
-	} else if (PERMS_NONE == st.cfg->perms) {
+	} else if (PERMS_NONE == st->cfg->perms) {
 		fprintf(stderr, "%s: principal without "
-			"any privilege\n", st.configfile);
+			"any privilege\n", st->configfile);
 		http_error(&r, KHTTP_403);
 		goto out;
 	}
 
 	switch (r.method) {
 	case (KMETHOD_PUT):
-		fprintf(stderr, "PUT: %s (%s)\n", r.fullpath, st.path);
 		method_put(&r);
 		break;
 	case (KMETHOD_PROPFIND):
-		fprintf(stderr, "PROPFIND: %s (%s) (depth=%s)\n", 
-			r.fullpath, st.path,
-			NULL != r.reqmap[KREQU_DEPTH] ?
-			r.reqmap[KREQU_DEPTH]->val : "infinity");
 		method_propfind(&r);
 		break;
 	case (KMETHOD_GET):
-		fprintf(stderr, "GET: %s (%s)\n", r.fullpath, st.path);
 		method_get(&r);
 		break;
 	case (KMETHOD_REPORT):
-		fprintf(stderr, "REPORT: %s (%s)\n", r.fullpath, st.path);
 		method_report(&r);
 		break;
 	case (KMETHOD_DELETE):
-		fprintf(stderr, "DELETE: %s (%s)\n", r.fullpath, st.path);
 		method_delete(&r);
 		break;
 	default:
+		fprintf(stderr, "%s: ignoring method %s\n",
+			st->path, kmethods[r.method]);
 		http_error(&r, KHTTP_405);
 		break;
 	}
 
 out:
 	khttp_free(&r);
-	config_free(st.cfg);
-	prncpl_free(st.prncpl);
-	httpauth_free(st.auth);
+	config_free(st->cfg);
+	prncpl_free(st->prncpl);
+	httpauth_free(st->auth);
+	free(st);
 	return(EXIT_SUCCESS);
 }

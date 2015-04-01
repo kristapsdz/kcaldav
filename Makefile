@@ -3,7 +3,7 @@
 # You'll absolutely want to change this. 
 # It is the directory prepended to all calendar requests.
 # It should not end in a trailing slash.
-CALDIR		 = /tmp
+CALDIR		 = /caldav
 
 # You probably don't want to change anything after this.
 BINS		 = kcaldav \
@@ -72,12 +72,13 @@ BINOBJS		 = collection.o \
 ALLOBJS		 = $(TESTOBJS) \
 		   $(BINOBJS) \
 		   $(OBJS)
-VERSIONS	 = version_0_0_4.xml
-VERSION		 = 0.0.4
+VERSIONS	 = version_0_0_4.xml \
+		   version_0_0_5.xml
+VERSION		 = 0.0.5
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 
-all: $(BINS)
+all: $(BINS) kcaldav.8
 
 www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
@@ -134,8 +135,11 @@ $(BINOBJS): main.h
 index.html: index.xml $(VERSIONS)
 	sblg -t index.xml -o- $(VERSIONS) | sed "s!@VERSION@!$(VERSION)!g" >$@
 
+kcaldav.8: kcaldav.in.8
+	sed "s!@CALDIR@!$(CALDIR)!" kcaldav.in.8 >$@
+
 clean:
-	rm -f $(ALLOBJS) $(BINS)
+	rm -f $(ALLOBJS) $(BINS) kcaldav.8
 	rm -rf *.dSYM
 	rm -f $(HTMLS) kcaldav.tgz kcaldav.tgz.sha512
 
