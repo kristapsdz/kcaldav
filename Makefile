@@ -4,6 +4,15 @@
 # It is the directory prepended to all calendar requests.
 # It should not end in a trailing slash.
 CALDIR		 = /caldav
+CGIPREFIX	 = /var/www/cgi-bin
+PREFIX		 = /usr/local
+
+# Add any special library directories here.
+CPPFLAGS	+= -I/usr/local/include
+BINLDFLAGS	 = -L/usr/local/lib
+BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
+LIBS		 = -lexpat -lutil
+STATIC		 = -static
 
 # You probably don't want to change anything after this.
 BINS		 = kcaldav \
@@ -83,10 +92,10 @@ all: $(BINS) kcaldav.8
 www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
 installcgi: all
-	mkdir -p $(PREFIX)
-	install -m 0755 kcaldav $(PREFIX)/kcaldav.cgi
+	mkdir -p $(CGIPREFIX)
+	install -m 0555 kcaldav $(CGIPREFIX)
 
-install: all
+install: installcgi
 	mkdir -p $(PREFIX)/man8
 	mkdir -p $(PREFIX)/man5
 	install -m 0444 kcaldav.conf.5 $(PREFIX)/man5
@@ -111,22 +120,22 @@ kcaldav.tgz:
 	rm -rf .dist
 
 kcaldav: $(BINOBJS) $(OBJS)
-	$(CC) -o $@ $(BINOBJS) $(OBJS) -lkcgi -lkcgixml -lexpat -lz
+	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) $(BINLDFLAGS) $(BINLIBS) 
 
 test-ical: test-ical.o $(OBJS)
-	$(CC) -o $@ test-ical.o $(OBJS) -lexpat
+	$(CC) -o $@ test-ical.o $(OBJS) $(LIBS)
 
 test-auth: test-auth.o $(OBJS)
-	$(CC) -o $@ test-auth.o $(OBJS) -lexpat
+	$(CC) -o $@ test-auth.o $(OBJS) $(LIBS)
 
 test-caldav: test-caldav.o $(OBJS)
-	$(CC) -o $@ test-caldav.o $(OBJS) -lexpat
+	$(CC) -o $@ test-caldav.o $(OBJS) $(LIBS)
 
 test-config: test-config.o $(OBJS)
-	$(CC) -o $@ test-config.o $(OBJS) -lexpat
+	$(CC) -o $@ test-config.o $(OBJS) $(LIBS)
 
 test-prncpl: test-prncpl.o $(OBJS)
-	$(CC) -o $@ test-prncpl.o $(OBJS) -lexpat
+	$(CC) -o $@ test-prncpl.o $(OBJS) $(LIBS)
 
 $(ALLOBJS): extern.h md5.h
 
