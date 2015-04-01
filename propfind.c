@@ -139,13 +139,6 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 		for (i = 0; i < dav->propsz; i++) {
 			if (NULL != accepted[dav->props[i].key])
 				continue;
-			switch (dav->props[i].key) {
-			case (PROP_GETETAG):
-			case (PROP_GETCONTENTTYPE):
-				continue;
-			default:
-				break;
-			}
 			khttp_puts(xml->req, "<X:");
 			khttp_puts(xml->req, dav->props[i].name);
 			khttp_puts(xml->req, " xmlns:X=\"");
