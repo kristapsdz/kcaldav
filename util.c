@@ -29,6 +29,8 @@
 
 static	const char *const __xmls[XML__MAX] = {
 	"C:calendar", /* XML_CALDAV_CALENDAR */
+	"C:comp", /* XML_CALDAV_COMP */
+	"C:opaque", /* XML_CALDAV_OPAQUE */
 	"D:bind", /* XML_DAV_BIND */
 	"D:collection", /* XML_DAV_COLLECTION */
 	"D:href", /* XML_DAV_HREF */

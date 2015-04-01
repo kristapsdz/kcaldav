@@ -81,7 +81,7 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	accepted[PROP_CALENDAR_HOME_SET] = 
 		collection_calendar_home_set;
 	accepted[PROP_CALENDAR_USER_ADDRESS_SET] = 
-		collection_user_address_set;
+		collection_calendar_user_address_set;
 	accepted[PROP_CURRENT_USER_PRINCIPAL] = 
 		collection_current_user_principal;
 	accepted[PROP_CURRENT_USER_PRIVILEGE_SET] = 
@@ -98,7 +98,12 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 		collection_quota_available_bytes;
 	accepted[PROP_QUOTA_USED_BYTES] = 
 		collection_quota_used_bytes;
-	accepted[PROP_RESOURCETYPE] = collection_resourcetype;
+	accepted[PROP_RESOURCETYPE] = 
+		collection_resourcetype;
+	accepted[PROP_SCHEDULE_CALENDAR_TRANSP] = 
+		collection_schedule_calendar_transp;
+	accepted[PROP_SUPPORTED_CALENDAR_COMPONENT_SET] = 
+		collection_supported_calendar_component_set;
 
 	/*
 	 * As defined by RFC 4918, we can ignore these.
@@ -206,6 +211,8 @@ propfind_resource(struct kxmlreq *xml,
 		resource_resourcetype;
 
 	ignore[PROP_GETCTAG] = 1;
+	ignore[PROP_SCHEDULE_CALENDAR_TRANSP] = 1;
+	ignore[PROP_SUPPORTED_CALENDAR_COMPONENT_SET] = 1;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
