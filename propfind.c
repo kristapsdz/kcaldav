@@ -70,11 +70,14 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	struct state	*st = xml->req->arg;
 	const char	*tag;
 	collectionfp	 accepted[PROP__MAX + 1];
+	int		 ignore[PROP__MAX + 1];
 
 	fprintf(stderr, "%s: properties: %s\n", 
 		st->path, st->prncpl->name);
 
 	memset(accepted, 0, sizeof(accepted));
+	memset(ignore, 0, sizeof(ignore));
+
 	accepted[PROP_CALENDAR_HOME_SET] = 
 		collection_calendar_home_set;
 	accepted[PROP_CALENDAR_USER_ADDRESS_SET] = 
@@ -97,6 +100,12 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 		collection_quota_used_bytes;
 	accepted[PROP_RESOURCETYPE] = collection_resourcetype;
 
+	/*
+	 * As defined by RFC 4918, we can ignore these.
+	 */
+	ignore[PROP_GETETAG] = 1;
+	ignore[PROP_GETCONTENTTYPE] = 1;
+
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, xml->req->pname);
@@ -107,14 +116,15 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 
 	for (nf = i = 0; i < dav->propsz; i++) {
 		if (NULL == accepted[dav->props[i].key]) {
+			if (ignore[dav->props[i].key])
+				continue;
 			nf++;
-			fprintf(stderr, "Unknown prop: %s (%s)\n", 
+			fprintf(stderr, "Unknown collection "
+				"property: %s (%s)\n", 
 				dav->props[i].name, 
 				dav->props[i].xmlns);
 			continue;
 		}
-		fprintf(stderr, "Known prop: %s (%s)\n", 
-			dav->props[i].name, dav->props[i].xmlns);
 		tag = calelems[calpropelems[dav->props[i].key]];
 		khttp_puts(xml->req, "<X:");
 		khttp_puts(xml->req, tag);
@@ -138,6 +148,8 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
 			if (NULL != accepted[dav->props[i].key])
+				continue;
+			if (ignore[dav->props[i].key])
 				continue;
 			khttp_puts(xml->req, "<X:");
 			khttp_puts(xml->req, dav->props[i].name);
@@ -169,8 +181,11 @@ propfind_resource(struct kxmlreq *xml,
 	const char	*tag, *pathp;
 	char		 buf[PATH_MAX];
 	resourcefp	 accepted[PROP__MAX + 1];
+	int		 ignore[PROP__MAX + 1];
 
 	memset(accepted, 0, sizeof(accepted));
+	memset(ignore, 0, sizeof(ignore));
+
 	accepted[PROP_CALENDAR_DATA] = 
 		resource_calendar_data;
 	accepted[PROP_CURRENT_USER_PRINCIPAL] = 
@@ -189,6 +204,8 @@ propfind_resource(struct kxmlreq *xml,
 		resource_quota_used_bytes;
 	accepted[PROP_RESOURCETYPE] = 
 		resource_resourcetype;
+
+	ignore[PROP_GETCTAG] = 1;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
@@ -242,15 +259,15 @@ propfind_resource(struct kxmlreq *xml,
 	kxml_push(xml, XML_DAV_PROP);
 	for (nf = i = 0; i < dav->propsz; i++) {
 		if (NULL == accepted[dav->props[i].key]) {
+			if (ignore[dav->props[i].key])
+				continue;
 			nf++;
-			fprintf(stderr, "Unknown prop: %s (%s)\n", 
+			fprintf(stderr, "Unknown resource "
+				"property: %s (%s)\n", 
 				dav->props[i].name, 
 				dav->props[i].xmlns);
 			continue;
 		}
-		fprintf(stderr, "Known prop: %s (%s)\n", 
-			dav->props[i].name, 
-			dav->props[i].xmlns);
 		tag = calelems[calpropelems[dav->props[i].key]];
 		khttp_puts(xml->req, "<X:");
 		khttp_puts(xml->req, tag);
@@ -278,6 +295,8 @@ propfind_resource(struct kxmlreq *xml,
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
 			if (NULL != accepted[dav->props[i].key])
+				continue;
+			if (ignore[dav->props[i].key])
 				continue;
 			khttp_puts(xml->req, "<X:");
 			khttp_puts(xml->req, dav->props[i].name);
@@ -328,6 +347,8 @@ method_report(struct kreq *r)
 
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
+	khttp_head(r, "DAV", "1, 2, "
+		"access-control, calendar-access");
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
 	khttp_body(r);

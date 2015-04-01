@@ -47,10 +47,6 @@ method_get(struct kreq *r)
 			"have read acccess\n", st->path);
 		http_error(r, KHTTP_403);
 		return;
-	} else if (st->isdir) {
-		/* The RFC says to just accept this and whatever. */
-		http_error(r, KHTTP_200);
-		return;
 	} else if (NULL == (p = ical_parsefile(st->path))) {
 		fprintf(stderr, "%s: fail parse\n", st->path);
 		http_error(r, KHTTP_404);
