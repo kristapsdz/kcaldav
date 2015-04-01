@@ -29,30 +29,57 @@
 
 static	const char *const __xmls[XML__MAX] = {
 	"C:calendar", /* XML_CALDAV_CALENDAR */
+	"D:bind", /* XML_DAV_BIND */
 	"D:collection", /* XML_DAV_COLLECTION */
 	"D:href", /* XML_DAV_HREF */
 	"D:multistatus", /* XML_DAV_MULTISTATUS */
+	"D:privilege", /* XML_DAV_PRIVILEGE */
 	"D:prop", /* XML_DAV_PROP */
         "D:propstat", /* XML_DAV_PROPSTAT */
+	"D:read", /* XML_DAV_READ */
+	"D:read-current-user-privilege-set", /* XML_DAV_READ_CUR... */
 	"D:response", /* XML_DAV_RESPONSE */
 	"D:status", /* XML_DAV_STATUS */
-	"D:unauthenticated", /* XML_DAV_UNAUTHENTICATED */
+	"D:unbind", /* XML_DAV_UNBIND */
+	"D:write-content", /* XML_DAV_WRITE_CONTENT */
 };
 
 const char *const *xmls = __xmls;
 
-void
+int
 xml_ical_putc(int c, void *arg)
 {
 	struct kxmlreq	*r = arg;
 
 	kxml_putc(r, c);
+	return(1);
 }
 
-void
+int
 http_ical_putc(int c, void *arg)
 {
 	struct kreq	*r = arg;
 
 	khttp_putc(r, c);
+	return(1);
 }
+
+void
+http_error(struct kreq *r, enum khttp c)
+{
+	char	 nonce[33];
+	size_t	 i;
+
+	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[c]);
+	if (KHTTP_401 == c) {
+		for (i = 0; i < sizeof(nonce); i++)
+			snprintf(nonce + i, 2, "%.1X", 
+				arc4random_uniform(128));
+		khttp_head(r, kresps[KRESP_WWW_AUTHENTICATE],
+			"Digest realm=\"kcaldav\" "
+			"nonce=\"%s\"", nonce);
+	}
+
+	khttp_body(r);
+}
+

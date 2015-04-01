@@ -40,13 +40,18 @@ ALLSRCS		 = Makefile \
 		   collection.c \
 		   config.c \
 		   ctagcache.c \
+		   delete.c \
+		   get.c \
 		   httpauth.c \
 		   ical.c \
 		   main.c \
 		   md5.c \
+		   options.c \
 		   principal.c \
+		   propfind.c \
+		   put.c \
 		   resource.c \
-		   xml.c
+		   util.c
 OBJS		 = buf.o \
 		   caldav.o \
 		   config.o \
@@ -56,9 +61,14 @@ OBJS		 = buf.o \
 		   md5.o \
 		   principal.o
 BINOBJS		 = collection.o \
+		   delete.o \
+		   get.o \
 		   main.o \
+		   options.o \
+		   propfind.o \
+		   put.o \
 		   resource.o \
-		   xml.o
+		   util.o
 ALLOBJS		 = $(TESTOBJS) \
 		   $(BINOBJS) \
 		   $(OBJS)

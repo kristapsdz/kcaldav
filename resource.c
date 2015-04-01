@@ -35,6 +35,20 @@ resource_calendar_data(struct kxmlreq *xml, const struct ical *p)
 }
 
 void
+resource_current_user_principal(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_current_user_principal(xml);
+}
+
+void
+resource_current_user_privilege_set(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_current_user_privilege_set(xml);
+}
+
+void
 resource_getcontenttype(struct kxmlreq *xml, const struct ical *p)
 {
 
@@ -51,12 +65,22 @@ resource_getetag(struct kxmlreq *xml, const struct ical *p)
 void
 resource_owner(struct kxmlreq *xml, const struct ical *p)
 {
-	struct state	*st = xml->req->arg;
 
-	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, "mailto:");
-	kxml_puts(xml, st->cfg->emailaddress);
-	kxml_pop(xml);
+	collection_owner(xml);
+}
+
+void
+resource_quota_available_bytes(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_quota_available_bytes(xml);
+}
+
+void
+resource_quota_used_bytes(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_quota_used_bytes(xml);
 }
 
 void
