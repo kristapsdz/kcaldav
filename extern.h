@@ -169,7 +169,7 @@ int		 ctagcache_update(const char *);
 int		 config_parse(const char *, struct config **, const struct prncpl *);
 void		 config_free(struct config *);
 
-int		 prncpl_parse(const char *, 
+int		 prncpl_parse(const char *, const char *,
 			const struct httpauth *, struct prncpl **);
 void		 prncpl_free(struct prncpl *);
 

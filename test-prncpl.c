@@ -78,7 +78,7 @@ main(int argc, char *argv[])
 			NULL == p->response ? "(none)" : p->response);
 		printf("uri: %s\n",
 			NULL == p->uri ? "(none)" : p->uri);
-		c = prncpl_parse(argv[1], p, &prncpl);
+		c = prncpl_parse(argv[1], "GET", p, &prncpl);
 		if (c > 0 && NULL != prncpl)
 			printf("principal: %s\n", prncpl->name);
 	}

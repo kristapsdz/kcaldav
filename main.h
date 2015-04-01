@@ -36,6 +36,7 @@ struct	state {
 	char		 ctagfile[PATH_MAX]; /* ctag filename */
 	char		 configfile[PATH_MAX]; /* config filename */
 	char		 prncplfile[PATH_MAX]; /* passwd filename */
+	char		 rpath[PATH_MAX]; /* full request URI */
 	int		 isdir;
 };
 

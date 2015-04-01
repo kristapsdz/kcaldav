@@ -153,7 +153,12 @@ httpauth_parse(const char *cp)
 		return(NULL);
 	}
 
-	auth->authorised = NULL != auth->user;
+	auth->authorised = 
+		NULL != auth->user &&
+		NULL != auth->nonce &&
+		NULL != auth->response &&
+		NULL != auth->realm &&
+		NULL != auth->uri;
 	return(auth);
 }
 
