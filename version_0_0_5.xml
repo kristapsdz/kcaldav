@@ -1,0 +1,12 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.0.5</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-04-02">2015-04-02</time>
+	</header>
+	<aside>
+		Simple CalDAV access using Lightning and iCal.
+		The usual PUT, GET, and DELETE methods are supported, and a minimal (but functional) subset of PROPFIND and REPORT properties.
+		See the <a href="kcaldav.8.html">kcaldav(8)</a> manual for details.
+	</aside>
+</article>
