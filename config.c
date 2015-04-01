@@ -16,7 +16,11 @@
  */
 #include <sys/param.h>
 #include <sys/mount.h>
+#ifdef __OpenBSD__
+#include <ufs/ufs/quota.h>
+#else
 #include <sys/quota.h>
+#endif
 
 #include <assert.h>
 #include <ctype.h>
@@ -145,8 +149,15 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 		bytesused = sfs.f_blocks * sfs.f_bsize;
 		bytesavail = sfs.f_bfree * sfs.f_bsize;
 	} else {
+#ifdef __OpenBSD__
+		bytesused = sfs.f_bsize *
+			quota.dqb_curblocks;
+		bytesavail = sfs.f_bsize *
+			(quota.dqb_bsoftlimit - quota.dqb_curblocks);
+#else
 		bytesused = quota.dqb_curbytes;
 		bytesavail = quota.dqb_bsoftlimit - quota.dqb_curbytes;
+#endif
 	}
 
 	if (NULL == (f = fdopen(fd, "r"))) {

@@ -217,6 +217,7 @@ ical_parse(const char *cp)
 	for (i = 0; i < sizeof(digest); i++) 
 	         snprintf(&p->digest[i * 2], 3, "%02x", digest[i]);
 
+	cur = NULL;
 	while ('\0' != *cp) {
 		if (0 == ical_line(&cp, &buf)) {
 			fprintf(stderr, "unterminated line\n");

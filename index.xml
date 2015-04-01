@@ -34,6 +34,7 @@
 				</p>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
+					It assumes an installation of the server, for which you'll need to <code>make install</code>.
 					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> and <a
 						href="kcaldav.passwd.5.html">kcaldav.passwd(5)</a>.
 					If it lacks information or clarity, that's a bug.
