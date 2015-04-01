@@ -9,6 +9,7 @@
 .\" Not used in OpenBSD.
 .Sh SYNOPSIS
 .Nm kcaldav
+.Op Ar caldir
 .Sh DESCRIPTION
 The
 .Nm
@@ -16,9 +17,10 @@ CGI program minimally implements CalDAV, with an emphasis on strong
 authorisation and simplicity.
 To use
 .Nm ,
-you'll need to first populate your
-.Dv CALDIR
-.Pq set during compile time
+you'll need to first populate the calendar root directory
+.Ar caldir ,
+which defaults to
+.Pa @CALDIR@ ,
 with a password file (for HTTP authorisation, see
 .Xr kcaldav.passwd 5 ) ,
 then for each collection (calendar directory), create a configuration
@@ -27,8 +29,7 @@ file (see
 defining the permissions of that collection and other information.
 .Pp
 Once finished, you can point your calendar client to the owned
-collection within
-.Dv CALDIR .
+collection within the calendar root.
 .Pp
 For example, assume the script has been installed into
 .Pa /var/www/cgi-bin
@@ -36,14 +37,12 @@ and is reachable at
 .Pp
 .D1 http://localhost/cgi-bin/kcaldav.cgi
 .Pp
-Moreover, assume
-.Dv CALDIR
-is set to
-.Pa /var/www/caldav ,
-which contains
+Moreover, assume your calendar root
+.Pa @CALDIR@
+contains
 .Pa kcaldav.passwd ;
 and you have installed a single collection at
-.Pa /var/www/caldav/kristaps
+.Pa @CALDIR@/kristaps
 consisting of
 .Pa kcaldav.conf
 and some calendars.
@@ -99,9 +98,7 @@ and
 .\" .Sh ENVIRONMENT
 .\" For sections 1, 6, 7, and 8 only.
 .Sh FILES
-The following files are required in the
-.Ev CALDIR
-root set during compilation time.
+The following files are required in the calendar root directory.
 .Bl -tag -width Ds
 .It Pa /kcaldav.passwd
 Authorisation for all principals.
@@ -135,8 +132,14 @@ This is automatically created and updated.
 .Sh STANDARDS
 The
 .Nm
-utility implements the following additional standards:
+utility minimally implements RFC 4918 (WebDAV), RFC 4791 (CalDAV), and
+of course RFC 2616 (HTTP).
+It also implements the following extensions:
 .Bl -tag -width Ds
+.It RFC 7232
+Conditional HTTP responses (etag,
+.Qq If-Match ,
+etc.).
 .It RFC 2617
 .Qq Digest
 authentication of all users.
@@ -145,7 +148,7 @@ The
 .Qq ctag
 Calendar Server Extension.
 .It RFC 3744
-ACL queries on the authenticated principal.
+ACL queries on the authenticated principal (not ACEs).
 .It RFC 5397
 The current principal address.
 .It RFC 4331

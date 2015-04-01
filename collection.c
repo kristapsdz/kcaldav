@@ -33,10 +33,10 @@
 void
 collection_calendar_home_set(struct kxmlreq *xml)
 {
+	struct state	*st = xml->req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
-	kxml_puts(xml, xml->req->fullpath);
+	kxml_puts(xml, st->rpath);
 	kxml_pop(xml);
 }
 
@@ -101,20 +101,20 @@ collection_getctag(struct kxmlreq *xml)
 void
 collection_owner(struct kxmlreq *xml)
 {
+	struct state	*st = xml->req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
-	kxml_puts(xml, xml->req->fullpath);
+	kxml_puts(xml, st->rpath);
 	kxml_pop(xml);
 }
 
 void
 collection_principal_url(struct kxmlreq *xml)
 {
+	struct state	*st = xml->req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
-	kxml_puts(xml, xml->req->fullpath);
+	kxml_puts(xml, st->rpath);
 	kxml_pop(xml);
 }
 
