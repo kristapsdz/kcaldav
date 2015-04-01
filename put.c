@@ -266,5 +266,6 @@ method_put(struct kreq *r)
 	khttp_body(r);
 	ical_free(p);
 	fprintf(stderr, "%s: put: %s\n", st->path, st->prncpl->name);
+	ctagcache_update(st->ctagfile);
 }
 

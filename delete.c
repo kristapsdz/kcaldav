@@ -73,8 +73,10 @@ method_delete(struct kreq *r)
 			perror(st->path);
 			fprintf(stderr, "%s: fail unlink\n", st->path);
 			http_error(r, KHTTP_505);
-		} else
+		} else {
+			ctagcache_update(st->ctagfile);
 			http_error(r, KHTTP_204);
+		}
 		ical_parsefile_close(st->path, fd);
 		ical_free(cur);
 		return;
@@ -85,6 +87,7 @@ method_delete(struct kreq *r)
 			http_error(r, KHTTP_204);
 			return;
 		}
+		ctagcache_update(st->ctagfile);
 		perror(st->path);
 		fprintf(stderr, "%s: fail unlink\n", st->path);
 		http_error(r, KHTTP_505);
@@ -134,5 +137,6 @@ method_delete(struct kreq *r)
 		http_error(r, KHTTP_505);
 	else
 		http_error(r, KHTTP_204);
+	ctagcache_update(st->ctagfile);
 }
 
