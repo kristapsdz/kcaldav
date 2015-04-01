@@ -243,6 +243,8 @@ main(int argc, char *argv[])
 		goto out;
 	} 
 
+	fprintf(stderr, "%s: %s\n", st->path, kmethods[r.method]);
+
 	/*
 	 * Parse our HTTP credentials.
 	 * This must be digest authorisation passed from the web server.
