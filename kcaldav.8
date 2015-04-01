@@ -55,10 +55,46 @@ Note the trailing slash, otherwise the request is interpreted as for a
 resource (file), not a collection (directory).
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
-.\" .Sh IMPLEMENTATION NOTES
+.Sh IMPLEMENTATION NOTES
+Internally,
+.Nm
+maintains file consistency by using file locks and temporary files.
+When new resources are submitted, the new resource is always written
+into a temporary file, which is the existing filename with a leading
+dot.
+(Leading-dot files are thus always ignored when accessing files and
+disallowed for resource submission.)
+By writing into a temporary file,
+.Nm
+can safely check for file-system limits.
+.Pp
+After writing, the requested file is uniquely opened and exclusively
+locked, replaced with the temporary file, then unlocked.
+.Pp
+If the requested file exists and is meant for overwrite, the existing
+file is opened and exclusively locked, its digest checked for
+consistency, then the new file replaced before unlocking.
+.Pp
+Resource read-access is simpler: files are opened with shared locks.
+This allows simultaneous read-access whilst protecting file
+modification.
+.Pp
+This behaviour depends upon standards-defined behaviour of
+.Xr open 2
+with
+.Dv O_EXCL ,
+.Dv O_SHLOCK
+and
+.Dv O_EXLOCK ;
+.Xr flock 2
+with
+.Dv LOCK_EX
+and
+.Dv LOCK_SH ;
+and
+.Xr rename 2 .
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
-.
 .\" For sections 2, 3, and 9 function return values only.
 .\" .Sh ENVIRONMENT
 .\" For sections 1, 6, 7, and 8 only.
@@ -80,6 +116,13 @@ file defines the collection properties.
 See
 .Xr kcaldav.conf 5 .
 .El
+.Pp
+The following files may be created during runtime:
+.Bl -tag -width Ds
+.It Pa /<collection>/kcaldav.ctag
+A cache file for the collection's ctag (entity tag for the collection).
+This is automatically created and updated.
+.El
 .\" .Sh EXIT STATUS
 .\" For sections 1, 6, and 8 only.
 .\" .Sh EXAMPLES
@@ -92,12 +135,26 @@ See
 .Sh STANDARDS
 The
 .Nm
-utility implements the following standards:
+utility implements the following additional standards:
 .Bl -tag -width Ds
 .It RFC 2617
-For
-.Qq digest
+.Qq Digest
 authentication of all users.
+.It caldav-ctag-02
+The
+.Qq ctag
+Calendar Server Extension.
+.It RFC 3744
+ACL queries on the authenticated principal.
+.It RFC 5397
+The current principal address.
+.It RFC 4331
+Available and used bytes in the collection file-system.
+If
+.Xr quotactl 2
+fails (e.g., when quotas are not available),
+.Xr fstatfs 2
+is used to compute these values.
 .El
 .\" .Sh HISTORY
 .\" .Sh AUTHORS

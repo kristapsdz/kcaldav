@@ -32,6 +32,7 @@ enum	calelem {
 	CALELEM_CALENDAR_QUERY,
 	CALELEM_CALENDAR_USER_ADDRESS_SET,
 	CALELEM_CURRENT_USER_PRINCIPAL,
+	CALELEM_CURRENT_USER_PRIVILEGE_SET,
 	CALELEM_DISPLAYNAME,
 	CALELEM_GETCONTENTTYPE,
 	CALELEM_GETCTAG,
@@ -43,6 +44,8 @@ enum	calelem {
 	CALELEM_PROP,
 	CALELEM_PROPERTYUPDATE,
 	CALELEM_PROPFIND,
+	CALELEM_QUOTA_AVAILABLE_BYTES,
+	CALELEM_QUOTA_USED_BYTES,
 	CALELEM_RESOURCETYPE,
 	CALELEM__MAX
 };
@@ -52,12 +55,15 @@ enum	proptype {
 	PROP_CALENDAR_HOME_SET,
 	PROP_CALENDAR_USER_ADDRESS_SET,
 	PROP_CURRENT_USER_PRINCIPAL,
+	PROP_CURRENT_USER_PRIVILEGE_SET,
 	PROP_DISPLAYNAME,
 	PROP_GETCONTENTTYPE,
 	PROP_GETCTAG,
 	PROP_GETETAG,
 	PROP_OWNER,
 	PROP_PRINCIPAL_URL,
+	PROP_QUOTA_AVAILABLE_BYTES,
+	PROP_QUOTA_USED_BYTES,
 	PROP_RESOURCETYPE,
 	PROP__MAX
 };
@@ -124,6 +130,8 @@ struct	prncpl {
  * to produce the permissions.
  */
 struct	config {
+	long long	  bytesused;
+	long long	  bytesavail;
 	char		 *displayname;
 	char		 *emailaddress;
 	unsigned int	  perms;
@@ -136,7 +144,7 @@ struct	config {
 
 __BEGIN_DECLS
 
-typedef void	(*ical_putchar)(int, void *);
+typedef int	(*ical_putchar)(int, void *);
 
 void 		 bufappend(struct buf *, const char *, size_t);
 void		 bufreset(struct buf *);
@@ -148,8 +156,8 @@ struct ical 	*ical_parsefile(const char *);
 struct ical 	*ical_parsefile_open(const char *, int *);
 int		 ical_parsefile_close(const char *, int);
 void		 ical_free(struct ical *);
-void		 ical_print(const struct ical *, ical_putchar, void *);
-void		 ical_printfile(int, const struct ical *);
+int		 ical_print(const struct ical *, ical_putchar, void *);
+int		 ical_printfile(int, const struct ical *);
 
 struct caldav	*caldav_parsefile(const char *);
 struct caldav 	*caldav_parse(const char *, size_t);
