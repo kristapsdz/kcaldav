@@ -40,6 +40,17 @@ collection_calendar_home_set(struct kxmlreq *xml)
 }
 
 void
+collection_calendar_user_address_set(struct kxmlreq *xml)
+{
+	struct state	*st = xml->req->arg;
+
+	kxml_push(xml, XML_DAV_HREF);
+	kxml_puts(xml, "mailto:");
+	kxml_puts(xml, st->cfg->emailaddress);
+	kxml_pop(xml);
+}
+
+void
 collection_current_user_principal(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -146,12 +157,32 @@ collection_resourcetype(struct kxmlreq *xml)
 }
 
 void
-collection_user_address_set(struct kxmlreq *xml)
+collection_schedule_calendar_transp(struct kxmlreq *xml)
 {
-	struct state	*st = xml->req->arg;
 
-	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, "mailto:");
-	kxml_puts(xml, st->cfg->emailaddress);
-	kxml_pop(xml);
+	kxml_pushnull(xml, XML_CALDAV_OPAQUE);
+}
+
+void
+collection_supported_calendar_component_set(struct kxmlreq *xml)
+{
+
+	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+		"name", "VCALENDAR", NULL);
+	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+		"name", "VEVENT", NULL);
+	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+		"name", "VTODO", NULL);
+	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+		"name", "VJOURNAL", NULL);
+	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+		"name", "VFREEBUSY", NULL);
+	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+		"name", "VTIMEZONE", NULL);
+	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+		"name", "VALARM", NULL);
+	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+		"name", "STANDARD", NULL);
+	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+		"name", "DAYLIGHT", NULL);
 }
