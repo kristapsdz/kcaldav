@@ -14,6 +14,8 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include "config.h"
+
 #include <sys/stat.h>
 #include <sys/mman.h>
 
@@ -113,16 +115,7 @@ ical_parsefile_close(const char *file, int fd)
 	if (-1 == fd)
 		return(1);
 
-	if (-1 == flock(fd, LOCK_UN)) {
-		perror(file);
-		close(fd);
-		return(0);
-	} else if (-1 == close(fd)) {
-		perror(file);
-		return(0);
-	}
-
-	return(1);
+	return(close_unlock(file, fd) >= 0);
 }
 
 /*
@@ -138,21 +131,19 @@ struct ical *
 ical_parsefile_open(const char *file, int *keep)
 {
 	int	 	 fd;
-	unsigned int	 flags;
 	char		*map;
 	struct stat	 st;
 	struct ical	*p;
 
-	if (NULL != keep) {
-		*keep = -1;
-		flags = O_RDONLY | O_EXLOCK;
-	} else
-		flags = O_RDONLY | O_SHLOCK;
+	if (NULL != keep)
+		*keep = fd = open_lock_ex(file, O_RDONLY, 06000);
+	else
+		fd = open_lock_sh(file, O_RDONLY, 06000);
 
-	if (-1 == (fd = open(file, flags, 0600))) {
-		perror(file);
+	if (-1 == fd)
 		return(NULL);
-	} else if (-1 == fstat(fd, &st)) {
+
+	if (-1 == fstat(fd, &st)) {
 		perror(file);
 		ical_parsefile_close(file, fd);
 		return(NULL);
@@ -170,13 +161,10 @@ ical_parsefile_open(const char *file, int *keep)
 	p = ical_parse(file, map, st.st_size);
 	munmap(map, st.st_size);
 
-	if (NULL != keep) {
-		*keep = fd;
-	} else if ( ! ical_parsefile_close(file, fd)) {
+	if ( ! ical_parsefile_close(file, fd)) {
 		ical_free(p);
 		p = NULL;
 	}
-
 	return(p);
 }
 

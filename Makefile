@@ -11,7 +11,7 @@ PREFIX		 = /usr/local
 CPPFLAGS	+= -I/usr/local/include
 BINLDFLAGS	 = -L/usr/local/lib
 BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
-LIBS		 = -lexpat -lutil
+LIBS		 = -lexpat -lutil -lbsd
 #STATIC		 = -static
 
 # You probably don't want to change anything after this.
@@ -47,6 +47,12 @@ ALLSRCS		 = Makefile \
 		   buf.c \
 		   caldav.c \
 		   collection.c \
+		   compat-explicit_bzero.c \
+		   compat-fparseln.c \
+		   compat-memmem.c \
+		   compat-reallocarray.c \
+		   compat-strlcat.c \
+		   compat-strlcpy.c \
 		   config.c \
 		   ctagcache.c \
 		   delete.c \
@@ -55,20 +61,37 @@ ALLSRCS		 = Makefile \
 		   ical.c \
 		   main.c \
 		   md5.c \
+		   open.c \
 		   options.c \
+		   quota.c \
 		   principal.c \
 		   propfind.c \
 		   put.c \
 		   resource.c \
+		   test-explicit_bzero.c \
+		   test-fparseln.c \
+		   test-memmem.c \
+		   test-open-lock.c \
+		   test-reallocarray.c \
+		   test-strlcat.c \
+		   test-strlcpy.c \
 		   util.c
 OBJS		 = buf.o \
 		   caldav.o \
+		   compat-explicit_bzero.o \
+		   compat-fparseln.o \
+		   compat-memmem.o \
+		   compat-reallocarray.o \
+		   compat-strlcat.o \
+		   compat-strlcpy.o \
 		   config.o \
 		   ctagcache.o \
 		   httpauth.o \
 		   ical.o \
 		   md5.o \
-		   principal.o
+		   open.o \
+		   principal.o \
+		   quota.o
 BINOBJS		 = collection.o \
 		   delete.o \
 		   get.o \
@@ -94,6 +117,10 @@ www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
 afl: all
 	install -m 0555 test-ical afl/test-ical
+
+config.h: config.h.pre config.h.post configure $(TESTS)
+	rm -f config.log
+	CC="$(CC)" CFLAGS="$(CFLAGS)" ./configure
 
 installcgi: all
 	mkdir -p $(CGIPREFIX)
@@ -141,7 +168,7 @@ test-config: test-config.o $(OBJS)
 test-prncpl: test-prncpl.o $(OBJS)
 	$(CC) -o $@ test-prncpl.o $(OBJS) $(LIBS)
 
-$(ALLOBJS): extern.h md5.h
+$(ALLOBJS): extern.h md5.h config.h
 
 $(BINOBJS): main.h
 
@@ -155,6 +182,8 @@ clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8
 	rm -rf *.dSYM
 	rm -f $(HTMLS) kcaldav.tgz kcaldav.tgz.sha512
+	rm -f test-memmem test-reallocarray test-strlcat test-strlcpy test-open-lock text-explicit_bzero
+	rm -f config.h config.log
 
 .8.8.html .5.5.html:
 	mandoc -Thtml $< >$@

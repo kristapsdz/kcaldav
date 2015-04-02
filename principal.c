@@ -14,6 +14,8 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include "config.h"
+
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -21,28 +23,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef __linux__
+#include <bsd/stdio.h>
+#else
 #include <util.h>
+#endif
 
 #include "extern.h"
 #include "md5.h"
-
-/*
- * Public domain.
- * Written by Matthew Dempsky.
- */
-#ifndef __OpenBSD__
-__attribute__((weak)) void
-__explicit_bzero_hook(void *buf, size_t len)
-{
-}
-
-void
-explicit_bzero(void *buf, size_t len)
-{
-	memset(buf, 0, len);
-	__explicit_bzero_hook(buf, len);
-}
-#endif
 
 static int
 validate(const char *pass, const char *method,
