@@ -164,7 +164,9 @@ is used to compute these values.
 .El
 .\" .Sh HISTORY
 .\" .Sh AUTHORS
-.\" .Sh CAVEATS
+.Sh CAVEATS
+Quotas are not supported on Linux because it requires too much voodoo to
+map from a file descriptor (or file) to the block device.
 .\" .Sh BUGS
 .\" .Sh SECURITY CONSIDERATIONS
 .\" Not used in OpenBSD.
