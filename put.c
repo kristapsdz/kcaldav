@@ -14,6 +14,8 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include "config.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -23,6 +25,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef __linux__
+#include <bsd/stdlib.h>
+#endif
 
 #include <kcgi.h>
 #include <kcgixml.h>
@@ -218,12 +223,10 @@ method_put(struct kreq *r)
 	 * Make sure that this doesn't exist: create a new unique file,
 	 * lock it, then swap into it.
 	 */
-	fd = open(st->path, O_CREAT | 
-		O_EXCL | O_RDWR | O_EXLOCK, 0600);
+	fd = open_lock_ex(st->path, O_CREAT | O_EXCL | O_RDWR, 0600);
 
 	if (-1 == fd) {
 		er = errno;
-		perror(st->path);
 		fprintf(stderr, "%s: failed create\n", st->path);
 		if (EDQUOT == er || ENOSPC == er)
 			http_error(r, KHTTP_507);
@@ -251,11 +254,7 @@ method_put(struct kreq *r)
 			perror(st->temp);
 			fprintf(stderr, "%s: failed unlink\n", st->path);
 		} 
-		if (-1 == flock(fd, LOCK_UN)) {
-			perror(st->path);
-			fprintf(stderr, "%s: failed unlock\n", st->path);
-		}
-		close(fd);
+		close_unlock(st->path, fd);
 		ical_free(p);
 		ctagcache_update(st->ctagfile);
 		return;
