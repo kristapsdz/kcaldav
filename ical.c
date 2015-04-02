@@ -89,25 +89,34 @@ ical_free(struct ical *p)
 	free(p);
 }
 
+/*
+ * Parse a CRLF-terminated line out of it the iCalendar file.
+ * We ignore the last line, so non-CRLF-terminated EOFs are bad.
+ * Returns 0 when no CRLF is left, 1 on more lines.
+ */
 static int
-ical_line(const char **cp, struct buf *buf)
+ical_line(const char *cp, struct buf *buf, size_t *pos, size_t sz)
 {
-	const char	*end, *start;
+	const char	*end;
+	size_t		 len;
 
 	buf->sz = 0;
-	start = *cp;
 	for (;;) {
-		if (NULL == (end = strstr(start, "\r\n")))
+		assert(*pos < sz);
+		end = memmem(&cp[*pos], sz - *pos, "\r\n", 2);
+		if (NULL == end)
 			return(0);
-		bufappend(buf, start, end - start);
+		len = end - &cp[*pos];
+		bufappend(buf, &cp[*pos], len);
 		if (' ' != end[2] && '\t' != end[2]) 
 			break;
-		start = end + 2;
-		while (' ' == *start || '\t' == *start)
-			start++;
+		*pos += len + 2;
+		while (' ' == cp[*pos] || '\t' == cp[*pos])
+			(*pos)++;
 	}
 
-	*cp = end + 2;
+	*pos += len + 2;
+	assert(*pos < sz);
 	return(1);
 }
 
@@ -130,8 +139,11 @@ ical_parsefile_close(const char *file, int fd)
 		perror(file);
 		close(fd);
 		return(0);
-	} 
-	close(fd);
+	} else if (-1 == close(fd)) {
+		perror(file);
+		return(0);
+	}
+
 	return(1);
 }
 
@@ -140,9 +152,8 @@ ical_parsefile_open(const char *file, int *keep)
 {
 	int	 	 fd;
 	unsigned int	 flags;
-	char		*buf;
+	char		*map;
 	struct stat	 st;
-	ssize_t		 ssz;
 	struct ical	*p;
 
 	if (NULL != keep) {
@@ -156,52 +167,41 @@ ical_parsefile_open(const char *file, int *keep)
 		return(NULL);
 	} else if (-1 == fstat(fd, &st)) {
 		perror(file);
-		flock(fd, LOCK_UN);
-		close(fd);
-		return(NULL);
-	} else if (NULL == (buf = malloc(st.st_size + 1))) {
-		perror(NULL);
-		flock(fd, LOCK_UN);
-		close(fd);
-		return(NULL);
-	} else if ((ssz = read(fd, buf, st.st_size)) < 0) {
-		perror(file);
-		flock(fd, LOCK_UN);
-		close(fd);
-		free(buf);
-		return(NULL);
-	} else if (ssz != st.st_size) {
-		fprintf(stderr, "%s: invalid read size\n", file);
-		flock(fd, LOCK_UN);
-		close(fd);
-		free(buf);
+		ical_parsefile_close(file, fd);
 		return(NULL);
 	}
-	buf[st.st_size] = '\0';
-	if (-1 == flock(fd, LOCK_UN)) {
-		perror(file);
-		close(fd);
-		free(buf);
-		return(NULL);
-	} else if (NULL == keep)
-		close(fd);
 
-	p = ical_parse(buf);
-	free(buf);
-	if (NULL != keep)
+	map = mmap(NULL, st.st_size, 
+		PROT_READ, MAP_SHARED, fd, 0);
+
+	if (MAP_FAILED == map) {
+		perror(file);
+		ical_parsefile_close(file, fd);
+		return(NULL);
+	} 
+
+	p = ical_parse(map, st.st_size);
+	munmap(map, st.st_size);
+
+	if (NULL != keep) {
 		*keep = fd;
+	} else if ( ! ical_parsefile_close(file, fd)) {
+		ical_free(p);
+		p = NULL;
+	}
+
 	return(p);
 }
 
 struct ical *
-ical_parse(const char *cp)
+ical_parse(const char *cp, size_t sz)
 {
 	struct ical	*p;
 	struct icalnode	*cur, *np;
 	char		*name, *val;
 	struct buf	 buf;
 	MD5_CTX		 ctx;
-	size_t		 i;
+	size_t		 i, pos, line;
 	unsigned char	 digest[16];
 
 	memset(&buf, 0, sizeof(struct buf));
@@ -211,15 +211,17 @@ ical_parse(const char *cp)
 		return(NULL);
 	}
 
+	/* Take an MD5 digest of the whole file. */
 	MD5Init(&ctx);
-	MD5Update(&ctx, cp, strlen(cp));
+	MD5Update(&ctx, cp, sz);
 	MD5Final(digest, &ctx);
 	for (i = 0; i < sizeof(digest); i++) 
 	         snprintf(&p->digest[i * 2], 3, "%02x", digest[i]);
 
 	cur = NULL;
-	while ('\0' != *cp) {
-		if (0 == ical_line(&cp, &buf)) {
+	for (line = pos = 0; pos < sz; ) {
+		line++;
+		if (0 == ical_line(cp, &buf, &pos, sz)) {
 			fprintf(stderr, "unterminated line\n");
 			break;
 		}
