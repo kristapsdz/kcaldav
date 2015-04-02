@@ -39,7 +39,8 @@ req2ical(struct kreq *r)
 	struct ical	*p = NULL;
 
 	if (NULL != r->fieldmap[0]) 
-		p = ical_parse(r->fieldmap[0]->val, 
+		p = ical_parse(NULL, 
+			r->fieldmap[0]->val, 
 			r->fieldmap[0]->valsz);
 
 	return(p);
@@ -139,7 +140,7 @@ method_put(struct kreq *r)
 		http_error(r, KHTTP_505);
 		ical_free(p);
 		return;
-	} else if (ical_printfile(fd, p) < 0) {
+	} else if (0 == ical_printfile(fd, p)) {
 		er = errno;
 		perror(st->temp);
 		fprintf(stderr, "%s: failed write\n", st->temp);

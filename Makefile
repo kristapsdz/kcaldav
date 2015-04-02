@@ -11,8 +11,8 @@ PREFIX		 = /usr/local
 CPPFLAGS	+= -I/usr/local/include
 BINLDFLAGS	 = -L/usr/local/lib
 BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
-LIBS		 = -lexpat -lutil
-STATIC		 = -static
+LIBS		 = -lexpat #-lutil
+#STATIC		 = -static
 
 # You probably don't want to change anything after this.
 BINS		 = kcaldav \
