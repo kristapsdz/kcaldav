@@ -60,7 +60,7 @@ main(int argc, char *argv[])
 	if (MAP_FAILED == map) {
 		perror(argv[0]);
 		return(EXIT_FAILURE);
-	} else if (NULL != (p = ical_parse(map, sz)))
+	} else if (NULL != (p = ical_parse(argv[0], map, sz)))
 		ical_printfile(STDOUT_FILENO, p);
 
 	munmap(map, sz);

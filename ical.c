@@ -45,39 +45,6 @@ icalnode_free(struct icalnode *p, int first)
 		icalnode_free(np, 0);
 }
 
-static struct icalnode *
-icalnode_clone(const struct icalnode *p, int first)
-{
-	struct icalnode	*np;
-
-	assert(NULL != p);
-
-	if (NULL == (np = calloc(1, sizeof(struct icalnode)))) {
-		perror(NULL);
-		return(np);
-	}
-
-	np->name = strdup(p->name);
-	np->val = strdup(p->val);
-	if (NULL != p->first) {
-		np->first = icalnode_clone(p->first, 0);
-		if (NULL == np->first) {
-			icalnode_free(np, 0);
-			return(NULL);
-		}
-		np->first->parent = np;
-	}
-	if (0 == first && NULL != p->next) {
-		np->next = icalnode_clone(p->next, 0);
-		if (NULL == np->next) {
-			icalnode_free(np, 0);
-			return(NULL);
-		}
-		np->next->parent = np->parent;
-	}
-	return(np);
-}
-
 void
 ical_free(struct ical *p)
 {
@@ -116,10 +83,14 @@ ical_line(const char *cp, struct buf *buf, size_t *pos, size_t sz)
 	}
 
 	*pos += len + 2;
-	assert(*pos < sz);
+	assert(*pos <= sz);
 	return(1);
 }
 
+/*
+ * Parses an entire file "file" into an iCalendar buffer after
+ * establishing a shared advisory lock on "file".
+ */
 struct ical *
 ical_parsefile(const char *file)
 {
@@ -128,6 +99,13 @@ ical_parsefile(const char *file)
 	return(ical_parsefile_open(file, NULL));
 }
 
+/*
+ * Close out an ical_parsefile_open() context where "keep" was not NULL,
+ * i.e., the file descriptor "fd" is valid.
+ * (If "fd" is -1, this function does nothing.)
+ * Returns 0 on unlock or close failure.
+ * Returns 1 otherwise.
+ */
 int
 ical_parsefile_close(const char *file, int fd)
 {
@@ -147,6 +125,15 @@ ical_parsefile_close(const char *file, int fd)
 	return(1);
 }
 
+/*
+ * Open "file" and dump its contents into an iCalendar object.
+ * The type of lock we take out on "file" depends on "keep": if "keep"
+ * is non-NULL, we keep the file descriptor open with an exclusive lock
+ * (it must be closed with ical_parsefile_close()); otherwise, we use a
+ * shared lock and free it when the routine closes.
+ * Returns NULL on parse failure, read, memory, or lock failure.
+ * Returns the object, otherwise.
+ */
 struct ical *
 ical_parsefile_open(const char *file, int *keep)
 {
@@ -158,7 +145,7 @@ ical_parsefile_open(const char *file, int *keep)
 
 	if (NULL != keep) {
 		*keep = -1;
-		flags = O_RDWR | O_EXLOCK;
+		flags = O_RDONLY | O_EXLOCK;
 	} else
 		flags = O_RDONLY | O_SHLOCK;
 
@@ -180,7 +167,7 @@ ical_parsefile_open(const char *file, int *keep)
 		return(NULL);
 	} 
 
-	p = ical_parse(map, st.st_size);
+	p = ical_parse(file, map, st.st_size);
 	munmap(map, st.st_size);
 
 	if (NULL != keep) {
@@ -193,8 +180,16 @@ ical_parsefile_open(const char *file, int *keep)
 	return(p);
 }
 
+/*
+ * This function is very straightforward.
+ * Given a buffer "cp" (not necessarily nil-terminated, but CRLF
+ * terminated in the way of iCalendar) of size "sz", parse the contained
+ * iCalendar and return it.
+ * Returns NULL on parse failure or memory exhaustion.
+ * Returns the well-formed iCalendar structure otherwise.
+ */
 struct ical *
-ical_parse(const char *cp, size_t sz)
+ical_parse(const char *file, const char *cp, size_t sz)
 {
 	struct ical	*p;
 	struct icalnode	*cur, *np;
@@ -203,6 +198,7 @@ ical_parse(const char *cp, size_t sz)
 	MD5_CTX		 ctx;
 	size_t		 i, pos, line;
 	unsigned char	 digest[16];
+	const char	*fp;
 
 	memset(&buf, 0, sizeof(struct buf));
 
@@ -211,35 +207,36 @@ ical_parse(const char *cp, size_t sz)
 		return(NULL);
 	}
 
-	/* Take an MD5 digest of the whole file. */
+	/* Take an MD5 digest of the whole buffer. */
 	MD5Init(&ctx);
 	MD5Update(&ctx, cp, sz);
 	MD5Final(digest, &ctx);
 	for (i = 0; i < sizeof(digest); i++) 
 	         snprintf(&p->digest[i * 2], 3, "%02x", digest[i]);
 
+	fp = NULL == file ? "<buffer>" : file;
 	cur = NULL;
+
 	for (line = pos = 0; pos < sz; ) {
 		line++;
+		/* iCalendar is line-based: get the next line. */
 		if (0 == ical_line(cp, &buf, &pos, sz)) {
-			fprintf(stderr, "unterminated line\n");
+			fprintf(stderr, "%s:%zu: no CRLF\n", fp, sz);
 			break;
 		}
 
+		/* Parse the name/value pair from the line. */
 		name = buf.buf;
 		assert(NULL != name);
-
 		if (NULL != (val = strchr(name, ':')))
 			*val++ = '\0';
-
 		if (NULL == val) {
-			fprintf(stderr, "no value\n");
+			fprintf(stderr, "%s:%zu: no value\n", fp, sz);
 			break;
 		}
 
-		np = calloc(1, sizeof(struct icalnode));
-
-		if (NULL == np) {
+		/* Allocate the line record. */
+		if (NULL == (np = calloc(1, sizeof(struct icalnode)))) {
 			perror(NULL);
 			break;
 		} else if (NULL == (np->name = strdup(name))) {
@@ -252,14 +249,16 @@ ical_parse(const char *cp, size_t sz)
 			break;
 		}
 
+		/* Handle the first entry and bad nesting. */
 		if (NULL == p->first) {
 			p->first = cur = np;
 			continue;
 		} else if (NULL == cur) {
-			fprintf(stderr, "bad nesting\n");
+			fprintf(stderr, "%s:%zu: bad nest\n", fp, sz);
 			break;
-		}
+		} 
 
+		/* Append to our record set. */
 		if (0 == strcmp("BEGIN", cur->name)) {
 			if (0 == strcmp("END", np->name)) {
 				np->parent = cur->parent;
@@ -282,26 +281,21 @@ ical_parse(const char *cp, size_t sz)
 
 	free(buf.buf);
 
-	if (NULL == p->first) {
-		fprintf(stderr, "empty icalendar\n");
-		ical_free(p);
-		return(NULL);
-	} else if (strcmp(p->first->name, "BEGIN") ||
-		 strcmp(p->first->val, "VCALENDAR")) {
-		fprintf(stderr, "bad icalendar root\n");
-		ical_free(p);
-		return(NULL);
-	} else if (NULL != cur->parent) {
-		fprintf(stderr, "bad nesting\n");
-		ical_free(p);
-		return(NULL);
-	} else if ('\0' != *cp) {
-		fprintf(stderr, "bad parse\n");
-		ical_free(p);
-		return(NULL);
-	}
+	/* Handle all sorts of error conditions. */
+	if (NULL == p->first)
+		fprintf(stderr, "%s: empty\n", fp);
+	else if (strcmp(p->first->name, "BEGIN") ||
+		 strcmp(p->first->val, "VCALENDAR"))
+		fprintf(stderr, "%s: bad root\n", fp);
+	else if (NULL != cur->parent)
+		fprintf(stderr, "%s: bad nesting\n", fp);
+	else if (pos < sz)
+		fprintf(stderr, "%s: bad parse\n", fp);
+	else
+		return(p);
 
-	return(p);
+	ical_free(p);
+	return(NULL);
 }
 
 static int
@@ -331,6 +325,11 @@ icalnode_putchar(char c, size_t *col, ical_putchar fp, void *arg)
 	return(1);
 }
 
+/*
+ * Print an iCalendar using the given callback "fp".
+ * We only return zero when "fp" returns <0.
+ * Otherwise return non-zero.
+ */
 static int
 icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 {
@@ -343,23 +342,26 @@ icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 	col = 0;
 	for (cp = p->name; '\0' != *cp; cp++) 
 		if (icalnode_putchar(*cp, &col, fp, arg) < 0)
-			return(-1);
+			return(0);
 	if (icalnode_putchar(':', &col, fp, arg) < 0)
-		return(-1);
+		return(0);
 	for (cp = p->val; '\0' != *cp; cp++) 
 		if (icalnode_putchar(*cp, &col, fp, arg) < 0)
-			return(-1);
+			return(0);
 	if ((*fp)('\r', arg) < 0)
-		return(-1);
+		return(0);
 	if ((*fp)('\n', arg) < 0)
-		return(-1);
+		return(0);
 	if (icalnode_print(p->first, fp, arg) < 0)
-		return(-1);
+		return(0);
 	if (icalnode_print(p->next, fp, arg) < 0)
-		return(-1);
+		return(0);
 	return(1);
 }
 
+/*
+ * Print (write) an iCalendar using ical_putchar as a write callback.
+ */
 int
 ical_print(const struct ical *p, ical_putchar fp, void *arg)
 {
@@ -367,11 +369,48 @@ ical_print(const struct ical *p, ical_putchar fp, void *arg)
 	return(icalnode_print(p->first, fp, arg));
 }
 
+/*
+ * Print an iCalendar directly to the given file descriptor.
+ */
 int
 ical_printfile(int fd, const struct ical *p)
 {
 
 	return(icalnode_print(p->first, icalnode_putc, &fd));
+}
+
+#if 0
+static struct icalnode *
+icalnode_clone(const struct icalnode *p, int first)
+{
+	struct icalnode	*np;
+
+	assert(NULL != p);
+
+	if (NULL == (np = calloc(1, sizeof(struct icalnode)))) {
+		perror(NULL);
+		return(np);
+	}
+
+	np->name = strdup(p->name);
+	np->val = strdup(p->val);
+	if (NULL != p->first) {
+		np->first = icalnode_clone(p->first, 0);
+		if (NULL == np->first) {
+			icalnode_free(np, 0);
+			return(NULL);
+		}
+		np->first->parent = np;
+	}
+	if (0 == first && NULL != p->next) {
+		np->next = icalnode_clone(p->next, 0);
+		if (NULL == np->next) {
+			icalnode_free(np, 0);
+			return(NULL);
+		}
+		np->next->parent = np->parent;
+	}
+	return(np);
 }
 
 int
@@ -458,29 +497,6 @@ ical_merge(struct ical *p, const struct ical *newp)
 	return(1);
 }
 
-int
-ical_putfile(const char *file, const struct ical *newp)
-{
-	int	 fd, flags;
-
-	flags = O_RDWR | O_EXLOCK | O_CREAT | O_EXCL;
-
-	/* Open our database with an EXLOCK. */
-	if (-1 == (fd = open(file, flags, 0600))) {
-		perror(file);
-		return(0);
-	}
-
-	ical_printfile(fd, newp);
-
-	if (-1 == flock(fd, LOCK_UN)) 
-		perror(file);
-
-	close(fd);
-	return(1);
-}
-
-#if 0
 int
 ical_mergefile(const char *file, const struct ical *newp)
 {
