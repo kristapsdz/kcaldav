@@ -17,6 +17,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -99,7 +100,8 @@ prncpl_parse(const char *file, const char *method,
 	*pp = NULL;
 
 	if (NULL == (f = fopen(file, "r"))) {
-		perror(file);
+		fprintf(stderr, "%s: fopen: %s\n",
+			file, strerror(errno));
 		return(0);
 	}
 
@@ -199,14 +201,19 @@ prncpl_parse(const char *file, const char *method,
 	/* If we had errors, bail out now. */
 	if ( ! feof(f) && rc <= 0) {
 		if (rc > 0)
-			perror(file);
-		fclose(f);
+			fprintf(stderr, "%s: fgetln: %s\n",
+				file, strerror(errno));
+		if (-1 == fclose(f))
+			fprintf(stderr, "%s: fclose: %s\n",
+				file, strerror(errno));
 		prncpl_free(*pp);
 		pp = NULL;
 		return(rc > 0 ? -1 : rc);
 	}
 
-	fclose(f);
+	if (-1 == fclose(f))
+		fprintf(stderr, "%s: fclose: %s\n",
+			file, strerror(errno));
 	return(1);
 }
 

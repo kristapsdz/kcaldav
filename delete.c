@@ -66,14 +66,13 @@ method_delete(struct kreq *r)
 	if (NULL != digest && ! st->isdir) {
 		cur = ical_parsefile_open(st->path, &fd);
 		if (NULL == cur) {
-			fprintf(stderr, "%s: fail open\n", st->path);
 			http_error(r, KHTTP_404);
 		} else if (strcmp(cur->digest, digest)) {
 			fprintf(stderr, "%s: fail digest\n", st->path);
 			http_error(r, KHTTP_412);
 		} else if (-1 == unlink(st->path)) {
-			perror(st->path);
-			fprintf(stderr, "%s: fail unlink\n", st->path);
+			fprintf(stderr, "%s: unlink: %s\n", 
+				st->path, strerror(errno));
 			http_error(r, KHTTP_505);
 		} else {
 			ctagcache_update(st->ctagfile);
@@ -89,9 +88,9 @@ method_delete(struct kreq *r)
 			http_error(r, KHTTP_204);
 			return;
 		}
+		fprintf(stderr, "%s: unlink: %s\n", 
+			st->path, strerror(errno));
 		ctagcache_update(st->ctagfile);
-		perror(st->path);
-		fprintf(stderr, "%s: fail unlink\n", st->path);
 		http_error(r, KHTTP_505);
 		return;
 	} 
@@ -106,8 +105,8 @@ method_delete(struct kreq *r)
 
 	assert(st->isdir);
 	if (NULL == (dirp = opendir(st->path))) {
-		perror(st->path);
-		fprintf(stderr, "%s: fail opendir\n", st->path);
+		fprintf(stderr, "%s: opendir: %s\n", 
+			st->path, strerror(errno));
 		http_error(r, KHTTP_505);
 		return;
 	}
@@ -126,14 +125,16 @@ method_delete(struct kreq *r)
 			fprintf(stderr, "%s: too long "
 				"(not removed)\n", buf);
 			errs = 1;
-		} else if (-1 == unlink(st->path)) {
-			perror(st->path);
-			fprintf(stderr, "%s: fail unlink\n", buf);
+		} else if (-1 == unlink(buf)) {
+			fprintf(stderr, "%s: unlink: %s\n", 
+				buf, strerror(errno));
 			errs = 1;
 		} else 
 			fprintf(stderr, "%s: delete\n", buf);
 	}
-	closedir(dirp);
+	if (-1 == closedir(dirp))
+		fprintf(stderr, "%s: closedir: %s\n", 
+			st->path, strerror(errno));
 
 	if (errs)
 		http_error(r, KHTTP_505);
