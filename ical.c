@@ -226,8 +226,11 @@ ical_parse(const char *file, const char *cp, size_t sz)
 		}
 
 		/* Parse the name/value pair from the line. */
-		name = buf.buf;
-		assert(NULL != name);
+		if (NULL == (name = buf.buf)) {
+			fprintf(stderr, "%s:%zu: no line pair\n", fp, sz);
+			break;
+		}
+
 		if (NULL != (val = strchr(name, ':')))
 			*val++ = '\0';
 		if (NULL == val) {
@@ -258,7 +261,10 @@ ical_parse(const char *file, const char *cp, size_t sz)
 			break;
 		} 
 
-		/* Append to our record set. */
+		assert(NULL != cur);
+		assert(NULL != np);
+
+		/* Handle empty blocks. */
 		if (0 == strcmp("BEGIN", cur->name)) {
 			if (0 == strcmp("END", np->name)) {
 				np->parent = cur->parent;
@@ -269,10 +275,15 @@ ical_parse(const char *file, const char *cp, size_t sz)
 			cur->first = np;
 			np->parent = cur;
 			cur = np;
+			continue;
 		} 
 		
 		if (0 == strcmp("END", np->name))
-			cur = cur->parent;
+			if (NULL == (cur = cur->parent)) {
+				fprintf(stderr, "%s:%zu: "
+					"bad nest\n", fp, sz);
+				break;
+			}
 
 		np->parent = cur->parent;
 		cur->next = np;
@@ -287,8 +298,8 @@ ical_parse(const char *file, const char *cp, size_t sz)
 	else if (strcmp(p->first->name, "BEGIN") ||
 		 strcmp(p->first->val, "VCALENDAR"))
 		fprintf(stderr, "%s: bad root\n", fp);
-	else if (NULL != cur->parent)
-		fprintf(stderr, "%s: bad nesting\n", fp);
+	else if (NULL != cur && NULL != cur->parent)
+		fprintf(stderr, "%s: bad nest\n", fp);
 	else if (pos < sz)
 		fprintf(stderr, "%s: bad parse\n", fp);
 	else
