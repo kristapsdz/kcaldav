@@ -61,6 +61,7 @@ ctagcache_update(const char *fname)
 		return(0);
 	}
 	close_unlock(fname, fd);
+	fprintf(stderr, "%s: ctag cache updated\n", fname);
 	return(1);
 }
 
@@ -95,4 +96,5 @@ ctagcache_get(const char *fname, char *str)
 	close_unlock(fname, fd);
 	for (i = 0; i < 32; i++)
 		snprintf(&str[i * 2], 3, "%.2X", buf[i]);
+	fprintf(stderr, "%s: ctag cache read\n", fname);
 }

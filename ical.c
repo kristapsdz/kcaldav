@@ -20,6 +20,7 @@
 #include <sys/mman.h>
 
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -144,7 +145,8 @@ ical_parsefile_open(const char *file, int *keep)
 		return(NULL);
 
 	if (-1 == fstat(fd, &st)) {
-		perror(file);
+		fprintf(stderr, "%s: fstat: %s\n",
+			file, strerror(errno));
 		ical_parsefile_close(file, fd);
 		return(NULL);
 	}
@@ -153,7 +155,8 @@ ical_parsefile_open(const char *file, int *keep)
 		PROT_READ, MAP_SHARED, fd, 0);
 
 	if (MAP_FAILED == map) {
-		perror(file);
+		fprintf(stderr, "%s: mmap: %s\n",
+			file, strerror(errno));
 		ical_parsefile_close(file, fd);
 		return(NULL);
 	} 
@@ -161,7 +164,7 @@ ical_parsefile_open(const char *file, int *keep)
 	p = ical_parse(file, map, st.st_size);
 	munmap(map, st.st_size);
 
-	if ( ! ical_parsefile_close(file, fd)) {
+	if (NULL == keep && ! ical_parsefile_close(file, fd)) {
 		ical_free(p);
 		p = NULL;
 	}
