@@ -68,8 +68,7 @@ ical_line(const char *cp, struct buf *buf, size_t *pos, size_t sz)
 	size_t		 len;
 
 	buf->sz = 0;
-	for (;;) {
-		assert(*pos < sz);
+	while (*pos < sz) {
 		end = memmem(&cp[*pos], sz - *pos, "\r\n", 2);
 		if (NULL == end)
 			return(0);
@@ -82,7 +81,8 @@ ical_line(const char *cp, struct buf *buf, size_t *pos, size_t sz)
 			(*pos)++;
 	}
 
-	*pos += len + 2;
+	if (*pos < sz)
+		*pos += len + 2;
 	assert(*pos <= sz);
 	return(1);
 }
