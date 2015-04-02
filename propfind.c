@@ -43,9 +43,7 @@ req2caldav(struct kreq *r)
 	struct caldav	*p;
 
 	if (NULL == r->fieldmap[0]) {
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_400]);
-		khttp_body(r);
+		http_error(r, KHTTP_400);
 		return(NULL);
 	} 
 
@@ -323,14 +321,81 @@ propfind_resource(struct kxmlreq *xml,
 	ical_free(ical);
 }
 
+static void
+propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
+{
+	struct state	*st = xml->req->arg;
+	size_t		 depth;
+	DIR		*dirp;
+	struct dirent	*dp;
+
+	if ( ! st->isdir)
+		return;
+
+	/* Only accept depth of 0 or 1 (not infinity). */
+	if (NULL == xml->req->reqmap[KREQU_DEPTH])
+		depth = 1;
+	else if (0 == strcmp(xml->req->reqmap[KREQU_DEPTH]->val, "0"))
+		depth = 0;
+	else
+		depth = 1;
+
+	if (0 == depth)
+		return;
+
+	if (NULL == (dirp = opendir(st->path))) {
+		perror(st->path);
+		return;
+	}
+
+	while (NULL != (dp = readdir(dirp))) {
+		if ('.' == dp->d_name[0])
+			continue;
+		if (0 == strcmp(dp->d_name, "kcaldav.conf"))
+			continue;
+		if (0 == strcmp(dp->d_name, "kcaldav.ctag"))
+			continue;
+		propfind_resource(xml, dav, dp->d_name);
+	}
+
+	closedir(dirp);
+}
+
+static void
+propfind_list(struct kxmlreq *xml, const struct caldav *dav)
+{
+	struct state	*st = xml->req->arg;
+	size_t		 i, sz;
+	const char	*name;
+
+	sz = strlen(st->rpath);
+	for (i = 0; i < dav->hrefsz; i++) {
+		name = dav->hrefs[i];
+		if (0 == strncmp(name, st->rpath, sz)) {
+			propfind_resource(xml, dav, name + sz);
+			continue;
+		}
+		fprintf(stderr, "%s: not in root: %s\n",
+			st->path, name);
+		kxml_push(xml, XML_DAV_RESPONSE);
+		kxml_push(xml, XML_DAV_HREF);
+		kxml_puts(xml, xml->req->pname);
+		kxml_puts(xml, name);
+		kxml_pop(xml);
+		kxml_push(xml, XML_DAV_STATUS);
+		kxml_puts(xml, "HTTP/1.1 ");
+		kxml_puts(xml, khttps[KHTTP_403]);
+		kxml_pop(xml);
+		kxml_pop(xml);
+	}
+}
+
 void
 method_report(struct kreq *r)
 {
 	struct caldav	*dav;
 	struct state	*st = r->arg;
 	struct kxmlreq	 xml;
-	size_t		 i, sz;
-	char		 buf[PATH_MAX];
 
 	if ( ! (PERMS_READ & st->cfg->perms)) {
 		fprintf(stderr, "%s: principal does not "
@@ -342,20 +407,18 @@ method_report(struct kreq *r)
 	if (NULL == (dav = req2caldav(r)))
 		return;
 
-	if (TYPE_CALMULTIGET != dav->type) {
-		fprintf(stderr, "%s: unknown request "
-			"type\n", st->path);
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_415]);
-		khttp_body(r);
+	if (TYPE_CALMULTIGET != dav->type &&
+		 TYPE_CALQUERY != dav->type) {
+		fprintf(stderr, "%s: unknown "
+			"request type\n", st->path);
+		http_error(r, KHTTP_415);
 		caldav_free(dav);
 		return;
 	}
 
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
-	khttp_head(r, "DAV", "1, 2, "
-		"access-control, calendar-access");
+	khttp_head(r, "DAV", "1, access-control, calendar-access");
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
 	khttp_body(r);
@@ -366,31 +429,10 @@ method_report(struct kreq *r)
 		"xmlns:D", "DAV:", NULL);
 
 	if (st->isdir) {
-		strlcpy(buf, r->pname, sizeof(buf));
-		sz = strlcat(buf, r->fullpath, sizeof(buf));
-		/* XXX */
-		assert(sz < sizeof(buf));
-		assert(sz > 0);
-		for (i = 0; i < dav->hrefsz; i++) {
-			if (strncmp(dav->hrefs[i], buf, sz)) {
-				fprintf(stderr, "%s: does not reside "
-					"in root: %s\n", st->path,
-					dav->hrefs[i]);
-				kxml_push(&xml, XML_DAV_RESPONSE);
-				kxml_push(&xml, XML_DAV_HREF);
-				kxml_puts(&xml, r->pname);
-				kxml_puts(&xml, dav->hrefs[i]);
-				kxml_pop(&xml);
-				kxml_push(&xml, XML_DAV_STATUS);
-				kxml_puts(&xml, "HTTP/1.1 ");
-				kxml_puts(&xml, khttps[KHTTP_403]);
-				kxml_pop(&xml);
-				kxml_pop(&xml);
-				continue;
-			}
-			propfind_resource(&xml, dav, 
-				dav->hrefs[i] + sz);
-		}
+		if (TYPE_CALMULTIGET == dav->type)
+			propfind_list(&xml, dav);
+		else if (TYPE_CALQUERY == dav->type)
+			propfind_directory(&xml, dav);
 	} else
 		propfind_resource(&xml, dav, NULL);
 
@@ -411,9 +453,6 @@ method_propfind(struct kreq *r)
 	struct caldav	*dav;
 	struct state	*st = r->arg;
 	struct kxmlreq	 xml;
-	int		 depth;
-	DIR		*dirp;
-	struct dirent	*dp;
 
 	if ( ! (PERMS_READ & st->cfg->perms)) {
 		fprintf(stderr, "%s: principal does not "
@@ -432,20 +471,11 @@ method_propfind(struct kreq *r)
 		return;
 	}
 
-	/* Only accept depth of 0 or 1 (not infinity). */
-	if (NULL == r->reqmap[KREQU_DEPTH])
-		depth = 1;
-	else if (0 == strcmp(r->reqmap[KREQU_DEPTH]->val, "0"))
-		depth = 0;
-	else
-		depth = 1;
-
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
-	khttp_head(r, "DAV", "1, 2, "
-		"access-control, calendar-access");
+	khttp_head(r, "DAV", "1, access-control, calendar-access");
 	khttp_body(r);
 	kxml_open(&xml, r, xmls, XML__MAX);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
@@ -454,27 +484,11 @@ method_propfind(struct kreq *r)
 		"xmlns:D", "DAV:", NULL);
 
 	/* Root of request. */
-	if (st->isdir) 
+	if (st->isdir)  {
 		propfind_collection(&xml, dav);
-	else
+		propfind_directory(&xml, dav);
+	} else
 		propfind_resource(&xml, dav, NULL);
-
-	/* Scan directory contents. */
-	if (st->isdir && depth) {
-		if (NULL == (dirp = opendir(st->path)))
-			perror(st->path);
-		while (NULL != dirp && NULL != (dp = readdir(dirp))) {
-			if ('.' == dp->d_name[0])
-				continue;
-			if (0 == strcmp(dp->d_name, "kcaldav.conf"))
-				continue;
-			if (0 == strcmp(dp->d_name, "kcaldav.ctag"))
-				continue;
-			propfind_resource(&xml, dav, dp->d_name);
-		}
-		if (NULL != dirp)
-			closedir(dirp);
-	}
 
 	caldav_free(dav);
 	kxml_popall(&xml);
