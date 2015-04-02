@@ -23,6 +23,9 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#ifdef __linux__
+#include <bsd/libutil.h>
+#endif
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -41,33 +44,18 @@ open_lock_ex(const char *file, int flags, mode_t mode)
 {
 	int	 fd, er; /* preserve the errno */
 
-#ifndef	HAVE_OPEN_LOCK
-	if (-1 == (fd = open(file, flags, mode))) {
-		er = errno;
-		fprintf(stderr, "%s: open: "
-			"%s\n", file, strerror(er));
-		errno = er;
+#ifdef	__linux__
+	if (-1 != (fd = flopen(file, flags, mode))) 
 		return(fd);
-	} else if (-1 != flock(fd, LOCK_EX))
-		return(fd);
-
-	er = errno;
-	fprintf(stderr, "%s: flock(LOCK_EX): "
-		"%s\n", file, strerror(er));
-	if (-1 == close(fd)) 
-		fprintf(stderr, "%s: close: "
-			"%s\n", file, strerror(errno));
-	errno = er;
-	return(-1);
 #else
 	if (-1 != (fd = open(file, flags | O_EXLOCK, mode))) 
 		return(fd);
+#endif
 	er = errno;
 	fprintf(stderr, "%s: open(O_EXLOCK): "
 		"%s\n", file, strerror(er));
 	errno = er;
 	return(-1);
-#endif
 }
 
 /*
