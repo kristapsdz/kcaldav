@@ -73,13 +73,24 @@ http_error(struct kreq *r, enum khttp c)
 	size_t	 i;
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[c]);
-	if (KHTTP_401 == c) {
+	switch (c) {
+	case (KHTTP_200):
+	case (KHTTP_201):
+	case (KHTTP_204):
+	case (KHTTP_207):
+	case (KHTTP_304):
+		khttp_head(r, "DAV", "1, access-control, calendar-access");
+		break;
+	case (KHTTP_401):
 		for (i = 0; i < sizeof(nonce); i++)
 			snprintf(nonce + i, 2, "%01X", 
 				arc4random_uniform(128));
 		khttp_head(r, kresps[KRESP_WWW_AUTHENTICATE],
 			"Digest realm=\"kcaldav\" "
 			"quop=\"\" nonce=\"%s\"", nonce);
+		break;
+	default:
+		break;
 	}
 
 	khttp_body(r);
