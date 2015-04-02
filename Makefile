@@ -21,8 +21,8 @@ STATIC		 = -static
 #STATIC		 = 
 
 # For Linux:
-#LIBS		 = -lexpat -lutil -lbsd
-#STATIC		 = 
+LIBS		 = -lexpat -lutil -lbsd
+STATIC		 = 
 
 # You probably don't want to change anything after this.
 BINS		 = kcaldav \
@@ -55,9 +55,7 @@ CTESTSRCS	 = test-explicit_bzero.c \
 		   test-fparseln.c \
 		   test-memmem.c \
 		   test-open-lock.c \
-		   test-reallocarray.c \
-		   test-strlcat.c \
-		   test-strlcpy.c 
+		   test-reallocarray.c
 ALLSRCS		 = Makefile \
 		   $(TESTSRCS) \
 		   $(CTESTSRCS) \
@@ -69,8 +67,6 @@ ALLSRCS		 = Makefile \
 		   compat-fparseln.c \
 		   compat-memmem.c \
 		   compat-reallocarray.c \
-		   compat-strlcat.c \
-		   compat-strlcpy.c \
 		   config.c \
 		   ctagcache.c \
 		   delete.c \
@@ -93,8 +89,6 @@ OBJS		 = buf.o \
 		   compat-fparseln.o \
 		   compat-memmem.o \
 		   compat-reallocarray.o \
-		   compat-strlcat.o \
-		   compat-strlcpy.o \
 		   config.o \
 		   ctagcache.o \
 		   httpauth.o \
@@ -193,7 +187,7 @@ clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8
 	rm -rf *.dSYM
 	rm -f $(HTMLS) kcaldav.tgz kcaldav.tgz.sha512
-	rm -f test-memmem test-reallocarray test-strlcat test-strlcpy test-open-lock text-explicit_bzero
+	rm -f test-memmem test-reallocarray test-open-lock text-explicit_bzero
 	rm -f config.h config.log
 
 .8.8.html .5.5.html:
