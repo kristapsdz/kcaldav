@@ -1,0 +1,14 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//ABC Corporation//NONSGML My Product//EN
+BEGIN:VJOURNAL
+DTSTAMP:19970324T120000Z
+UID:uid5@example.com
+ORGANIZER:MAILTO:jsmith@example.com
+STATUS:DRAFT
+CLASS:PUBLIC
+CATEGORIES:Project Report, XYZ, Weekly Meeting
+DESCRIPTION:Project xyz Review Meeting Minutes\n
+ Agenda\n1. Review of project version 1.0 requirements.\n2.
+END:VJOURNAL
+END:VCALENDAR

@@ -91,6 +91,9 @@ all: $(BINS) kcaldav.8
 
 www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
+afl: all
+	install -m 0555 test-ical afl/test-ical
+
 installcgi: all
 	mkdir -p $(CGIPREFIX)
 	install -m 0555 kcaldav $(CGIPREFIX)
