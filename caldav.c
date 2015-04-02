@@ -166,8 +166,8 @@ propadd(struct parse *p, size_t ns,
 	}
 
 	assert(ns < p->xmlnsz);
-	p->p->props = realloc(p->p->props,
-		sizeof(struct prop) * (p->p->propsz + 1));
+	p->p->props = reallocarray(p->p->props,
+		p->p->propsz + 1, sizeof(struct prop));
 
 	if (NULL == p->p->props) {
 		caldav_err(p, "memory exhausted");
@@ -295,9 +295,8 @@ xmlnspush(struct parse *p, const XML_Char **attrs)
 			break;
 		}
 		if (i == p->xmlnsz) {
-			p->xmlns = realloc
-				(p->xmlns, sizeof(struct xmlns) *
-				 (p->xmlnsz + 1));
+			p->xmlns = reallocarray(p->xmlns, 
+				p->xmlnsz + 1, sizeof(struct xmlns));
 			if (NULL == p->xmlns) {
 				perror(NULL);
 				return(0);
@@ -342,8 +341,8 @@ parseclose(void *dat, const XML_Char *s)
 	case (CALELEM_HREF):
 		if (0 == p->buf.sz)
 			break;
-		p->p->hrefs = realloc(p->p->hrefs, 
-			(p->p->hrefsz + 1) * sizeof(char *));
+		p->p->hrefs = reallocarray(p->p->hrefs, 
+			p->p->hrefsz + 1, sizeof(char *));
 		if (NULL == p->p->hrefs) {
 			caldav_err(p, "memory exhausted");
 			break;
