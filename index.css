@@ -7,6 +7,7 @@ header			{ background-color: #336699;
 header a		{ color: #ccc; }
 header a:hover		{ color: #eec; }
 article 		{ padding: 8pt 24pt; 
+			  line-height: 120%;
 			  background-color: #eee; }
 article a		{ color: blue; }
 footer 			{ padding: 8pt 24pt; 
@@ -18,7 +19,15 @@ a			{ text-decoration: none; }
 h1			{ margin-bottom: 0;
 			  margin-top: 1ex;
 			  font-size: 36pt; }
-h2			{ font-size: 16pt; }
-.version		{ font-weight: bold; }
+h2			{ font-size: inherit; }
+.version		{ font-weight: bold; 
+			  color: #000; }
+.nm			{ font-style: italic; }
+.file			{ font-style: italic; }
+code			{ font-size: 13pt; }
 nav[data-sblg-nav] ul	{ list-style-type: none; 
+			  font-size: 13pt;
+			  color: #333;
 			  padding-left: 0; }
+nav[data-sblg-nav] li	{ margin-bottom: 1ex; }
+nav[data-sblg-nav] a	{ color: #05f; }

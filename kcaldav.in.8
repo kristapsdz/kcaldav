@@ -18,13 +18,16 @@ authorisation and simplicity.
 To use
 .Nm ,
 you'll need to first populate the calendar root directory
-.Ar caldir ,
-which defaults to
-.Pa @CALDIR@ ,
-with a password file (for HTTP authorisation, see
+.Ar caldir .
+This is relative to the CGI script's file-system root (in the event of
+.Xr chroot 2 ) ,
+defaulting to
+.Pa @CALDIR@ .
+You'll need a password file (for HTTP authorisation, see
 .Xr kcaldav.passwd 5 ) ,
-then for each collection (calendar directory), create a configuration
-file (see
+then for each collection (calendar directory in
+.Ar caldir ) ,
+a configuration file (see
 .Xr kcaldav.conf 5 )
 defining the permissions of that collection and other information.
 .Pp
@@ -35,7 +38,7 @@ For example, assume the script has been installed into
 .Pa /var/www/cgi-bin
 and is reachable at
 .Pp
-.D1 http://localhost/cgi-bin/kcaldav.cgi
+.D1 http://localhost/cgi-bin/kcaldav
 .Pp
 Moreover, assume your calendar root
 .Pa @CALDIR@
@@ -48,7 +51,7 @@ consisting of
 and some calendars.
 You can point your browser to the following:
 .Pp
-.D1 http://localhost/cgi-bin/kcaldav.cgi/kristaps/
+.D1 http://localhost/cgi-bin/kcaldav/kristaps/
 .Pp
 Note the trailing slash, otherwise the request is interpreted as for a
 resource (file), not a collection (directory).

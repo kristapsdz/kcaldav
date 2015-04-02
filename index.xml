@@ -24,24 +24,29 @@
 						href="http://kristaps.bsd.lv/kcgi">kcgi</a> and <a
 						href="http://expat.sourceforge.net/">libexpat</a>.
 					It implements the minimal subset of a large number of standards, including <a
-						href="https://tools.ietf.org/html/rfc5545">iCalendar</a>, <a
-						href="https://tools.ietf.org/html/rfc3744">CalDav</a>, <a
-						href="https://tools.ietf.org/html/rfc2616">HTTP</a>, and numerous extensions as detailed in <a
+						href="https://tools.ietf.org/html/rfc5545">iCalendar</a> (RFC 5545), <a
+						href="https://tools.ietf.org/html/rfc3744">CalDav</a> (3744), <a
+						href="https://tools.ietf.org/html/rfc2616">HTTP</a> (2616), and numerous extensions as detailed in <a
 						href="kcaldav.8.html">kcaldav(8)</a>.
 					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
 					It's known to work over simple setups with <a
 						href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>,
-					Mac OS X iCal, and iOS7 (iPhone 4's calendar application).
+					Mac OS X iCal, and iOS7 (iPhone4).
+					It is <strong>not</strong> production ready, so use at your own risk:
 				</p>
-				<p>
-					To deploy <span class="nm">kcaldav</span>, download the <a href="snapshots/kcaldav.tgz">sources</a> and
-					<a href="snapshots/kcaldav.tgz.sha512">verify</a> the archive.
-					Then compile with <code>make</code>, optionally adjusting the <code>CALDIR</code> (default calendar
-					directory within the file-system root) in the <span class="file">Makefile</span>.
-					Finally, install the manpages and CGI using <code>make install</code> with
-					<code>PREFIX=/usr/local</code> set to the manpage root and <code>CGIPREFIX=/var/www/cgi-bin</code> to
-					the CGI script target.
-				</p>
+				<ol>
+					<li>install dependencies <a href="http://kristaps.bsd.lv">kcgi</a> and <a
+							href="http://expat.sourceforge.net">expat</a>;</li>
+					<li>download <a href="snapshots/kcaldav.tgz">sources</a>, unpack, and <a
+							href="snapshots/kcaldav.tgz.sha512">verify</a>;</li>
+					<li>optionally adjust <code>CALDIR</code> (default calendar directory within the file-system root) in
+						the <span class="file">Makefile</span>, <code>LIBS</code>, or <code>STATIC</code> (whether to
+						statically link as when using <a
+							href="www.openbsd.org/cgi-bin/man.cgi/OpenBSD-current/man2/chroot.2">chroot(2)</a>);</li>
+					<li>compile with <code>make</code>;</li>
+					<li><code>make install</code> the manpages and CGI, setting <code>PREFIX=/usr/local</code> to the
+						manpage root and <code>CGIPREFIX=/var/www/cgi-bin</code> to the CGI script target.</li>
+				</ol>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
 					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> and <a
