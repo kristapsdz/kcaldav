@@ -29,8 +29,6 @@ runtest() {
 
 cat config.h.pre
 runtest fparseln FPARSELN "-lutil"
-runtest strlcat STRLCAT ""
-runtest strlcpy STRLCPY ""
 runtest open-lock OPEN_LOCK ""
 runtest memmem MEMMEM ""
 runtest reallocarray REALLOCARRAY ""
