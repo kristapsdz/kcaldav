@@ -82,7 +82,8 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(BINOBJS) \
 		   $(OBJS)
 VERSIONS	 = version_0_0_4.xml \
-		   version_0_0_5.xml
+		   version_0_0_5.xml \
+		   version_0_0_6.xml
 VERSION		 = 0.0.5
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
