@@ -221,14 +221,7 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	/* 
-	 * Process options before authentication. 
-	 * FIXME: is this supposed to happen here or after auth?
-	 */
-	if (KMETHOD_OPTIONS == r.method) {
-		method_options(&r);
-		goto out;
-	} else if (KMETHOD__MAX == r.method) {
+	if (KMETHOD__MAX == r.method) {
 		http_error(&r, KHTTP_405);
 		goto out;
 	}
@@ -242,8 +235,6 @@ main(int argc, char *argv[])
 		http_error(&r, KHTTP_403);
 		goto out;
 	} 
-
-	fprintf(stderr, "%s: %s\n", st->path, kmethods[r.method]);
 
 	/*
 	 * Parse our HTTP credentials.
@@ -340,6 +331,9 @@ main(int argc, char *argv[])
 		break;
 	case (KMETHOD_DELETE):
 		method_delete(&r);
+		break;
+	case (KMETHOD_OPTIONS):
+		method_options(&r);
 		break;
 	default:
 		fprintf(stderr, "%s: ignoring method %s\n",
