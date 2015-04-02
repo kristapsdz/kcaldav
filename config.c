@@ -14,21 +14,18 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include <sys/param.h>
-#include <sys/mount.h>
-#ifdef __OpenBSD__
-#include <ufs/ufs/quota.h>
-#else
-#include <sys/quota.h>
-#endif
+#include "config.h"
 
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_FPARSELN
 #include <util.h>
+#endif
 #include <unistd.h>
 
 #include "extern.h"
@@ -131,37 +128,17 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 	size_t		 len, line;
 	char		*key, *val, *cp, *end;
 	int		 rc, fl, fd;
-	struct statfs	 sfs;
 	long long	 bytesused, bytesavail;
-	struct dqblk	 quota;
 
 	if (-1 == (fd = open(file, O_RDONLY, 0))) {
 		perror(file);
 		return(0);
-	} else if (-1 == fstatfs(fd, &sfs)) {
-		perror(file);
+	} else if ( ! quota(file, fd, &bytesused, &bytesavail)) {
 		close(fd);
 		return(0);
-	} 
-	
-	fl = Q_GETQUOTA | USRQUOTA;
-	if (-1 == quotactl(file, fl, getuid(), (char *)&quota)) {
-		bytesused = sfs.f_blocks * sfs.f_bsize;
-		bytesavail = sfs.f_bfree * sfs.f_bsize;
-	} else {
-#ifdef __OpenBSD__
-		bytesused = sfs.f_bsize *
-			quota.dqb_curblocks;
-		bytesavail = sfs.f_bsize *
-			(quota.dqb_bsoftlimit - quota.dqb_curblocks);
-#else
-		bytesused = quota.dqb_curbytes;
-		bytesavail = quota.dqb_bsoftlimit - quota.dqb_curbytes;
-#endif
-	}
-
-	if (NULL == (f = fdopen(fd, "r"))) {
-		perror(file);
+	} else if (NULL == (f = fdopen(fd, "r"))) {
+		fprintf(stderr, "%s: fdopen: %s\n",
+			file, strerror(errno));
 		close(fd);
 		return(0);
 	}

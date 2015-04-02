@@ -16,31 +16,58 @@
  */
 #include "config.h"
 
+#ifdef __OpenBSD__
+#include <ufs/ufs/quota.h>
+#endif
+#ifndef __linux__
+#include <sys/quota.h>
+#endif
+#ifdef __linux__
+#include <sys/vfs.h>
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <kcgi.h>
-#include <kcgixml.h>
-
 #include "extern.h"
-#include "main.h"
 
-void
-method_options(struct kreq *r)
+int
+quota(const char *file, int fd, 
+	long long *used, long long *avail)
 {
+	struct statfs	 sfs;
+#ifndef __linux__
+	struct dqblk	 quota;
+#endif
 
-	khttp_head(r, kresps[KRESP_STATUS], 
-		"%s", khttps[KHTTP_200]);
-	khttp_head(r, kresps[KRESP_ALLOW], "%s", 
-		"OPTIONS, GET, PUT, PROPFIND");
-	khttp_head(r, "DAV", "1, access-control, calendar-access");
-	khttp_body(r);
+	if (-1 == fstatfs(fd, &sfs)) {
+		fprintf(stderr, "%s: fstafs: %s\n",
+			file, strerror(errno));
+		return(0);
+	} 
+
+	*used = sfs.f_blocks * sfs.f_bsize;
+	*avail = sfs.f_bfree * sfs.f_bsize;
+
+#ifndef __linux__
+	fl = Q_GETQUOTA | USRQUOTA;
+	if (-1 != quotactl(file, fl, getuid(), (char *)&quota)) {
+#ifdef __OpenBSD__
+		*used = sfs.f_bsize * quota.dqb_curblocks;
+		*avail = sfs.f_bsize *
+			(quota.dqb_bsoftlimit - quota.dqb_curblocks);
+#else
+		*used = quota.dqb_curbytes;
+		*avail = quota.dqb_bsoftlimit - quota.dqb_curbytes;
+#endif
+	}
+#endif
+
+	return(1);
 }
-
