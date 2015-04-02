@@ -29,12 +29,21 @@
 						href="https://tools.ietf.org/html/rfc2616">HTTP</a>, and numerous extensions as detailed in <a
 						href="kcaldav.8.html">kcaldav(8)</a>.
 					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
-					It's known to work with <a href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>
-					and Mac OS X iCal, both having simple calendar setups.
+					It's known to work over simple setups with <a
+						href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>,
+					Mac OS X iCal, and iOS7 (iPhone 4's calendar application).
+				</p>
+				<p>
+					To deploy <span class="nm">kcaldav</span>, download the <a href="snapshots/kcaldav.tgz">sources</a> and
+					<a href="snapshots/kcaldav.tgz.sha512">verify</a> the archive.
+					Then compile with <code>make</code>, optionally adjusting the <code>CALDIR</code> (default calendar
+					directory within the file-system root) in the <span class="file">Makefile</span>.
+					Finally, install the manpages and CGI using <code>make install</code> with
+					<code>PREFIX=/usr/local</code> set to the manpage root and <code>CGIPREFIX=/var/www/cgi-bin</code> to
+					the CGI script target.
 				</p>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
-					It assumes an installation of the server, for which you'll need to <code>make install</code>.
 					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> and <a
 						href="kcaldav.passwd.5.html">kcaldav.passwd(5)</a>.
 					If it lacks information or clarity, that's a bug.
