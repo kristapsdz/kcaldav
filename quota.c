@@ -19,7 +19,7 @@
 #ifdef __OpenBSD__
 #include <ufs/ufs/quota.h>
 #endif
-#ifndef __linux__
+#ifdef __Apple__
 #include <sys/quota.h>
 #endif
 #ifdef __linux__
