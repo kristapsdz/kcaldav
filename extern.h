@@ -155,7 +155,7 @@ void		 bufreset(struct buf *);
 
 int		 ical_merge(struct ical *, const struct ical *);
 int		 ical_putfile(const char *, const struct ical *);
-struct ical 	*ical_parse(const char *);
+struct ical 	*ical_parse(const char *, size_t sz);
 struct ical 	*ical_parsefile(const char *);
 struct ical 	*ical_parsefile_open(const char *, int *);
 int		 ical_parsefile_close(const char *, int);

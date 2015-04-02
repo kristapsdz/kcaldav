@@ -32,7 +32,7 @@ main(int argc, char *argv[])
 	int		 fd, c;
 	struct stat	 st;
 	size_t		 sz;
-	char		*map, *buf;
+	char		*map;
 	struct ical	*p = NULL;
 
 	if (-1 != (c = getopt(argc, argv, "")))
@@ -60,16 +60,10 @@ main(int argc, char *argv[])
 	if (MAP_FAILED == map) {
 		perror(argv[0]);
 		return(EXIT_FAILURE);
-	} 
-
-	buf = malloc(sz + 1);
-	memcpy(buf, map, sz);
-	buf[sz] = '\0';
-	munmap(map, sz);
-	
-	if (NULL != (p = ical_parse(buf)))
+	} else if (NULL != (p = ical_parse(map, sz)))
 		ical_printfile(STDOUT_FILENO, p);
+
+	munmap(map, sz);
 	ical_free(p);
-	free(buf);
 	return(NULL == p ? EXIT_FAILURE : EXIT_SUCCESS);
 }

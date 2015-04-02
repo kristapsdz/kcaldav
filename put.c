@@ -39,7 +39,8 @@ req2ical(struct kreq *r)
 	struct ical	*p = NULL;
 
 	if (NULL != r->fieldmap[0]) 
-		p = ical_parse(r->fieldmap[0]->val);
+		p = ical_parse(r->fieldmap[0]->val, 
+			r->fieldmap[0]->valsz);
 
 	return(p);
 }
