@@ -186,7 +186,7 @@ kvalid(struct kpair *kp)
 		return(0);
 	sz = strlen(tok);
 	if (0 == strncmp(kp->val, tok, sz)) {
-		ical = ical_parse(kp->val);
+		ical = ical_parse(kp->val, kp->valsz);
 		ical_free(ical);
 		return(NULL != ical);
 	}
