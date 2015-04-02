@@ -214,6 +214,17 @@ main(int argc, char *argv[])
 	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
 
+	if (NULL != r.fieldmap[0]) {
+		size_t i;
+		for (i = 0; i < r.reqsz; i++) 
+			fprintf(stderr, "[%s]=[%s]\n",
+				r.reqs[i].key,
+				r.reqs[i].val);
+		fprintf(stderr, "%.*s\n", 
+			(int)r.fieldmap[0]->valsz,
+			r.fieldmap[0]->val);
+	}
+
 	if (NULL == (r.arg = st = calloc(1, sizeof(struct state)))) {
 		fprintf(stderr, "%s: memory failure during "
 			"startup\n", r.fullpath);
