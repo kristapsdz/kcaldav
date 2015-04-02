@@ -24,6 +24,9 @@
 #endif
 #ifdef __linux__
 #include <sys/vfs.h>
+#else
+#include <sys/param.h>
+#include <sys/mount.h>
 #endif
 
 #include <assert.h>
@@ -44,6 +47,7 @@ quota(const char *file, int fd,
 	struct statfs	 sfs;
 #ifndef __linux__
 	struct dqblk	 quota;
+	int		 fl;
 #endif
 
 	if (-1 == fstatfs(fd, &sfs)) {
