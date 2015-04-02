@@ -11,8 +11,18 @@ PREFIX		 = /usr/local
 CPPFLAGS	+= -I/usr/local/include
 BINLDFLAGS	 = -L/usr/local/lib
 BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
-LIBS		 = -lexpat -lutil -lbsd
+
+# For OpenBSD:
+#LIBS		 = -lexpat -lutil 
 #STATIC		 = -static
+
+# For Mac OS X:
+LIBS		 = -lexpat 
+STATIC		 = 
+
+# For Linux:
+#LIBS		 = -lexpat -lutil -lbsd
+#STATIC		 = 
 
 # You probably don't want to change anything after this.
 BINS		 = kcaldav \
@@ -41,8 +51,16 @@ HTMLS	 	 = index.html \
 MANS		 = kcaldav.8 \
 		   kcaldav.conf.5 \
 		   kcaldav.passwd.5
+CTESTSRCS	 = test-explicit_bzero.c \
+		   test-fparseln.c \
+		   test-memmem.c \
+		   test-open-lock.c \
+		   test-reallocarray.c \
+		   test-strlcat.c \
+		   test-strlcpy.c 
 ALLSRCS		 = Makefile \
 		   $(TESTSRCS) \
+		   $(CTESTSRCS) \
 		   $(MANS) \
 		   buf.c \
 		   caldav.c \
@@ -68,13 +86,6 @@ ALLSRCS		 = Makefile \
 		   propfind.c \
 		   put.c \
 		   resource.c \
-		   test-explicit_bzero.c \
-		   test-fparseln.c \
-		   test-memmem.c \
-		   test-open-lock.c \
-		   test-reallocarray.c \
-		   test-strlcat.c \
-		   test-strlcpy.c \
 		   util.c
 OBJS		 = buf.o \
 		   caldav.o \
@@ -118,7 +129,7 @@ www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 afl: all
 	install -m 0555 test-ical afl/test-ical
 
-config.h: config.h.pre config.h.post configure $(TESTS)
+config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 	rm -f config.log
 	CC="$(CC)" CFLAGS="$(CFLAGS)" ./configure
 
