@@ -346,7 +346,8 @@ propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
 		return;
 
 	if (NULL == (dirp = opendir(st->path))) {
-		perror(st->path);
+		fprintf(stderr, "%s: opendir: %s\n",
+			st->path, strerror(errno));
 		return;
 	}
 
@@ -360,7 +361,9 @@ propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
 		propfind_resource(xml, dav, dp->d_name);
 	}
 
-	closedir(dirp);
+	if (-1 == closedir(dirp))
+		fprintf(stderr, "%s: closedir: %s\n",
+			st->path, strerror(errno));
 }
 
 static void

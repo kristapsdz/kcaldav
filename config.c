@@ -131,15 +131,20 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 	long long	 bytesused, bytesavail;
 
 	if (-1 == (fd = open(file, O_RDONLY, 0))) {
-		perror(file);
+		fprintf(stderr, "%s: open: %s\n", 
+			file, strerror(errno));
 		return(0);
 	} else if ( ! quota(file, fd, &bytesused, &bytesavail)) {
-		close(fd);
+		if (-1 == close(fd))
+			fprintf(stderr, "%s: close: %s\n", 
+				file, strerror(errno));
 		return(0);
 	} else if (NULL == (f = fdopen(fd, "r"))) {
 		fprintf(stderr, "%s: fdopen: %s\n",
 			file, strerror(errno));
-		close(fd);
+		if (-1 == close(fd))
+			fprintf(stderr, "%s: close: %s\n", 
+				file, strerror(errno));
 		return(0);
 	}
 
@@ -147,7 +152,9 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 	cp = NULL;
 	if (NULL == (*pp = calloc(1, sizeof(struct config)))) {
 		perror(NULL);
-		fclose(f);
+		if (-1 == fclose(f))
+			fprintf(stderr, "%s: fclose: %s\n", 
+				file, strerror(errno));
 		return(-1);
 	}
 
@@ -210,10 +217,13 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 	 */
 	if ( ! feof(f)) {
 		if (rc > 0)
-			perror(file);
+			fprintf(stderr, "%s: fparseln: %s\n",
+				file, strerror(errno));
 		else
 			fprintf(stderr, "%s: parse failed\n", file);
-		fclose(f);
+		if (-1 == fclose(f))
+			fprintf(stderr, "%s: fclose: %s\n",
+				file, strerror(errno));
 		free(cp);
 		config_free(*pp);
 		*pp = NULL;
@@ -223,7 +233,9 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 
 	assert(rc > 0);
 	free(cp);
-	fclose(f);
+	if (-1 == fclose(f))
+		fprintf(stderr, "%s: fclose: %s\n",
+			file, strerror(errno));
 
 	if ((rc = config_defaults(file, *pp)) <= 0) {
 		config_free(*pp);

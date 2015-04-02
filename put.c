@@ -75,8 +75,9 @@ req2temp(struct kreq *r)
 			snprintf(&st->temp[sz + i], 3, 
 				"%.1X", arc4random_uniform(128));
 		fd = open(st->temp, O_RDWR | O_CREAT | O_EXCL, 0600);
-		if (fd < 0 && EEXIST != fd) {
-			perror(st->temp);
+		if (fd < 0 && EEXIST != errno) {
+			fprintf(stderr, "%s: open: %s\n",
+				st->temp, strerror(errno));
 			return(-1);
 		}
 	} while (-1 == fd);
@@ -141,14 +142,13 @@ method_put(struct kreq *r)
 	 * file with a dot), so no worries about pollution.
 	 */
 	if (-1 == (fd = req2temp(r))) {
-		fprintf(stderr, "%s: failed create\n", st->temp);
 		http_error(r, KHTTP_505);
 		ical_free(p);
 		return;
 	} else if (0 == ical_printfile(fd, p)) {
 		er = errno;
-		perror(st->temp);
-		fprintf(stderr, "%s: failed write\n", st->temp);
+		fprintf(stderr, "%s: write: %s\n", 
+			st->temp, strerror(errno));
 		http_error(r, (EDQUOT == er ||
 			ENOSPC == er || EFBIG == er) ?
 			KHTTP_507 : KHTTP_505);
@@ -156,11 +156,12 @@ method_put(struct kreq *r)
 		ical_free(p);
 		if (-1 != unlink(st->temp))
 			return;
-		perror(st->temp);
-		fprintf(stderr, "%s: failed unlink\n", st->temp);
+		fprintf(stderr, "%s: unlink: %s\n", 
+			st->temp, strerror(errno));
 		return;
-	} 
-	close(fd);
+	} else if (-1 == close(fd)) 
+		fprintf(stderr, "%s: close: %s\n",
+			st->temp, strerror(errno));
 
 	/*
 	 * If we have a digest, then we want to replace an existing
@@ -177,21 +178,17 @@ method_put(struct kreq *r)
 		 */
 		cur = ical_parsefile_open(st->path, &fd);
 		if (NULL == cur) {
-			fprintf(stderr, "%s: failed open "
-				"destination\n", st->path);
 			http_error(r, KHTTP_415);
 			ical_free(p);
 			if (-1 != unlink(st->temp)) 
 				return;
-			perror(st->temp);
-			fprintf(stderr, "%s: failed "
-				"unlink\n", st->temp);
+			fprintf(stderr, "%s: unlink: %s\n", 
+				st->temp, strerror(errno));
 			return;
 		} else if (-1 == rename(st->temp, st->path)) {
 			er = errno;
-			perror(st->temp);
-			fprintf(stderr, "%s: failed rename: %s\n",
-				st->temp, st->path);
+			fprintf(stderr, "%s: rename(%s): %s\n",
+				st->temp, st->path, strerror(errno));
 			http_error(r, KHTTP_505);
 			ical_parsefile_close(st->path, fd);
 			ical_free(p);
@@ -199,9 +196,8 @@ method_put(struct kreq *r)
 			ctagcache_update(st->ctagfile);
 			if (-1 != unlink(st->temp) || ENOENT == er)
 				return;
-			perror(st->temp);
-			fprintf(stderr, "%s: failed "
-				"unlink\n", st->temp);
+			fprintf(stderr, "%s: unlink: %s\n", 
+				st->temp, strerror(errno));
 			return;
 		}
 		/* It worked! */
@@ -214,6 +210,7 @@ method_put(struct kreq *r)
 		ical_parsefile_close(st->path, fd);
 		ical_free(p);
 		ical_free(cur);
+		fprintf(stderr, "%s: updated\n", st->path);
 		return;
 	}
 
@@ -227,7 +224,6 @@ method_put(struct kreq *r)
 
 	if (-1 == fd) {
 		er = errno;
-		fprintf(stderr, "%s: failed create\n", st->path);
 		if (EDQUOT == er || ENOSPC == er)
 			http_error(r, KHTTP_507);
 		else if (EEXIST == er)
@@ -237,23 +233,20 @@ method_put(struct kreq *r)
 		ical_free(p);
 		if (-1 != unlink(st->temp)) 
 			return;
-		perror(st->temp);
-		fprintf(stderr, "%s: failed unlink\n", st->temp);
+		fprintf(stderr, "%s: unlink: %s\n", 
+			st->temp, strerror(errno));
 		return;
 	} else if (-1 == rename(st->temp, st->path)) {
 		er = errno;
-		perror(st->temp);
-		fprintf(stderr, "%s: failed rename: %s\n", 
-			st->temp, st->path);
+		fprintf(stderr, "%s: rename(%s): %s\n", 
+			st->temp, st->path, strerror(errno));
 		http_error(r, KHTTP_505);
-		if (-1 == unlink(st->temp) && ENOENT != er) {
-			perror(st->temp);
-			fprintf(stderr, "%s: failed unlink\n", st->temp);
-		}
-		if (-1 == unlink(st->path)) {
-			perror(st->temp);
-			fprintf(stderr, "%s: failed unlink\n", st->path);
-		} 
+		if (-1 == unlink(st->temp) && ENOENT != er) 
+			fprintf(stderr, "%s: unlink: %s\n", 
+				st->temp, strerror(errno));
+		if (-1 == unlink(st->path)) 
+			fprintf(stderr, "%s: unlink: %s\n", 
+				st->path, strerror(errno));
 		close_unlock(st->path, fd);
 		ical_free(p);
 		ctagcache_update(st->ctagfile);
@@ -265,8 +258,9 @@ method_put(struct kreq *r)
 	khttp_head(r, kresps[KRESP_ETAG], 
 		"%s", p->digest);
 	khttp_body(r);
+	close_unlock(st->path, fd);
 	ical_free(p);
-	fprintf(stderr, "%s: put: %s\n", st->path, st->prncpl->name);
+	fprintf(stderr, "%s: added\n", st->path);
 	ctagcache_update(st->ctagfile);
 }
 
