@@ -34,25 +34,15 @@
 #include "md5.h"
 
 static int
-validate(const char *pass, const char *method,
+validate(const char *hash, const char *method,
 	const struct httpauth *auth)
 {
 	MD5_CTX	 	 ctx;
-	unsigned char	 ha1[MD5_DIGEST_LENGTH],
-			 ha2[MD5_DIGEST_LENGTH],
+	unsigned char	 ha2[MD5_DIGEST_LENGTH],
 			 ha3[MD5_DIGEST_LENGTH];
-	char		 skey1[MD5_DIGEST_LENGTH * 2 + 1],
-			 skey2[MD5_DIGEST_LENGTH * 2 + 1],
+	char		 skey2[MD5_DIGEST_LENGTH * 2 + 1],
 			 skey3[MD5_DIGEST_LENGTH * 2 + 1];
 	size_t		 i;
-
-	MD5Init(&ctx);
-	MD5Update(&ctx, auth->user, strlen(auth->user));
-	MD5Update(&ctx, ":", 1);
-	MD5Update(&ctx, auth->realm, strlen(auth->realm));
-	MD5Update(&ctx, ":", 1);
-	MD5Update(&ctx, pass, strlen(pass));
-	MD5Final(ha1, &ctx);
 
 	MD5Init(&ctx);
 	MD5Update(&ctx, method, strlen(method));
@@ -61,12 +51,10 @@ validate(const char *pass, const char *method,
 	MD5Final(ha2, &ctx);
 
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
-		snprintf(&skey1[i * 2], 3, "%02x", ha1[i]);
-	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
 		snprintf(&skey2[i * 2], 3, "%02x", ha2[i]);
 
 	MD5Init(&ctx);
-	MD5Update(&ctx, skey1, strlen(skey1));
+	MD5Update(&ctx, hash, strlen(hash));
 	MD5Update(&ctx, ":", 1);
 	MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
 	MD5Update(&ctx, ":", 1);
@@ -94,10 +82,10 @@ prncpl_line(char *string, size_t sz,
 	/* Read in all of the required fields. */
 	if (NULL == (p->user = strsep(&string, ":")))
 		kerrx("%s:%zu: missing name", file, line);
-	else if (NULL == (p->pass = strsep(&string, ":")))
-		kerrx("%s:%zu: missing passwd", file, line);
-	else if (MD5_DIGEST_LENGTH * 2 != strlen(p->pass))
-		kerrx("%s:%zu: bad passwd length", file, line);
+	else if (NULL == (p->hash = strsep(&string, ":")))
+		kerrx("%s:%zu: missing hash", file, line);
+	else if (MD5_DIGEST_LENGTH * 2 != strlen(p->hash))
+		kerrx("%s:%zu: bad hash length", file, line);
 	else if (NULL == (p->uid = strsep(&string, ":")))
 		kerrx("%s:%zu: missing uid", file, line);
 	else if (NULL == (p->gid = strsep(&string, ":")))
@@ -167,8 +155,8 @@ prncpl_parse(const char *file, const char *method,
 		if (strcmp(entry.user, auth->user)) {
 			explicit_bzero(cp, len);
 			continue;
-		} else if ( ! validate(entry.pass, method, auth)) {
-			kerrx("%s:%zu: password mismatch with "
+		} else if ( ! validate(entry.hash, method, auth)) {
+			kerrx("%s:%zu: hash mismatch with "
 				"HTTP authorisation", file, line);
 			explicit_bzero(cp, len);
 			continue;
