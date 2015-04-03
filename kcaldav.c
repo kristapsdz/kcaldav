@@ -17,7 +17,6 @@
 #include "config.h"
 
 #include <assert.h>
-#include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
@@ -28,22 +27,22 @@
 #ifdef __linux__
 #include <bsd/string.h>
 #endif
-#include <unistd.h>
 
 #include <kcgi.h>
 #include <kcgixml.h>
 
 #include "extern.h"
-#include "main.h"
+#include "kcaldav.h"
 
 #ifndef CALDIR
 #error "CALDIR token not defined!"
 #endif
 
 /*
- * Make sure that requrested path is sane, then append it to our local
- * calendar root.
- * Returns zero on failure or non-zero on success.
+ * Configure all paths used in our system.
+ * We do this here to prevent future mucking around with string copying,
+ * concatenation, and path safety.
+ * Return zero on failure and non-zero on success.
  */
 static int
 req2path(struct kreq *r, const char *caldir)
@@ -54,17 +53,17 @@ req2path(struct kreq *r, const char *caldir)
 
 	/* Absolutely don't let it empty paths! */
 	if (NULL == r->fullpath || '\0' == r->fullpath[0]) {
-		fprintf(stderr, "empty request\n");
+		kerrx("zero-length request URI");
 		return(0);
 	} 
 
 	/* Don't let in paths having relative directory parts. */
 	if ('/' != r->fullpath[0]) {
-		fprintf(stderr, "%s: relative path\n", r->fullpath);
+		kerrx("%s: relative path", r->fullpath);
 		return(0);
 	} else if (strstr(r->fullpath, "../") || 
 			strstr(r->fullpath, "/..")) {
-		fprintf(stderr, "%s: relative path\n", r->fullpath);
+		kerrx("%s: insecure path", r->fullpath);
 		return(0);
 	} 
 
@@ -72,16 +71,16 @@ req2path(struct kreq *r, const char *caldir)
 	cp = strrchr(r->fullpath, '/');
 	assert(NULL != cp);
 	if ('.' == cp[1]) {
-		fprintf(stderr, "%s: illegal path\n", r->fullpath);
+		kerrx("%s: dotted filename", r->fullpath);
 		return(0);
 	}
 	
 	/* Check our calendar directory for security. */
 	if (strstr(caldir, "../") || strstr(caldir, "/..")) {
-		fprintf(stderr, "%s: insecure root\n", caldir);
+		kerrx("%s: insecure path", caldir);
 		return(0);
 	} else if ('\0' == caldir[0]) {
-		fprintf(stderr, "empty root\n");
+		kerrx("zero-length calendar root");
 		return(0);
 	}
 
@@ -91,21 +90,21 @@ req2path(struct kreq *r, const char *caldir)
 		st->rpath[sz - 1] = '\0';
 	sz = strlcat(st->rpath, r->fullpath, sizeof(st->rpath));
 	if (sz > sizeof(st->rpath)) {
-		fprintf(stderr, "%s: too long\n", st->rpath);
+		kerrx("%s: path too long", st->rpath);
 		return(0);
 	}
 
 	/* Create our principal filename. */
 	sz = strlcpy(st->prncplfile, caldir, sizeof(st->prncplfile));
 	if (sz >= sizeof(st->prncplfile)) {
-		fprintf(stderr, "%s: too long\n", st->prncplfile);
+		kerrx("%s: path too long", st->prncplfile);
 		return(0);
 	} else if ('/' != st->prncplfile[sz - 1])
 		strlcat(st->prncplfile, "/", sizeof(st->prncplfile));
 	sz = strlcat(st->prncplfile, 
 		"kcaldav.passwd", sizeof(st->prncplfile));
 	if (sz > sizeof(st->prncplfile)) {
-		fprintf(stderr, "%s: too long\n", st->prncplfile);
+		kerrx("%s: path too long", st->prncplfile);
 		return(0);
 	}
 
@@ -115,7 +114,7 @@ req2path(struct kreq *r, const char *caldir)
 		st->path[sz - 1] = '\0';
 	sz = strlcat(st->path, r->fullpath, sizeof(st->path));
 	if (sz >= sizeof(st->path)) {
-		fprintf(stderr, "%s: too long\n", st->path);
+		kerrx("%s: path too long", st->path);
 		return(0);
 	}
 
@@ -139,7 +138,7 @@ req2path(struct kreq *r, const char *caldir)
 		strlcat(st->temp, ".", sizeof(st->temp));
 		sz = strlcat(st->temp, ".XXXXXXXX", sizeof(st->temp));
 		if (sz >= sizeof(st->temp)) {
-			fprintf(stderr, "%s: too long\n", st->temp);
+			kerrx("%s: path too long", st->temp);
 			return(0);
 		}
 	}
@@ -157,7 +156,7 @@ req2path(struct kreq *r, const char *caldir)
 	sz = strlcat(st->ctagfile, 
 		"/kcaldav.ctag", sizeof(st->ctagfile));
 	if (sz >= sizeof(st->ctagfile)) {
-		fprintf(stderr, "%s: too long\n", st->ctagfile);
+		kerrx("%s: path too long", st->ctagfile);
 		return(0);
 	}
 
@@ -166,7 +165,7 @@ req2path(struct kreq *r, const char *caldir)
 	sz = strlcat(st->configfile, 
 		"/kcaldav.conf", sizeof(st->configfile));
 	if (sz >= sizeof(st->configfile)) {
-		fprintf(stderr, "%s: too long\n", st->configfile);
+		kerrx("%s: path too long", st->configfile);
 		return(0);
 	}
 
@@ -209,6 +208,8 @@ main(int argc, char *argv[])
 	int		 rc;
 	const char	*caldir = NULL;
 
+	setlinebuf(stderr);
+
 	while (-1 != getopt(argc, argv, "")) 
 		/* Spin. */ ;
 
@@ -219,22 +220,8 @@ main(int argc, char *argv[])
 	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
 
-#if 0
-	if (NULL != r.fieldmap[0]) {
-		size_t i;
-		for (i = 0; i < r.reqsz; i++) 
-			fprintf(stderr, "[%s]=[%s]\n",
-				r.reqs[i].key,
-				r.reqs[i].val);
-		fprintf(stderr, "%.*s\n", 
-			(int)r.fieldmap[0]->valsz,
-			r.fieldmap[0]->val);
-	}
-#endif
-
 	if (NULL == (r.arg = st = calloc(1, sizeof(struct state)))) {
-		fprintf(stderr, "%s: memory failure during "
-			"startup\n", r.fullpath);
+		kerr(NULL);
 		http_error(&r, KHTTP_505);
 		goto out;
 	}
@@ -250,6 +237,7 @@ main(int argc, char *argv[])
 	 * our convenience--and make sure they're secure.
 	 */
 	if ( ! req2path(&r, NULL == caldir ? CALDIR : caldir)) {
+		kerrx("path configuration failure (startup)");
 		http_error(&r, KHTTP_403);
 		goto out;
 	} 
@@ -265,20 +253,17 @@ main(int argc, char *argv[])
 		 NULL : r.reqmap[KREQU_AUTHORIZATION]->val);
 
 	if (NULL == st->auth) {
-		/* Allocation failure! */
-		fprintf(stderr, "%s: memory failure during "
-			"HTTP authorisation\n", r.fullpath);
+		kerrx("memory failure (httpauth)");
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (0 == st->auth->authorised) {
 		/* No authorisation found (or failed). */
-		fprintf(stderr, "%s: invalid HTTP "
-			"authorisation\n", r.fullpath);
+		kerrx("%s: unauthorised", st->rpath);
 		http_error(&r, KHTTP_401);
 		goto out;
 	} else if (strcmp(st->auth->uri, st->rpath)) {
-		fprintf(stderr, "%s: HTTP authorisation "
-			"URI path is invalid\n", st->rpath);
+		kerrx("%s: bad authorisation URI: %s", 
+			st->rpath, st->auth->uri);
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 
@@ -294,18 +279,16 @@ main(int argc, char *argv[])
 		kmethods[r.method], st->auth, &st->prncpl);
 
 	if (rc < 0) {
-		fprintf(stderr, "%s: memory failure during "
-			"principal authorisation\n", st->prncplfile);
+		kerrx("memory failure (principal)");
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (0 == rc) {
-		fprintf(stderr, "%s: not a valid principal "
-			"authorisation file\n", st->prncplfile);
+		kerrx("%s: bad principal file", st->prncplfile);
 		http_error(&r, KHTTP_403);
 		goto out;
 	} else if (NULL == st->prncpl) {
-		fprintf(stderr, "%s: invalid principal "
-			"authorisation\n", st->prncplfile);
+		kerrx("%s: bad principal authorisation: %s", 
+			st->prncplfile, st->auth->user);
 		http_error(&r, KHTTP_401);
 		goto out;
 	}
@@ -318,22 +301,25 @@ main(int argc, char *argv[])
 	rc = config_parse(st->configfile, &st->cfg, st->prncpl);
 
 	if (rc < 0) {
-		fprintf(stderr, "%s: memory failure "
-			"during configuration parse\n", st->configfile);
+		kerrx("memory failure (config)");
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (0 == rc) {
-		fprintf(stderr, "%s: not a valid "
-			"configuration file\n", st->configfile);
+		kerrx("%s: bad config", st->configfile);
 		http_error(&r, KHTTP_403);
 		goto out;
 	} else if (PERMS_NONE == st->cfg->perms) {
-		fprintf(stderr, "%s: principal without "
-			"any privilege\n", st->configfile);
+		kerrx("%s: principal without privilege: %s", 
+			st->path, st->prncpl->name);
 		http_error(&r, KHTTP_403);
 		goto out;
 	}
 
+	/* 
+	 * We're ready to go!
+	 * (We still may fail privileges for individual resources, but
+	 * beyond that, the only failure is on the request URI.)
+	 */
 	switch (r.method) {
 	case (KMETHOD_PUT):
 		method_put(&r);
@@ -354,7 +340,7 @@ main(int argc, char *argv[])
 		method_options(&r);
 		break;
 	default:
-		fprintf(stderr, "%s: ignoring method %s\n",
+		kerrx("%s: ignoring method %s",
 			st->path, kmethods[r.method]);
 		http_error(&r, KHTTP_405);
 		break;

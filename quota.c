@@ -51,8 +51,7 @@ quota(const char *file, int fd,
 #endif
 
 	if (-1 == fstatfs(fd, &sfs)) {
-		fprintf(stderr, "%s: fstafs: %s\n",
-			file, strerror(errno));
+		kerr("%s: fstafs", file);
 		return(0);
 	} 
 
@@ -70,7 +69,8 @@ quota(const char *file, int fd,
 		*used = quota.dqb_curbytes;
 		*avail = quota.dqb_bsoftlimit - quota.dqb_curbytes;
 #endif
-	}
+	} else if (ENOTSUP != errno)
+		kerr("%s: quotactl", file);
 #endif
 
 	return(1);

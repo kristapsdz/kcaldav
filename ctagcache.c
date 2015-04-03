@@ -33,7 +33,7 @@
 #include <kcgixml.h>
 
 #include "extern.h"
-#include "main.h"
+#include "kcaldav.h"
 
 /*
  * Update the ctag in "fname".
@@ -52,16 +52,15 @@ ctagcache_update(const char *fname)
 	if (-1 == (fd = open_lock_ex(fname, O_RDWR|O_CREAT, 0600)))
 		return(0);
 	if (-1 == (ssz = write(fd, buf, 32))) {
-		perror(fname);
+		kerr("%s: write", fname);
 		close_unlock(fname, fd);
 		return(0);
 	} else if (ssz != 32) {
+		kerrx("%s: short write", fname);
 		close_unlock(fname, fd);
-		fprintf(stderr, "%s: short write\n", fname);
 		return(0);
 	}
 	close_unlock(fname, fd);
-	fprintf(stderr, "%s: ctag cache updated\n", fname);
 	return(1);
 }
 
@@ -85,16 +84,15 @@ ctagcache_get(const char *fname, char *str)
 	if (-1 == (fd = open_lock_sh(fname, O_RDONLY, 0)))
 		return;
 	if (-1 == (ssz = read(fd, buf, 32))) {
-		perror(fname);
+		kerr("%s: read", fname);
 		close_unlock(fname, fd);
 		return;
 	} else if (ssz != 32) {
-		fprintf(stderr, "%s: short read\n", fname);
+		kerrx("%s: short read", fname);
 		close_unlock(fname, fd);
 		return;
 	}
 	close_unlock(fname, fd);
 	for (i = 0; i < 32; i++)
 		snprintf(&str[i * 2], 3, "%.2X", buf[i]);
-	fprintf(stderr, "%s: ctag cache read\n", fname);
 }

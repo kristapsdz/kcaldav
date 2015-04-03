@@ -13,19 +13,20 @@ BINLDFLAGS	 = -L/usr/local/lib
 BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
 
 # For OpenBSD:
-LIBS		 = -lexpat -lutil 
-STATIC		 = -static
+#LIBS		 = -lexpat -lutil 
+#STATIC		 = -static
 
 # For Mac OS X:
-#LIBS		 = -lexpat 
-#STATIC		 = 
+LIBS		 = -lexpat 
+STATIC		 = 
 
 # For Linux:
-LIBS		 = -lexpat -lutil -lbsd
-STATIC		 = 
+#LIBS		 = -lexpat -lutil -lbsd
+#STATIC		 = 
 
 # You probably don't want to change anything after this.
 BINS		 = kcaldav \
+		   kcaldav.passwd \
 		   test-auth \
 		   test-caldav \
 		   test-config \
@@ -70,10 +71,12 @@ ALLSRCS		 = Makefile \
 		   config.c \
 		   ctagcache.c \
 		   delete.c \
+		   err.c \
 		   get.c \
 		   httpauth.c \
 		   ical.c \
-		   main.c \
+		   kcaldav.c \
+		   kcaldav.passwd.c \
 		   md5.c \
 		   open.c \
 		   options.c \
@@ -91,6 +94,7 @@ OBJS		 = buf.o \
 		   compat-reallocarray.o \
 		   config.o \
 		   ctagcache.o \
+		   err.o \
 		   httpauth.o \
 		   ical.o \
 		   md5.o \
@@ -100,7 +104,7 @@ OBJS		 = buf.o \
 BINOBJS		 = collection.o \
 		   delete.o \
 		   get.o \
-		   main.o \
+		   kcaldav.o \
 		   options.o \
 		   propfind.o \
 		   put.o \
@@ -108,11 +112,13 @@ BINOBJS		 = collection.o \
 		   util.o
 ALLOBJS		 = $(TESTOBJS) \
 		   $(BINOBJS) \
-		   $(OBJS)
+		   $(OBJS) \
+		   kcaldav.passwd.o
 VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_5.xml \
-		   version_0_0_6.xml
-VERSION		 = 0.0.5
+		   version_0_0_6.xml \
+		   version_0_0_7.xml
+VERSION		 = 0.0.7
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 
@@ -158,6 +164,9 @@ kcaldav.tgz:
 kcaldav: $(BINOBJS) $(OBJS)
 	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) $(BINLDFLAGS) $(BINLIBS) 
 
+kcaldav.passwd: kcaldav.passwd.o $(OBJS)
+	$(CC) -o $@ kcaldav.passwd.o $(OBJS) $(LIBS)
+
 test-ical: test-ical.o $(OBJS)
 	$(CC) -o $@ test-ical.o $(OBJS) $(LIBS)
 
@@ -175,7 +184,7 @@ test-prncpl: test-prncpl.o $(OBJS)
 
 $(ALLOBJS): extern.h md5.h config.h
 
-$(BINOBJS): main.h
+$(BINOBJS): kcaldav.h
 
 index.html: index.xml $(VERSIONS)
 	sblg -t index.xml -o- $(VERSIONS) | sed "s!@VERSION@!$(VERSION)!g" >$@

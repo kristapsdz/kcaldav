@@ -27,7 +27,7 @@
 #include <kcgixml.h>
 
 #include "extern.h"
-#include "main.h"
+#include "kcaldav.h"
 
 void
 resource_calendar_data(struct kxmlreq *xml, const struct ical *p)
