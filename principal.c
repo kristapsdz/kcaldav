@@ -100,8 +100,7 @@ prncpl_parse(const char *file, const char *method,
 	*pp = NULL;
 
 	if (NULL == (f = fopen(file, "r"))) {
-		fprintf(stderr, "%s: fopen: %s\n",
-			file, strerror(errno));
+		kerr("%s: fopen", file);
 		return(0);
 	}
 
@@ -111,13 +110,13 @@ prncpl_parse(const char *file, const char *method,
 	 * Carefully make sure that we explicit_bzero() then contents of
 	 * the memory buffer after each read.
 	 * This prevents an adversary to gaining control of the
-	 * passwords that are in this file via our memory.
+	 * password hashes that are in this file via our memory.
 	 */
 	while (NULL != (cp = fgetln(f, &len))) {
 		line++;
 		/* Nil-terminate the buffer. */
 		if (0 == len || '\n' != cp[len - 1]) {
-			fprintf(stderr, "%s:%zu: no newline\n", file, line);
+			kerrx("%s:%zu: no newline", file, line);
 			continue;
 		}
 		cp[len - 1] = '\0';
@@ -125,48 +124,39 @@ prncpl_parse(const char *file, const char *method,
 
 		/* Read in all of the required fields. */
 		if (NULL == (user = strsep(&string, ":"))) {
-			fprintf(stderr, "%s:%zu: missing "
-				"name field\n", file, line);
+			kerrx("%s:%zu: missing name", file, line);
 			explicit_bzero(cp, len);
 			break;
 		} else if (NULL == (pass = strsep(&string, ":"))) {
-			fprintf(stderr, "%s:%zu: missing "
-				"password field\n", file, line);
+			kerrx("%s:%zu: missing passwd", file, line);
 			explicit_bzero(cp, len);
 			break;
 		} else if (NULL == (uid = strsep(&string, ":"))) {
-			fprintf(stderr, "%s:%zu: missing "
-				"uid field\n", file, line);
+			kerrx("%s:%zu: missing uid", file, line);
 			explicit_bzero(cp, len);
 			break;
 		} else if (NULL == (gid = strsep(&string, ":"))) {
-			fprintf(stderr, "%s:%zu: missing "
-				"gid field\n", file, line);
+			kerrx("%s:%zu: missing gid", file, line);
 			explicit_bzero(cp, len);
 			break;
 		} else if (NULL == (class = strsep(&string, ":"))) {
-			fprintf(stderr, "%s:%zu: missing "
-				"class field\n", file, line);
+			kerrx("%s:%zu: missing class", file, line);
 			explicit_bzero(cp, len);
 			break;
 		} else if (NULL == (change = strsep(&string, ":"))) {
-			fprintf(stderr, "%s:%zu: missing "
-				"change field\n", file, line);
+			kerrx("%s:%zu: missing change", file, line);
 			explicit_bzero(cp, len);
 			break;
 		} else if (NULL == (expire = strsep(&string, ":"))) {
-			fprintf(stderr, "%s:%zu: missing "
-				"expire field\n", file, line);
+			kerrx("%s:%zu: missing expire", file, line);
 			explicit_bzero(cp, len);
 			break;
 		} else if (NULL == (gecos = strsep(&string, ":"))) {
-			fprintf(stderr, "%s:%zu: missing "
-				"gecos field\n", file, line);
+			kerrx("%s:%zu: missing gecos", file, line);
 			explicit_bzero(cp, len);
 			break;
 		} else if (NULL == (homedir = strsep(&string, ":"))) {
-			fprintf(stderr, "%s:%zu: missing "
-				"homedir field\n", file, line);
+			kerrx("%s:%zu: missing homedir", file, line);
 			explicit_bzero(cp, len);
 			break;
 		}
@@ -176,9 +166,8 @@ prncpl_parse(const char *file, const char *method,
 			explicit_bzero(cp, len);
 			continue;
 		} else if ( ! validate(pass, method, auth)) {
-			fprintf(stderr, "%s:%zu: password "
-				"does not match HTTP authorisation "
-				"response\n", file, line);
+			kerrx("%s:%zu: password mismatch with "
+				"HTTP authorisation", file, line);
 			explicit_bzero(cp, len);
 			continue;
 		}
@@ -186,11 +175,11 @@ prncpl_parse(const char *file, const char *method,
 		/* Allocate the principal. */
 		rc = -1;
 		if (NULL == (*pp = calloc(1, sizeof(struct prncpl)))) 
-			perror(NULL);
+			kerr(NULL);
 		else if (NULL == ((*pp)->name = strdup(user)))
-			perror(NULL);
+			kerr(NULL);
 		else if (NULL == ((*pp)->homedir = strdup(homedir)))
-			perror(NULL);
+			kerr(NULL);
 		else
 			rc = 1;
 
@@ -201,19 +190,17 @@ prncpl_parse(const char *file, const char *method,
 	/* If we had errors, bail out now. */
 	if ( ! feof(f) && rc <= 0) {
 		if (rc > 0)
-			fprintf(stderr, "%s: fgetln: %s\n",
-				file, strerror(errno));
+			kerr("%s: fgetln", file);
 		if (-1 == fclose(f))
-			fprintf(stderr, "%s: fclose: %s\n",
-				file, strerror(errno));
+			kerr("%s: fclose", file);
 		prncpl_free(*pp);
 		pp = NULL;
 		return(rc > 0 ? -1 : rc);
 	}
 
 	if (-1 == fclose(f))
-		fprintf(stderr, "%s: fclose: %s\n",
-			file, strerror(errno));
+		kerr("%s: fclose", file);
+
 	return(1);
 }
 

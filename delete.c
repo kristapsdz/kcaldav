@@ -34,7 +34,7 @@
 #include <kcgixml.h>
 
 #include "extern.h"
-#include "main.h"
+#include "kcaldav.h"
 
 void
 method_delete(struct kreq *r)
@@ -49,8 +49,9 @@ method_delete(struct kreq *r)
 	char		 buf[PATH_MAX];
 
 	if ( ! (PERMS_DELETE & st->cfg->perms)) {
-		fprintf(stderr, "%s: principal does not "
-			"have delete acccess\n", st->path);
+		kerrx("%s: principal does not "
+			"have delete acccess: %s", 
+			st->path, st->prncpl->name);
 		http_error(r, KHTTP_403);
 		return;
 	} 
@@ -59,8 +60,8 @@ method_delete(struct kreq *r)
 	if (NULL != r->reqmap[KREQU_IF_MATCH]) {
 		digest = r->reqmap[KREQU_IF_MATCH]->val;
 		if (32 != (sz = strlen(digest))) {
-			fprintf(stderr, "%s: \"If-Match\" digest "
-				"invalid: %zuB\n", st->path, sz);
+			kerrx("%s: \"If-Match\" digest "
+				"invalid: %zuB", st->path, sz);
 			http_error(r, KHTTP_400);
 			return;
 		}
@@ -71,11 +72,10 @@ method_delete(struct kreq *r)
 		if (NULL == cur) {
 			http_error(r, KHTTP_404);
 		} else if (strcmp(cur->digest, digest)) {
-			fprintf(stderr, "%s: fail digest\n", st->path);
+			kerrx("%s: fail digest", st->path);
 			http_error(r, KHTTP_412);
 		} else if (-1 == unlink(st->path)) {
-			fprintf(stderr, "%s: unlink: %s\n", 
-				st->path, strerror(errno));
+			kerr("%s: unlink", st->path);
 			http_error(r, KHTTP_505);
 		} else {
 			ctagcache_update(st->ctagfile);
@@ -85,16 +85,14 @@ method_delete(struct kreq *r)
 		ical_free(cur);
 		return;
 	} else if ( ! st->isdir) {
-		fprintf(stderr, "%s: WARNING: unsafe "
-			"delete of resource\n", st->path);
+		kerrx("%s: WARNING: unsafe delete", st->path);
 		if (-1 != unlink(st->path))  {
+			ctagcache_update(st->ctagfile);
 			http_error(r, KHTTP_204);
-			return;
+		} else {
+			kerr("%s: unlink", st->path);
+			http_error(r, KHTTP_505);
 		}
-		fprintf(stderr, "%s: unlink: %s\n", 
-			st->path, strerror(errno));
-		ctagcache_update(st->ctagfile);
-		http_error(r, KHTTP_505);
 		return;
 	} 
 
@@ -103,13 +101,11 @@ method_delete(struct kreq *r)
 	 * of a collection (NOT its configuration) without any
 	 * sort of checks on the collection data.
 	 */
-	fprintf(stderr, "%s: WARNING: unsafe "
-		"delete of collection\n", st->path);
+	kerrx("%s: WARNING: unsafe delete", st->path);
 
 	assert(st->isdir);
 	if (NULL == (dirp = opendir(st->path))) {
-		fprintf(stderr, "%s: opendir: %s\n", 
-			st->path, strerror(errno));
+		kerr("%s: opendir", st->path);
 		http_error(r, KHTTP_505);
 		return;
 	}
@@ -125,19 +121,15 @@ method_delete(struct kreq *r)
 		strlcpy(buf, st->path, sizeof(buf));
 		sz = strlcat(buf, dp->d_name, sizeof(buf));
 		if (sz >= sizeof(buf)) {
-			fprintf(stderr, "%s: too long "
-				"(not removed)\n", buf);
+			kerrx("%s: path too long", buf);
 			errs = 1;
 		} else if (-1 == unlink(buf)) {
-			fprintf(stderr, "%s: unlink: %s\n", 
-				buf, strerror(errno));
+			kerr("%s: unlink", buf);
 			errs = 1;
-		} else 
-			fprintf(stderr, "%s: delete\n", buf);
+		} 
 	}
 	if (-1 == closedir(dirp))
-		fprintf(stderr, "%s: closedir: %s\n", 
-			st->path, strerror(errno));
+		kerr("%s: closedir", st->path);
 
 	if (errs)
 		http_error(r, KHTTP_505);
@@ -145,4 +137,3 @@ method_delete(struct kreq *r)
 		http_error(r, KHTTP_204);
 	ctagcache_update(st->ctagfile);
 }
-

@@ -31,13 +31,13 @@
 #include "extern.h"
 
 static int
-config_set(char **p, const char *val)
+set(char **p, const char *val)
 {
 
 	free(*p);
 	if (NULL != (*p = strdup(val)))
 		return(1);
-	perror(NULL);
+	kerr(NULL);
 	return(0);
 }
 
@@ -46,26 +46,26 @@ config_defaults(const char *file, struct config *cfg)
 {
 
 	if (NULL == cfg->emailaddress) {
-		fprintf(stderr, "%s: no email-address\n", file);
+		kerrx("%s: no email-address", file);
 		return(0);
 	}
 
 	if (NULL == cfg->displayname)
-		if ( ! config_set(&cfg->displayname, ""))
+		if ( ! set(&cfg->displayname, ""))
 			return(-1);
 
 	return(1);
 }
 
 static int
-config_prvlg(struct config *cfg, const struct prncpl *prncpl,
+priv(struct config *cfg, const struct prncpl *prncpl,
 	const char *file, size_t line, const char *val)
 {
 	const char	*name;
 	size_t		 namesz;
 
 	if ('\0' == *val) {
-		fprintf(stderr, "%s:%zu: empty?\n", file, line);
+		kerrx("%s:%zu: empty privilege", file, line);
 		return(0);
 	}
 
@@ -74,7 +74,7 @@ config_prvlg(struct config *cfg, const struct prncpl *prncpl,
 		val++;
 
 	if (0 == (namesz = val - name)) {
-		fprintf(stderr, "%s:%zu: empty?\n", file, line);
+		kerrx("%s:%zu: empty privilege", file, line);
 		return(0);
 	}
 
@@ -108,7 +108,7 @@ config_prvlg(struct config *cfg, const struct prncpl *prncpl,
 			val += 3;
 			continue;
 		} 
-		fprintf(stderr, "%s:%zu: bad priv\n", file, line);
+		kerrx("%s:%zu: bad priv token", file, line);
 		return(0);
 	}
 
@@ -131,30 +131,26 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 	long long	 bytesused, bytesavail;
 
 	if (-1 == (fd = open(file, O_RDONLY, 0))) {
-		fprintf(stderr, "%s: open: %s\n", 
-			file, strerror(errno));
+		kerr("%s: open", file);
 		return(0);
 	} else if ( ! quota(file, fd, &bytesused, &bytesavail)) {
+		kerrx("%s: quota failure", file);
 		if (-1 == close(fd))
-			fprintf(stderr, "%s: close: %s\n", 
-				file, strerror(errno));
+			kerr("%s: close", file);
 		return(0);
 	} else if (NULL == (f = fdopen(fd, "r"))) {
-		fprintf(stderr, "%s: fdopen: %s\n",
-			file, strerror(errno));
+		kerr("%s: fdopen", file);
 		if (-1 == close(fd))
-			fprintf(stderr, "%s: close: %s\n", 
-				file, strerror(errno));
+			kerr("%s: close", file);
 		return(0);
 	}
 
 	line = 0;
 	cp = NULL;
 	if (NULL == (*pp = calloc(1, sizeof(struct config)))) {
-		perror(NULL);
+		kerr(NULL);
 		if (-1 == fclose(f))
-			fprintf(stderr, "%s: fclose: %s\n", 
-				file, strerror(errno));
+			kerr("%s: fclose", file);
 		return(-1);
 	}
 
@@ -179,7 +175,7 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 		}
 
 		if (NULL == (val = end = strchr(key, '='))) {
-			fprintf(stderr, "%s:%zu: ???\n", file, line + 1);
+			kerrx("%s:%zu: no \"=\"", file, line + 1);
 			rc = 0;
 			break;
 		}
@@ -194,11 +190,11 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 			val++;
 
 		if (0 == strcmp(key, "privilege"))
-			rc = config_prvlg(*pp, prncpl, file, line, val);
+			rc = priv(*pp, prncpl, file, line + 1, val);
 		else if (0 == strcmp(key, "displayname"))
-			rc = config_set(&(*pp)->displayname, val);
+			rc = set(&(*pp)->displayname, val);
 		else if (0 == strcmp(key, "email-address-set"))
-			rc = config_set(&(*pp)->emailaddress, val);
+			rc = set(&(*pp)->emailaddress, val);
 		else
 			rc = 1;
 
@@ -217,13 +213,11 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 	 */
 	if ( ! feof(f)) {
 		if (rc > 0)
-			fprintf(stderr, "%s: fparseln: %s\n",
-				file, strerror(errno));
+			kerr("%s: fparseln", file);
 		else
-			fprintf(stderr, "%s: parse failed\n", file);
+			kerrx("%s: fail parse", file);
 		if (-1 == fclose(f))
-			fprintf(stderr, "%s: fclose: %s\n",
-				file, strerror(errno));
+			kerr("%s: fclose", file);
 		free(cp);
 		config_free(*pp);
 		*pp = NULL;
@@ -234,8 +228,7 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 	assert(rc > 0);
 	free(cp);
 	if (-1 == fclose(f))
-		fprintf(stderr, "%s: fclose: %s\n",
-			file, strerror(errno));
+		kerr("%s: fclose", file);
 
 	if ((rc = config_defaults(file, *pp)) <= 0) {
 		config_free(*pp);

@@ -52,8 +52,7 @@ open_lock_ex(const char *file, int flags, mode_t mode)
 		return(fd);
 #endif
 	er = errno;
-	fprintf(stderr, "%s: open(O_EXLOCK): "
-		"%s\n", file, strerror(er));
+	kerr("%s: open exclusive", file);
 	errno = er;
 	return(-1);
 }
@@ -71,27 +70,23 @@ open_lock_sh(const char *file, int flags, mode_t mode)
 #ifndef	HAVE_OPEN_LOCK
 	if (-1 == (fd = open(file, flags, mode))) {
 		er = errno;
-		fprintf(stderr, "%s: open: "
-			"%s\n", file, strerror(er));
+		kerr("%s: open", file);
 		errno = er;
 		return(fd);
 	} else if (-1 != flock(fd, LOCK_EX))
 		return(fd);
 
 	er = errno;
-	fprintf(stderr, "%s: flock(LOCK_EX): "
-		"%s\n", file, strerror(er));
+	kerr("%s: flock shared", file);
 	if (-1 == close(fd)) 
-		fprintf(stderr, "%s: close: "
-			"%s\n", file, strerror(errno));
+		kerr("%s: close", file);
 	errno = er;
 	return(-1);
 #else
 	if (-1 != (fd = open(file, flags | O_EXLOCK, mode))) 
 		return(fd);
 	er = errno;
-	fprintf(stderr, "%s: open(O_EXLOCK): "
-		"%s\n", file, strerror(er));
+	kerr("%s: open shared", file);
 	errno = er;
 	return(-1);
 #endif
@@ -108,19 +103,15 @@ close_unlock(const char *file, int fd)
 
 	if (-1 == flock(fd, LOCK_UN)) {
 		er = errno;
-		fprintf(stderr, "%s: flock(LOCK_UN): "
-			"%s\n", file, strerror(er));
+		kerr("%s: flock unlock", file);
 		errno = er;
-		if (-1 != close(fd))
-			return(-1);
-		fprintf(stderr, "%s: close: %s\n", 
-			file, strerror(errno));
+		if (-1 == close(fd))
+			kerr("%s: close", file);
 		errno = er;
 		return(-1);
 	} else if (-1 == close(fd)) {
 		er = errno;
-		fprintf(stderr, "%s: close: %s\n", 
-			file, strerror(er));
+		kerr("%s: close", file);
 		errno = er;
 		return(-1);
 	}

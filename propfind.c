@@ -34,7 +34,7 @@
 #include <kcgixml.h>
 
 #include "extern.h"
-#include "main.h"
+#include "kcaldav.h"
 
 /*
  * This converts the request into a CalDav object.
@@ -45,20 +45,18 @@
 static struct caldav *
 req2caldav(struct kreq *r)
 {
-	struct caldav	*p;
+	struct state	*st = r->arg;
 
 	if (NULL == r->fieldmap[0]) {
+		kerrx("%s: failed parse CalDAV XML "
+			"in client request", st->path);
 		http_error(r, KHTTP_400);
 		return(NULL);
 	} 
 
-	p = caldav_parse
+	return(caldav_parse
 		(r->fieldmap[0]->val, 
-		 r->fieldmap[0]->valsz);
-	assert(NULL != p);
-
-	/*fprintf(stderr, "%s", r->fieldmap[0]->val);*/
-	return(p);
+		 r->fieldmap[0]->valsz));
 }
 
 /*
@@ -70,13 +68,9 @@ static void
 propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 {
 	size_t	 	 i, nf;
-	struct state	*st = xml->req->arg;
 	const char	*tag;
 	collectionfp	 accepted[PROP__MAX + 1];
 	int		 ignore[PROP__MAX + 1];
-
-	fprintf(stderr, "%s: properties: %s\n", 
-		st->path, st->prncpl->name);
 
 	memset(accepted, 0, sizeof(accepted));
 	memset(ignore, 0, sizeof(ignore));
@@ -127,10 +121,10 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 			if (ignore[dav->props[i].key])
 				continue;
 			nf++;
-			fprintf(stderr, "Unknown collection "
+			/*fprintf(stderr, "Unknown collection "
 				"property: %s (%s)\n", 
 				dav->props[i].name, 
-				dav->props[i].xmlns);
+				dav->props[i].xmlns);*/
 			continue;
 		}
 		tag = calelems[calpropelems[dav->props[i].key]];
@@ -228,7 +222,7 @@ propfind_resource(struct kxmlreq *xml,
 	/* See if we must reconstitute the file to open. */
 	if (NULL != name) {
 		if (strchr(name, '/')) {
-			fprintf(stderr, "%s: insecure path\n", name);
+			kerrx("%s: insecure path", name);
 			kxml_push(xml, XML_DAV_STATUS);
 			kxml_puts(xml, "HTTP/1.1 ");
 			kxml_puts(xml, khttps[KHTTP_403]);
@@ -240,7 +234,7 @@ propfind_resource(struct kxmlreq *xml,
 		strlcpy(buf, st->path, sizeof(buf));
 		sz = strlcat(buf, name, sizeof(buf));
 		if (sz >= sizeof(buf)) {
-			fprintf(stderr, "%s: too long\n", buf);
+			kerrx("%s: path too long", buf);
 			kxml_push(xml, XML_DAV_STATUS);
 			kxml_puts(xml, "HTTP/1.1 ");
 			kxml_puts(xml, khttps[KHTTP_403]);
@@ -251,12 +245,9 @@ propfind_resource(struct kxmlreq *xml,
 	} else 
 		pathp = name;
 
-	fprintf(stderr, "%s: properties: %s\n", 
-		pathp, st->prncpl->name);
-
 	/* We can only request iCal object, so parse now. */
 	if (NULL == (ical = ical_parsefile(pathp))) {
-		fprintf(stderr, "%s: parse error\n", pathp);
+		kerrx("%s: fail parse iCalendar", pathp);
 		kxml_push(xml, XML_DAV_STATUS);
 		kxml_puts(xml, "HTTP/1.1 ");
 		kxml_puts(xml, khttps[KHTTP_403]);
@@ -272,10 +263,10 @@ propfind_resource(struct kxmlreq *xml,
 			if (ignore[dav->props[i].key])
 				continue;
 			nf++;
-			fprintf(stderr, "Unknown resource "
+			/*fprintf(stderr, "Unknown resource "
 				"property: %s (%s)\n", 
 				dav->props[i].name, 
-				dav->props[i].xmlns);
+				dav->props[i].xmlns);*/
 			continue;
 		}
 		tag = calelems[calpropelems[dav->props[i].key]];
@@ -349,8 +340,7 @@ propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
 		return;
 
 	if (NULL == (dirp = opendir(st->path))) {
-		fprintf(stderr, "%s: opendir: %s\n",
-			st->path, strerror(errno));
+		kerr("%s: opendir", st->path);
 		return;
 	}
 
@@ -365,8 +355,7 @@ propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
 	}
 
 	if (-1 == closedir(dirp))
-		fprintf(stderr, "%s: closedir: %s\n",
-			st->path, strerror(errno));
+		kerr("%s: closedir", st->path);
 }
 
 static void
@@ -383,8 +372,7 @@ propfind_list(struct kxmlreq *xml, const struct caldav *dav)
 			propfind_resource(xml, dav, name + sz);
 			continue;
 		}
-		fprintf(stderr, "%s: not in root: %s\n",
-			st->path, name);
+		kerrx("%s: not in root: %s", st->path, name);
 		kxml_push(xml, XML_DAV_RESPONSE);
 		kxml_push(xml, XML_DAV_HREF);
 		kxml_puts(xml, xml->req->pname);
@@ -406,19 +394,17 @@ method_report(struct kreq *r)
 	struct kxmlreq	 xml;
 
 	if ( ! (PERMS_READ & st->cfg->perms)) {
-		fprintf(stderr, "%s: principal does not "
-			"have read acccess\n", st->path);
+		kerrx("%s: principal does not "
+			"have read acccess: %s", 
+			st->path, st->prncpl->name);
 		http_error(r, KHTTP_403);
 		return;
-	}
-
-	if (NULL == (dav = req2caldav(r)))
+	} else if (NULL == (dav = req2caldav(r)))
 		return;
 
 	if (TYPE_CALMULTIGET != dav->type &&
 		 TYPE_CALQUERY != dav->type) {
-		fprintf(stderr, "%s: unknown "
-			"request type\n", st->path);
+		kerrx("%s: unknown request type", st->path);
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
 		return;
@@ -463,17 +449,16 @@ method_propfind(struct kreq *r)
 	struct kxmlreq	 xml;
 
 	if ( ! (PERMS_READ & st->cfg->perms)) {
-		fprintf(stderr, "%s: principal does not "
-			"have read acccess\n", st->path);
+		kerrx("%s: principal does not "
+			"have read acccess: %s", 
+			st->path, st->prncpl->name);
 		http_error(r, KHTTP_403);
 		return;
-	}
-
-	if (NULL == (dav = req2caldav(r)))
+	} else if (NULL == (dav = req2caldav(r)))
 		return;
 
 	if (TYPE_PROPFIND != dav->type) {
-		fprintf(stderr, "%s: bad media\n", st->path);
+		kerrx("%s: unknown request type", st->path);
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
 		return;

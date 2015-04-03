@@ -33,22 +33,23 @@
 #include <kcgixml.h>
 
 #include "extern.h"
-#include "main.h"
+#include "kcaldav.h"
 
-/*
- * If found, convert the (already-validated) iCalendar.
- */
 static struct ical *
 req2ical(struct kreq *r)
 {
-	struct ical	*p = NULL;
+	struct state	*st = r->arg;
 
-	if (NULL != r->fieldmap[0]) 
-		p = ical_parse(NULL, 
-			r->fieldmap[0]->val, 
-			r->fieldmap[0]->valsz);
+	if (NULL == r->fieldmap[0]) {
+		kerrx("%s: failed parse iCalendar "
+			"in client request", st->path);
+		http_error(r, KHTTP_400);
+		return(NULL);
+	} 
 
-	return(p);
+	return(ical_parse(NULL, 
+		r->fieldmap[0]->val, 
+		r->fieldmap[0]->valsz));
 }
 
 /*
@@ -76,8 +77,7 @@ req2temp(struct kreq *r)
 				"%.1X", arc4random_uniform(128));
 		fd = open(st->temp, O_RDWR | O_CREAT | O_EXCL, 0600);
 		if (fd < 0 && EEXIST != errno) {
-			fprintf(stderr, "%s: open: %s\n",
-				st->temp, strerror(errno));
+			kerr("%s: open", st->temp);
 			return(-1);
 		}
 	} while (-1 == fd);
@@ -99,25 +99,21 @@ method_put(struct kreq *r)
 
 	/* Need write-content or bind permissions. */
 	if ( ! (PERMS_WRITE & st->cfg->perms)) {
-		fprintf(stderr, "%s: principal does "
-			"not have write acccess: %s\n", 
+		kerrx("%s: principal does not "
+			"have write acccess: %s", 
 			st->path, st->prncpl->name);
 		http_error(r, KHTTP_403);
 		return;
-	} else if (NULL == (p = req2ical(r))) {
-		fprintf(stderr, "%s: failed parse ICS "
-			"in client request\n", st->path);
-		http_error(r, KHTTP_400);
+	} else if (NULL == (p = req2ical(r)))
 		return;
-	}
 
 	/* Check if PUT is conditional upon existing etag. */
 	digest = NULL;
 	if (NULL != r->reqmap[KREQU_IF_MATCH]) {
 		digest = r->reqmap[KREQU_IF_MATCH]->val;
 		if (32 != (sz = strlen(digest))) {
-			fprintf(stderr, "%s: \"If-Match\" digest "
-				"invalid: %zuB\n", st->path, sz);
+			kerrx("%s: \"If-Match\" digest "
+				"invalid: %zuB", st->path, sz);
 			http_error(r, KHTTP_400);
 			ical_free(p);
 			return;
@@ -127,8 +123,8 @@ method_put(struct kreq *r)
 		if (36 != (sz = strlen(digest)) ||
 			 '(' != digest[0] || '[' != digest[1] ||
 			 ']' != digest[34] || ')' != digest[35]) {
-			fprintf(stderr, "%s: \"If\" digest "
-				"invalid: %zuB\n", st->path, sz);
+			kerrx("%s: \"If\" digest "
+				"invalid: %zuB", st->path, sz);
 			http_error(r, KHTTP_400);
 			ical_free(p);
 			return;
@@ -147,21 +143,18 @@ method_put(struct kreq *r)
 		return;
 	} else if (0 == ical_printfile(fd, p)) {
 		er = errno;
-		fprintf(stderr, "%s: write: %s\n", 
-			st->temp, strerror(errno));
+		kerr("%s: ical_printfile", st->temp);
 		http_error(r, (EDQUOT == er ||
 			ENOSPC == er || EFBIG == er) ?
 			KHTTP_507 : KHTTP_505);
-		close(fd);
+		if (-1 == close(fd))
+			kerr("%s: close", st->temp);
 		ical_free(p);
-		if (-1 != unlink(st->temp))
-			return;
-		fprintf(stderr, "%s: unlink: %s\n", 
-			st->temp, strerror(errno));
+		if (-1 == unlink(st->temp))
+			kerr("%s: unlink", st->temp);
 		return;
 	} else if (-1 == close(fd)) 
-		fprintf(stderr, "%s: close: %s\n",
-			st->temp, strerror(errno));
+		kerr("%s: close", st->temp);
 
 	/*
 	 * If we have a digest, then we want to replace an existing
@@ -180,24 +173,19 @@ method_put(struct kreq *r)
 		if (NULL == cur) {
 			http_error(r, KHTTP_415);
 			ical_free(p);
-			if (-1 != unlink(st->temp)) 
-				return;
-			fprintf(stderr, "%s: unlink: %s\n", 
-				st->temp, strerror(errno));
+			if (-1 == unlink(st->temp)) 
+				kerr("%s: unlink", st->temp);
 			return;
 		} else if (-1 == rename(st->temp, st->path)) {
 			er = errno;
-			fprintf(stderr, "%s: rename(%s): %s\n",
-				st->temp, st->path, strerror(errno));
+			kerr("%s: rename: %s", st->temp, st->path);
 			http_error(r, KHTTP_505);
 			ical_parsefile_close(st->path, fd);
 			ical_free(p);
 			ical_free(cur);
 			ctagcache_update(st->ctagfile);
-			if (-1 != unlink(st->temp) || ENOENT == er)
-				return;
-			fprintf(stderr, "%s: unlink: %s\n", 
-				st->temp, strerror(errno));
+			if (-1 == unlink(st->temp) && ENOENT != er)
+				kerr("%s: unlink", st->temp);
 			return;
 		}
 		/* It worked! */
@@ -210,7 +198,6 @@ method_put(struct kreq *r)
 		ical_parsefile_close(st->path, fd);
 		ical_free(p);
 		ical_free(cur);
-		fprintf(stderr, "%s: updated\n", st->path);
 		return;
 	}
 
@@ -231,22 +218,17 @@ method_put(struct kreq *r)
 		else
 			http_error(r, KHTTP_505);
 		ical_free(p);
-		if (-1 != unlink(st->temp)) 
-			return;
-		fprintf(stderr, "%s: unlink: %s\n", 
-			st->temp, strerror(errno));
+		if (-1 == unlink(st->temp)) 
+			kerr("%s: unlink", st->temp);
 		return;
 	} else if (-1 == rename(st->temp, st->path)) {
 		er = errno;
-		fprintf(stderr, "%s: rename(%s): %s\n", 
-			st->temp, st->path, strerror(errno));
+		kerr("%s: rename: %s", st->temp, st->path);
 		http_error(r, KHTTP_505);
 		if (-1 == unlink(st->temp) && ENOENT != er) 
-			fprintf(stderr, "%s: unlink: %s\n", 
-				st->temp, strerror(errno));
+			kerr("%s: unlink", st->temp);
 		if (-1 == unlink(st->path)) 
-			fprintf(stderr, "%s: unlink: %s\n", 
-				st->path, strerror(errno));
+			kerr("%s: unlink", st->path);
 		close_unlock(st->path, fd);
 		ical_free(p);
 		ctagcache_update(st->ctagfile);
@@ -260,7 +242,6 @@ method_put(struct kreq *r)
 	khttp_body(r);
 	close_unlock(st->path, fd);
 	ical_free(p);
-	fprintf(stderr, "%s: added\n", st->path);
 	ctagcache_update(st->ctagfile);
 }
 
