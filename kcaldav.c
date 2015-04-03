@@ -99,10 +99,10 @@ req2path(struct kreq *r, const char *caldir)
 	if (sz >= sizeof(st->prncplfile)) {
 		kerrx("%s: path too long", st->prncplfile);
 		return(0);
-	} else if ('/' != st->prncplfile[sz - 1])
-		strlcat(st->prncplfile, "/", sizeof(st->prncplfile));
+	} else if ('/' == st->prncplfile[sz - 1])
+		st->prncplfile[sz - 1] = '\0';
 	sz = strlcat(st->prncplfile, 
-		"kcaldav.passwd", sizeof(st->prncplfile));
+		"/kcaldav.passwd", sizeof(st->prncplfile));
 	if (sz > sizeof(st->prncplfile)) {
 		kerrx("%s: path too long", st->prncplfile);
 		return(0);
