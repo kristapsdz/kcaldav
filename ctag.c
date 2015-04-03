@@ -41,7 +41,7 @@
  * Returns 1 on success, 0 on failure.
  */
 int
-ctagcache_update(const char *fname)
+ctag_update(const char *fname)
 {
 	int	 fd;
 	char	 buf[32];
@@ -72,7 +72,7 @@ ctagcache_update(const char *fname)
  * empty string.
  */
 void
-ctagcache_get(const char *fname, char *str)
+ctag_get(const char *fname, char *str)
 {
 	int	 fd;
 	char	 buf[32];

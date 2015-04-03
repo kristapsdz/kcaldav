@@ -106,7 +106,7 @@ collection_getctag(struct kxmlreq *xml)
 	struct state	*st = xml->req->arg;
 	char		 ctag[65];
 
-	ctagcache_get(st->ctagfile, ctag);
+	ctag_get(st->ctagfile, ctag);
 	kxml_puts(xml, ctag);
 }
 

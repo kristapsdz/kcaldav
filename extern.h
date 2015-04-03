@@ -173,8 +173,8 @@ struct caldav	*caldav_parsefile(const char *);
 struct caldav 	*caldav_parse(const char *, size_t);
 void		 caldav_free(struct caldav *);
 
-void		 ctagcache_get(const char *, char *);
-int		 ctagcache_update(const char *);
+void		 ctag_get(const char *, char *);
+int		 ctag_update(const char *);
 
 int		 config_parse(const char *, struct config **, const struct prncpl *);
 void		 config_free(struct config *);
