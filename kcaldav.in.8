@@ -155,18 +155,16 @@ ACL queries on the authenticated principal (not ACEs).
 .It RFC 5397
 The current principal address.
 .It RFC 4331
-Available and used bytes in the collection file-system.
-If
-.Xr quotactl 2
-fails (e.g., when quotas are not available),
-.Xr fstatfs 2
-is used to compute these values.
+Available and used bytes in the collection file-system via
+.Xr fstatfs 2 .
 .El
 .\" .Sh HISTORY
 .\" .Sh AUTHORS
 .Sh CAVEATS
-Quotas are not supported on Linux because it requires too much voodoo to
-map from a file descriptor (or file) to the block device.
+Quotas (via
+.Xr quotactl 2 )
+are not yet supported because the library interface is too damn
+complicated.
 .\" .Sh BUGS
 .\" .Sh SECURITY CONSIDERATIONS
 .\" Not used in OpenBSD.

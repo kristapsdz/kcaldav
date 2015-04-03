@@ -13,12 +13,12 @@ BINLDFLAGS	 = -L/usr/local/lib
 BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
 
 # For OpenBSD:
-#LIBS		 = -lexpat -lutil 
-#STATIC		 = -static
+LIBS		 = -lexpat -lutil 
+STATIC		 = -static
 
 # For Mac OS X:
-LIBS		 = -lexpat 
-STATIC		 = 
+#LIBS		 = -lexpat 
+#STATIC		 = 
 
 # For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
@@ -69,7 +69,7 @@ ALLSRCS		 = Makefile \
 		   compat-memmem.c \
 		   compat-reallocarray.c \
 		   config.c \
-		   ctagcache.c \
+		   ctag.c \
 		   delete.c \
 		   err.c \
 		   get.c \
@@ -93,7 +93,7 @@ OBJS		 = buf.o \
 		   compat-memmem.o \
 		   compat-reallocarray.o \
 		   config.o \
-		   ctagcache.o \
+		   ctag.o \
 		   err.o \
 		   httpauth.o \
 		   ical.o \

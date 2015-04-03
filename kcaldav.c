@@ -152,7 +152,9 @@ req2path(struct kreq *r, const char *caldir)
 	} 
 
 	/* Create our ctag filename. */
-	strlcpy(st->ctagfile, st->dir, sizeof(st->ctagfile));
+	sz = strlcpy(st->ctagfile, st->dir, sizeof(st->ctagfile));
+	if ('/' == st->ctagfile[sz - 1])
+		st->ctagfile[sz - 1] = '\0';
 	sz = strlcat(st->ctagfile, 
 		"/kcaldav.ctag", sizeof(st->ctagfile));
 	if (sz >= sizeof(st->ctagfile)) {
@@ -161,7 +163,9 @@ req2path(struct kreq *r, const char *caldir)
 	}
 
 	/* Create our configuration filename. */
-	strlcpy(st->configfile, st->dir, sizeof(st->configfile));
+	sz = strlcpy(st->configfile, st->dir, sizeof(st->configfile));
+	if ('/' == st->configfile[sz - 1])
+		st->configfile[sz - 1] = '\0';
 	sz = strlcat(st->configfile, 
 		"/kcaldav.conf", sizeof(st->configfile));
 	if (sz >= sizeof(st->configfile)) {
