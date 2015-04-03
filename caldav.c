@@ -46,7 +46,7 @@ struct	parse {
 	size_t		  xmlnsz;
 };
 
-static	const enum proptype __calprops[CALELEM__MAX] = {
+const enum proptype calprops[CALELEM__MAX] = {
 	PROP_CALENDAR_DATA, /* CALELEM_CALENDAR_DATA */
 	PROP_CALENDAR_HOME_SET, /* CALELEM_CALENDAR_HOME_SET */
 	PROP__MAX, /* CALELEM_CALENDAR_MULTIGET */
@@ -72,7 +72,7 @@ static	const enum proptype __calprops[CALELEM__MAX] = {
 	PROP_SUPPORTED_CALENDAR_COMPONENT_SET, /* CALELEM_SUPPORTE... */
 };
 
-static	const enum calelem __calpropelems[PROP__MAX] = {
+const enum calelem calpropelems[PROP__MAX] = {
 	CALELEM_CALENDAR_DATA, /* PROP_CALENDAR_DATA */
 	CALELEM_CALENDAR_HOME_SET, /* PROP_CALENDAR_HOME_SET */
 	CALELEM_CALENDAR_USER_ADDRESS_SET, /* PROP_CALENDAR_USER_A... */
@@ -91,7 +91,7 @@ static	const enum calelem __calpropelems[PROP__MAX] = {
 	CALELEM_SUPPORTED_CALENDAR_COMPONENT_SET,/* PROP_SUPPORTED... */
 };
 
-const char *const __calelems[CALELEM__MAX] = {
+const char *const calelems[CALELEM__MAX] = {
 	"calendar-data", /* CALELEM_CALENDAR_DATA */
 	"calendar-home-set", /* CALELEM_CALENDAR_HOME_SET */
 	"calendar-multiget", /* CALELEM_CALENDAR_MULTIGET */
@@ -116,10 +116,6 @@ const char *const __calelems[CALELEM__MAX] = {
 	"schedule-calendar-transp", /* CALELEM_SCHEDULE_CALENDAR_T... */
 	"supported-calendar-component-set", /* CALELEM_SUPPORTED_C... */
 };
-
-const char *const *calelems = __calelems;
-const enum proptype *calprops = __calprops;
-const enum calelem *calpropelems = __calpropelems;
 
 static void	parseclose(void *, const XML_Char *);
 static void	propclose(void *, const XML_Char *);

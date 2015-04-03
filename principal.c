@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -82,6 +83,8 @@ prncpl_line(char *string, size_t sz,
 	/* Read in all of the required fields. */
 	if (NULL == (p->user = strsep(&string, ":")))
 		kerrx("%s:%zu: missing name", file, line);
+	else if ('\0' == p->user[0]) 
+		kerrx("%s:%zu: name too short", file, line);
 	else if (NULL == (p->hash = strsep(&string, ":")))
 		kerrx("%s:%zu: missing hash", file, line);
 	else if (MD5_DIGEST_LENGTH * 2 != strlen(p->hash))
@@ -100,6 +103,8 @@ prncpl_line(char *string, size_t sz,
 		kerrx("%s:%zu: missing gecos", file, line);
 	else if (NULL == (p->homedir = strsep(&string, ":")))
 		kerrx("%s:%zu: missing homedir", file, line);
+	else if ('/' != p->homedir[0])
+		kerrx("%s:%zu: homedir not absolute", file, line);
 	else 
 		return(1);
 
@@ -122,12 +127,16 @@ prncpl_parse(const char *file, const char *method,
 	struct pentry	 entry;
 	char		*cp;
 	FILE		*f;
-	int	 	 rc;
+	int	 	 rc, fd;
 
 	*pp = NULL;
 
-	if (NULL == (f = fopen(file, "r"))) {
-		kerr("%s: fopen", file);
+	/* We want to have a shared (readonly) lock. */
+	if (-1 == (fd = open_lock_sh(file, O_RDONLY, 0)))
+		return(0);
+
+	if (NULL == (f = fdopen(fd, "r"))) {
+		kerr("%s: fdopen", file);
 		return(0);
 	}
 

@@ -349,6 +349,8 @@ propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
 			continue;
 		if (0 == strcmp(dp->d_name, "kcaldav.conf"))
 			continue;
+		if (0 == strcmp(dp->d_name, "kcaldav.passwd"))
+			continue;
 		if (0 == strcmp(dp->d_name, "kcaldav.ctag"))
 			continue;
 		propfind_resource(xml, dav, dp->d_name);

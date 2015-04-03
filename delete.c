@@ -116,6 +116,8 @@ method_delete(struct kreq *r)
 			continue;
 		if (0 == strcmp(dp->d_name, "kcaldav.conf"))
 			continue;
+		if (0 == strcmp(dp->d_name, "kcaldav.passwd"))
+			continue;
 		if (0 == strcmp(dp->d_name, "kcaldav.ctag"))
 			continue;
 		strlcpy(buf, st->path, sizeof(buf));
