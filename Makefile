@@ -42,18 +42,14 @@ TESTOBJS 	 = test-auth.o \
 		   test-config.o \
 		   test-ical.o \
 		   test-prncpl.o
-MANS		 = kcaldav.8 \
-		   kcaldav.conf.5 \
-		   kcaldav.passwd.1 \
-		   kcaldav.passwd.5
 HTMLS	 	 = index.html \
 		   kcaldav.8.html \
 		   kcaldav.conf.5.html \
 		   kcaldav.passwd.1.html \
 		   kcaldav.passwd.5.html
-MANS		 = kcaldav.8 \
+MANS		 = kcaldav.in.8 \
 		   kcaldav.conf.5 \
-		   kcaldav.passwd.1 \
+		   kcaldav.passwd.in.1 \
 		   kcaldav.passwd.5
 CTESTSRCS	 = test-explicit_bzero.c \
 		   test-fparseln.c \
@@ -196,8 +192,11 @@ index.html: index.xml $(VERSIONS)
 kcaldav.8: kcaldav.in.8
 	sed "s!@CALDIR@!$(CALDIR)!" kcaldav.in.8 >$@
 
+kcaldav.passwd.1: kcaldav.passwd.in.1
+	sed "s!@CALDIR@!$(CALDIR)!" kcaldav.passwd.in.1 >$@
+
 clean:
-	rm -f $(ALLOBJS) $(BINS) kcaldav.8
+	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1
 	rm -rf *.dSYM
 	rm -f $(HTMLS) kcaldav.tgz kcaldav.tgz.sha512
 	rm -f test-memmem test-reallocarray test-open-lock text-explicit_bzero
