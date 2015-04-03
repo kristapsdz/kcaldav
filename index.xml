@@ -46,12 +46,14 @@
 						directory), <code>LIBS</code>, or <code>STATIC</code> (reasonable operating system defaults are
 						noted);</li>
 					<li>compile with <code>make</code>;</li>
-					<li><code>make install</code> the manpages and CGI, setting <code>PREFIX=/usr/local</code> to the
-						manpage root and <code>CGIPREFIX=/var/www/cgi-bin</code> to the CGI script target.</li>
+					<li><code>make install</code> the manpages, CGI, and <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>,
+						setting <code>PREFIX=/usr/local</code> to the manpage root and
+						<code>CGIPREFIX=/var/www/cgi-bin</code> to the CGI script target.</li>
 				</ol>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
-					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> and <a
+					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> <a
+						href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>, and <a
 						href="kcaldav.passwd.5.html">kcaldav.passwd(5)</a>.
 					If it lacks information or clarity, that's a bug.
 					You'll need <a href="http://kristaps.bsd.lv/kcgi">kcgi</a> and <a
