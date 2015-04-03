@@ -30,7 +30,7 @@
 #include <kcgixml.h>
 
 #include "extern.h"
-#include "main.h"
+#include "kcaldav.h"
 
 static	const char *const __xmls[XML__MAX] = {
 	"C:calendar", /* XML_CALDAV_CALENDAR */

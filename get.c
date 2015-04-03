@@ -30,7 +30,7 @@
 #include <kcgixml.h>
 
 #include "extern.h"
-#include "main.h"
+#include "kcaldav.h"
 
 /*
  * RFC 4791 doesn't specify any special behaviour for GET, and RFC 2518
@@ -45,12 +45,14 @@ method_get(struct kreq *r)
 	const char	*cp;
 
 	if ( ! (PERMS_READ & st->cfg->perms)) {
-		fprintf(stderr, "%s: principal does not "
-			"have read acccess\n", st->path);
+		kerrx("%s: principal does not "
+			"have read acccess: %s", 
+			st->path, st->prncpl->name);
 		http_error(r, KHTTP_403);
 		return;
 	} else if (NULL == (p = ical_parsefile(st->path))) {
-		fprintf(stderr, "%s: fail parse\n", st->path);
+		kerrx("%s: fail parse CalDAV XML "
+			"in client request", st->path);
 		http_error(r, KHTTP_404);
 		return;
 	}
@@ -82,6 +84,5 @@ method_get(struct kreq *r)
 	khttp_body(r);
 	ical_print(p, http_ical_putc, r);
 	ical_free(p);
-	fprintf(stderr, "%s: got: %s\n", st->path, st->prncpl->name);
 }
 

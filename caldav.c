@@ -146,12 +146,10 @@ caldav_err(struct parse *p, const char *fmt, ...)
 	fprintf(stderr, "%zu:%zu: ", 
 		XML_GetCurrentLineNumber(p->xp),
 		XML_GetCurrentColumnNumber(p->xp));
-
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
-
-	fputc('\n', stderr);
+	fprintf(stderr, "\n");
 	XML_StopParser(p->xp, 0);
 }
 
@@ -286,10 +284,10 @@ xmlnspush(struct parse *p, const XML_Char **attrs)
 			p->xmlns[i].prefix = strdup(pfx);
 			p->xmlns[i].urn = strdup(*attrs);
 			if (NULL == p->xmlns[i].prefix) {
-				perror(NULL);
+				kerr(NULL);
 				return(0);
 			} else if (NULL == p->xmlns[i].urn) {
-				perror(NULL);
+				kerr(NULL);
 				return(0);
 			}
 			break;
@@ -298,16 +296,16 @@ xmlnspush(struct parse *p, const XML_Char **attrs)
 			p->xmlns = reallocarray(p->xmlns, 
 				p->xmlnsz + 1, sizeof(struct xmlns));
 			if (NULL == p->xmlns) {
-				perror(NULL);
+				kerr(NULL);
 				return(0);
 			}
 			p->xmlns[p->xmlnsz].prefix = strdup(pfx);
 			p->xmlns[p->xmlnsz].urn = strdup(*attrs);
 			if (NULL == p->xmlns[p->xmlnsz].prefix) {
-				perror(NULL);
+				kerr(NULL);
 				return(0);
 			} else if (NULL == p->xmlns[p->xmlnsz].urn) {
-				perror(NULL);
+				kerr(NULL);
 				return(0);
 			}
 			p->xmlnsz++;
@@ -426,7 +424,6 @@ static void
 parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 {
 	struct parse	*p = dat;
-	const XML_Char	*sv = s;
 	size_t		 ns;
 
 	xmlnspush(p, atts);
@@ -457,7 +454,6 @@ parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 		XML_SetElementHandler(p->xp, propopen, propclose);
 		break;
 	default:
-		fprintf(stderr, "Unknown: <%s>\n", sv);
 		break;
 	}
 }
@@ -471,7 +467,7 @@ caldav_parse(const char *buf, size_t sz)
 	memset(&p, 0, sizeof(struct parse));
 
 	if (NULL == (p.xp = XML_ParserCreate(NULL))) {
-		perror(NULL);
+		kerr(NULL);
 		return(NULL);
 	}
 

@@ -14,8 +14,8 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef KCALDAV_H
+#define KCALDAV_H
 
 /*
  * We carry this state around with us after successfully setting up our

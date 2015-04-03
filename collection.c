@@ -29,7 +29,7 @@
 #include <kcgixml.h>
 
 #include "extern.h"
-#include "main.h"
+#include "kcaldav.h"
 
 void
 collection_calendar_home_set(struct kxmlreq *xml)

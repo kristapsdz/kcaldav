@@ -16,31 +16,38 @@
  */
 #include "config.h"
 
-#include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
-#include <kcgi.h>
-#include <kcgixml.h>
 
 #include "extern.h"
-#include "kcaldav.h"
 
 void
-method_options(struct kreq *r)
+kverrx(const char *file, size_t line, const char *fmt, ...)
 {
+	va_list	 ap;
 
-	khttp_head(r, kresps[KRESP_STATUS], 
-		"%s", khttps[KHTTP_200]);
-	khttp_head(r, kresps[KRESP_ALLOW], "%s", 
-		"OPTIONS, GET, PUT, PROPFIND");
-	khttp_head(r, "DAV", "1, access-control, calendar-access");
-	khttp_body(r);
+	fprintf(stderr, "%s:%zu: ", file, line);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
 }
 
+void
+kverr(const char *file, size_t line, const char *fmt, ...)
+{
+	int	 er = errno;
+	va_list	 ap;
+
+	fprintf(stderr, "%s:%zu: ", file, line);
+	if (NULL != fmt) {
+		va_start(ap, fmt);
+		vfprintf(stderr, fmt, ap);
+		va_end(ap);
+	}
+	fprintf(stderr, ": %s\n", strerror(er));
+}

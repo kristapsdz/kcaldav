@@ -97,7 +97,7 @@ httpauth_value(char **val, const char **cp)
 	free(*val);
 	*val = malloc(end - start + 1);
 	if (NULL == *val) {
-		perror(NULL);
+		kerr(NULL);
 		return(0);
 	}
 
@@ -121,7 +121,7 @@ httpauth_parse(const char *cp)
 
 	auth = calloc(1, sizeof(struct httpauth));
 	if (NULL == auth) {
-		perror(NULL);
+		kerr(NULL);
 		return(NULL);
 	} else if (NULL == cp)
 		return(auth);

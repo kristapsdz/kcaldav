@@ -145,8 +145,7 @@ ical_parsefile_open(const char *file, int *keep)
 		return(NULL);
 
 	if (-1 == fstat(fd, &st)) {
-		fprintf(stderr, "%s: fstat: %s\n",
-			file, strerror(errno));
+		kerr("%s: fstat", file);
 		ical_parsefile_close(file, fd);
 		return(NULL);
 	}
@@ -155,14 +154,14 @@ ical_parsefile_open(const char *file, int *keep)
 		PROT_READ, MAP_SHARED, fd, 0);
 
 	if (MAP_FAILED == map) {
-		fprintf(stderr, "%s: mmap: %s\n",
-			file, strerror(errno));
+		kerr("%s: mmap", file);
 		ical_parsefile_close(file, fd);
 		return(NULL);
 	} 
 
 	p = ical_parse(file, map, st.st_size);
-	munmap(map, st.st_size);
+	if (-1 == munmap(map, st.st_size))
+		kerr("%s: munmap", file);
 
 	if (NULL == keep && ! ical_parsefile_close(file, fd)) {
 		ical_free(p);
@@ -194,7 +193,7 @@ ical_parse(const char *file, const char *cp, size_t sz)
 	memset(&buf, 0, sizeof(struct buf));
 
 	if (NULL == (p = calloc(1, sizeof(struct ical)))) {
-		perror(NULL);
+		kerr(NULL);
 		return(NULL);
 	}
 
@@ -212,33 +211,33 @@ ical_parse(const char *file, const char *cp, size_t sz)
 		line++;
 		/* iCalendar is line-based: get the next line. */
 		if (0 == ical_line(cp, &buf, &pos, sz)) {
-			fprintf(stderr, "%s:%zu: no CRLF\n", fp, sz);
+			kerrx("%s:%zu: no CRLF", fp, sz);
 			break;
 		}
 
 		/* Parse the name/value pair from the line. */
 		if (NULL == (name = buf.buf)) {
-			fprintf(stderr, "%s:%zu: no line pair\n", fp, sz);
+			kerrx("%s:%zu: no line pair", fp, sz);
 			break;
 		}
 
 		if (NULL != (val = strchr(name, ':')))
 			*val++ = '\0';
 		if (NULL == val) {
-			fprintf(stderr, "%s:%zu: no value\n", fp, sz);
+			kerrx("%s:%zu: no value", fp, sz);
 			break;
 		}
 
 		/* Allocate the line record. */
 		if (NULL == (np = calloc(1, sizeof(struct icalnode)))) {
-			perror(NULL);
+			kerr(NULL);
 			break;
 		} else if (NULL == (np->name = strdup(name))) {
-			perror(NULL);
+			kerr(NULL);
 			icalnode_free(np, 0);
 			break;
 		} else if (val && NULL == (np->val = strdup(val))) {
-			perror(NULL);
+			kerr(NULL);
 			icalnode_free(np, 0);
 			break;
 		}
@@ -248,7 +247,7 @@ ical_parse(const char *file, const char *cp, size_t sz)
 			p->first = cur = np;
 			continue;
 		} else if (NULL == cur) {
-			fprintf(stderr, "%s:%zu: bad nest\n", fp, sz);
+			kerrx("%s:%zu: bad nest", fp, sz);
 			break;
 		} 
 
@@ -271,8 +270,7 @@ ical_parse(const char *file, const char *cp, size_t sz)
 		
 		if (0 == strcmp("END", np->name))
 			if (NULL == (cur = cur->parent)) {
-				fprintf(stderr, "%s:%zu: "
-					"bad nest\n", fp, sz);
+				kerrx("%s:%zu: bad nest", fp, sz);
 				break;
 			}
 
@@ -285,14 +283,14 @@ ical_parse(const char *file, const char *cp, size_t sz)
 
 	/* Handle all sorts of error conditions. */
 	if (NULL == p->first)
-		fprintf(stderr, "%s: empty\n", fp);
+		kerrx("%s: empty", fp);
 	else if (strcmp(p->first->name, "BEGIN") ||
 		 strcmp(p->first->val, "VCALENDAR"))
-		fprintf(stderr, "%s: bad root\n", fp);
+		kerrx("%s: bad root", fp);
 	else if (NULL != cur && NULL != cur->parent)
-		fprintf(stderr, "%s: bad nest\n", fp);
+		kerrx("%s: bad nest", fp);
 	else if (pos < sz)
-		fprintf(stderr, "%s: bad parse\n", fp);
+		kerrx("%s: bad parse", fp);
 	else
 		return(p);
 
@@ -380,208 +378,3 @@ ical_printfile(int fd, const struct ical *p)
 
 	return(icalnode_print(p->first, icalnode_putc, &fd));
 }
-
-#if 0
-static struct icalnode *
-icalnode_clone(const struct icalnode *p, int first)
-{
-	struct icalnode	*np;
-
-	assert(NULL != p);
-
-	if (NULL == (np = calloc(1, sizeof(struct icalnode)))) {
-		perror(NULL);
-		return(np);
-	}
-
-	np->name = strdup(p->name);
-	np->val = strdup(p->val);
-	if (NULL != p->first) {
-		np->first = icalnode_clone(p->first, 0);
-		if (NULL == np->first) {
-			icalnode_free(np, 0);
-			return(NULL);
-		}
-		np->first->parent = np;
-	}
-	if (0 == first && NULL != p->next) {
-		np->next = icalnode_clone(p->next, 0);
-		if (NULL == np->next) {
-			icalnode_free(np, 0);
-			return(NULL);
-		}
-		np->next->parent = np->parent;
-	}
-	return(np);
-}
-
-int
-ical_merge(struct ical *p, const struct ical *newp)
-{
-	const struct icalnode	*newpp, *nnp, *xp;
-	const char		*uid;
-	struct icalnode		*np, *begin, *end;
-
-	assert(NULL != newp->first);
-	newpp = newp->first;
-	assert(NULL != p->first);
-
-	/* Scan through all of the NEW requests. */
-	for (newpp = newpp->first; NULL != newpp; newpp = newpp->next) {
-		/* 
-		 * For the time being, we only handle new VEVENT's. 
-		 * So look for those.
-		 */
-		if (strcmp(newpp->name, "BEGIN"))
-			continue;
-		else if (strcmp(newpp->val, "VEVENT"))
-			continue;
-
-		/* Make sure they have a UID. */
-		for (nnp = newpp->first; NULL != nnp; nnp = nnp->next)
-			if (0 == strcmp("UID", nnp->name))
-				break;
-
-		/* This shouldn't happen... */
-		if (NULL == nnp)
-			continue;
-		uid = nnp->val;
-
-		/* Now clone the event (and it's END) to merge. */
-		if (NULL == (begin = icalnode_clone(newpp, 1)))
-			return(0);
-		assert(newpp->next);
-		assert(0 == strcmp(newpp->next->name, "END"));
-		if (NULL == (end = icalnode_clone(newpp->next, 1))) {
-			icalnode_free(begin, 0);
-			return(0);
-		}
-		begin->next = end;
-
-		/* Look for the VEVENT in our existing database. */
-		for (nnp = p->first->first; NULL != nnp; nnp = nnp->next) {
-			/* Again, only look for VEVENTs. */
-			if (strcmp(nnp->name, "BEGIN"))
-				continue;
-			else if (strcmp(nnp->val, "VEVENT"))
-				continue;
-			/* Match UID... */
-			for (xp = nnp->first; NULL != xp; xp = xp->next)
-				if (0 == strcmp("UID", xp->name))
-					break;
-			if (NULL != xp && 0 == strcmp(uid, xp->val))
-				break;
-		}
-		
-		/* Check if we've been handed a duplicate VEVENT. */
-		if (NULL != nnp) {
-			icalnode_free(begin, 0);
-			continue;
-		}
-
-		/* Find the place to merge the new VEVENT. */
-		for (np = p->first->first; NULL != np; np = np->next) 
-			if (NULL == np->next)
-				break;
-
-		/* Insert as first or subsequent entry. */
-		if (NULL == np) {
-			begin->parent = p->first;
-			end->parent = p->first;
-			p->first->first = begin;
-		} else {
-			begin->parent = np->parent;
-			end->parent = np->parent;
-			end->next = np->next;
-			np->next = begin;
-		}
-	}
-	return(1);
-}
-
-int
-ical_mergefile(const char *file, const struct ical *newp)
-{
-	int		 fd, flags, rc;
-	struct stat	 st;
-	size_t		 sz;
-	char		*buf;
-	struct ical	*p;
-	FILE		*f;
-	ssize_t		 ssz;
-
-	rc = 0;
-	p = NULL;
-	flags = O_RDWR | O_EXLOCK | O_CREAT;
-	buf = NULL;
-	f = NULL;
-
-	/* Open our database with an EXLOCK. */
-	if (-1 == (fd = open(file, flags, 0666))) {
-		perror(file);
-		return(0);
-	} else if (-1 == fstat(fd, &st)) {
-		perror(file);
-		goto out;
-	} else if (0 == st.st_size) {
-		/* 
-		 * If the file is new (i.e., empty), then just duplicate
-		 * the entry and push it to the disc.
-		 */
-		if (NULL == (f = fdopen(fd, "w"))) {
-			perror(file);
-			goto out;
-		}
-		ical_printfile(f, newp);
-		rc = 1;
-		goto out;
-	} else
-		fprintf(stderr, "%s: merge write\n", file);
-
-	/*
-	 * Read into a nil-terminated buffer. 
-	 * Once we're finished reading, seek back to the beginning of
-	 * the file stream for our re-write.
-	 */
-	sz = (size_t)st.st_size;
-	if (NULL == (buf = malloc(sz + 1))) {
-		perror(NULL);
-		goto out;
-	} else if ((ssz = read(fd, buf, sz)) < 0) {
-		perror(file);
-		goto out;
-	} else if ((size_t)ssz != sz) {
-		fprintf(stderr, "%s: short read\n", file);
-		goto out;
-	} else if (-1 == lseek(fd, 0, SEEK_SET)) {
-		perror(file);
-		goto out;
-	}
-	buf[sz] = '\0';
-
-	/* If we can parse our database, merge it. */
-	p = ical_parse(buf);
-	if (NULL == p || ! ical_merge(fd, p, newp))
-		goto out;
-
-	/* Now truncate and flush to our database. */
-	if (NULL != (f = fdopen(fd, "w"))) {
-		ical_printfile(f, p);
-		rc = 1;
-	} else
-		perror(NULL);
-
-out:
-	/* Release the EXLOCK. */
-	if (-1 == flock(fd, LOCK_UN)) 
-		perror(file);
-
-	ical_free(p);
-	if (NULL != f)
-		fclose(f);
-	else
-		close(fd);
-	free(buf);
-	return(rc);
-}
-#endif

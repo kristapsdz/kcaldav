@@ -148,6 +148,14 @@ struct	config {
 
 __BEGIN_DECLS
 
+/* Logging functions. */
+void		  kverr(const char *, size_t, const char *, ...);
+void		  kverrx(const char *, size_t, const char *, ...);
+#define	 	  kerr(fmt, ...) \
+		  kverr(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define	 	  kerrx(fmt, ...) \
+		  kverrx(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+
 typedef int	(*ical_putchar)(int, void *);
 
 void 		 bufappend(struct buf *, const char *, size_t);
