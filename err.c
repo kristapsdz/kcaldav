@@ -26,6 +26,21 @@
 #include "extern.h"
 
 void
+kvdbg(const char *file, size_t line, const char *fmt, ...)
+{
+	va_list	 ap;
+
+	if ( ! verbose)
+		return;
+
+	fprintf(stderr, "%s:%zu: DEBUG: ", file, line);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
+}
+
+void
 kverrx(const char *file, size_t line, const char *fmt, ...)
 {
 	va_list	 ap;

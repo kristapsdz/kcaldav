@@ -38,6 +38,8 @@
 #error "CALDIR token not defined!"
 #endif
 
+int verbose = 0;
+
 /*
  * Configure all paths used in our system.
  * We do this here to prevent future mucking around with string copying,

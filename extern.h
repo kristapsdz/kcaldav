@@ -165,10 +165,13 @@ struct	config {
 __BEGIN_DECLS
 
 /* Logging functions. */
+void		  kvdbg(const char *, size_t, const char *, ...);
 void		  kverr(const char *, size_t, const char *, ...);
 void		  kverrx(const char *, size_t, const char *, ...);
 #define	 	  kerr(fmt, ...) \
 		  kverr(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define	 	  kdbg(fmt, ...) \
+		  kvdbg(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 #define	 	  kerrx(fmt, ...) \
 		  kverrx(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
@@ -209,9 +212,10 @@ int		  prncpl_line(char *, size_t,
 struct httpauth	*httpauth_parse(const char *);
 void		 httpauth_free(struct httpauth *);
 
-const enum proptype *calprops;
-const enum calelem *calpropelems;
-const char *const *calelems;
+extern const enum proptype calprops[CALELEM__MAX];
+extern const enum calelem calpropelems[PROP__MAX];
+extern const char *const calelems[CALELEM__MAX];
+extern int verbose;
 
 __END_DECLS
 

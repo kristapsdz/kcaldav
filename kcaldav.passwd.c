@@ -16,6 +16,9 @@
  */
 #include "config.h"
 
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 #include <assert.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -33,14 +36,17 @@
 #include "extern.h"
 #include "md5.h"
 
+int verbose = 0;
+
 /*
- * Read in the password from stdin.
- * This requires that we're connected to a terminal.
- * Then compose the password into a hash HA1 as defined by RFC 2069,
- * which we'll use for authentication.
+ * Get a new password from the operator.
+ * Store this in "digest", which must be MD5_DIGEST_LENGTH*2+1 in length
+ * (as usual).
+ * Both the user and realm strings must be non-empty.
  */
 static int
-setpass(struct pentry *p, const char *realm)
+gethash(int new, char *digest, 
+	const char *user, const char *realm)
 {
 	char		 pbuf[BUFSIZ];
 	char		*pp;
@@ -48,28 +54,23 @@ setpass(struct pentry *p, const char *realm)
 	size_t		 i;
 	unsigned char	 ha[MD5_DIGEST_LENGTH];
 
-	/* Zero and free, just in case. */
-	assert(NULL != p->hash);
-	explicit_bzero(p->hash, strlen(p->hash));
-	free(p->hash);
-	p->hash = malloc(MD5_DIGEST_LENGTH * 2 + 1);
-	if (NULL == p->hash) {
-		kerr(NULL);
-		return(0);
-	}
+	assert('\0' != user[0] && '\0' != realm[0]);
 
 	/* Read in password. */
-	pp = readpassphrase("New password: ", 
+	pp = readpassphrase(new ? 
+		"New password: " : "Old password: ", 
 		pbuf, sizeof(pbuf), RPP_REQUIRE_TTY);
+
 	if (NULL == pp) {
 		fprintf(stderr, "unable to read passphrase\n");
 		explicit_bzero(pbuf, strlen(pbuf));
 		return(0);
-	}
+	} else if ('\0' == pbuf[0])
+		return(0);
 
 	/* Hash according to RFC 2069's HA1. */
 	MD5Init(&ctx);
-	MD5Update(&ctx, p->user, strlen(p->user));
+	MD5Update(&ctx, user, strlen(user));
 	MD5Update(&ctx, ":", 1);
 	MD5Update(&ctx, realm, strlen(realm));
 	MD5Update(&ctx, ":", 1);
@@ -78,7 +79,7 @@ setpass(struct pentry *p, const char *realm)
 
 	/* Convert to hex format. */
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
-		snprintf(&p->hash[i * 2], 3, "%02x", ha[i]);
+		snprintf(&digest[i * 2], 3, "%02x", ha[i]);
 
 	/* Zero the password buffer. */
 	explicit_bzero(pbuf, strlen(pbuf));
@@ -142,27 +143,29 @@ pentrydup(struct pentry *p, const struct pentry *ep)
 }
 
 static int
-pentrynew(struct pentry *p, const char *user, const char *homedir)
+pentrynew(struct pentry *p, const char *user, 
+	const char *hash, const char *homedir)
 {
-	size_t 	 sz;
+	size_t 	 	 sz;
+	const char	*empty = "";
 
 	memset(p, 0, sizeof(struct pentry));
 
-	if (NULL == (p->hash = strdup("")))
+	if (NULL == (p->hash = strdup(hash)))
 		return(0);
 	else if (NULL == (p->user = strdup(user)))
 		return(0);
-	else if (NULL == (p->uid = strdup("")))
+	else if (NULL == (p->uid = strdup(empty)))
 		return(0);
-	else if (NULL == (p->gid = strdup("")))
+	else if (NULL == (p->gid = strdup(empty)))
 		return(0);
-	else if (NULL == (p->cls = strdup("")))
+	else if (NULL == (p->cls = strdup(empty)))
 		return(0);
-	else if (NULL == (p->change = strdup("")))
+	else if (NULL == (p->change = strdup(empty)))
 		return(0);
-	else if (NULL == (p->expire = strdup("")))
+	else if (NULL == (p->expire = strdup(empty)))
 		return(0);
-	else if (NULL == (p->gecos = strdup("")))
+	else if (NULL == (p->gecos = strdup(empty)))
 		return(0);
 
 	if (NULL == homedir) {
@@ -178,42 +181,72 @@ pentrynew(struct pentry *p, const char *user, const char *homedir)
 }
 
 static int
-pentrywrite(FILE *f, const char *file, const struct pentry *p)
+pentrywordwrite(int fd, const char *file, const char *word)
 {
 	size_t	 len;
-	int	 wrote;
+	ssize_t	 ssz;
 
-	len = strlen(p->user) +
-		strlen(p->hash) +
-		strlen(p->uid) + 
-		strlen(p->gid) +
-		strlen(p->cls) +
-		strlen(p->change) + 
-		strlen(p->expire) + 
-		strlen(p->gecos) + 
-		strlen(p->homedir) +
-		10;
+	len = strlen(word);
 
-	wrote = fprintf(f, "%s:%s:%s:%s:%s:%s:%s:%s:%s:\n",
-		p->user, p->hash, p->uid, p->gid, p->cls,
-		p->change, p->expire, p->gecos, p->homedir);
-
-	if (wrote < 1)
+	if ((ssz = write(fd, word, len)) < 0)
 		kerr("%s: write", file);
-	else if (len != (size_t)wrote)
+	else if (len != (size_t)ssz)
+		kerrx("%s: short write", file);
+	else if ('\n' == word[0])
+		return(1);
+	else if ((ssz = write(fd, ":", 1)) < 0)
+		kerr("%s: write", file);
+	else if (1 != (size_t)ssz)
 		kerrx("%s: short write", file);
 	else
 		return(1);
 
 	return(0);
+
+}
+
+/*
+ * Make sure we write exactly the correct number of bytes into the
+ * password file.
+ * Any short writes must result in an immediate error, as the password
+ * file is now garbled!
+ */
+static int
+pentrywrite(int fd, const char *file, const struct pentry *p)
+{
+
+	if ( ! pentrywordwrite(fd, file, p->user))
+		return(0);
+	if ( ! pentrywordwrite(fd, file, p->hash))
+		return(0);
+	if ( ! pentrywordwrite(fd, file, p->uid))
+		return(0);
+	if ( ! pentrywordwrite(fd, file, p->gid))
+		return(0);
+	if ( ! pentrywordwrite(fd, file, p->cls))
+		return(0);
+	if ( ! pentrywordwrite(fd, file, p->change))
+		return(0);
+	if ( ! pentrywordwrite(fd, file, p->expire))
+		return(0);
+	if ( ! pentrywordwrite(fd, file, p->gecos))
+		return(0);
+	if ( ! pentrywordwrite(fd, file, p->homedir))
+		return(0);
+	if ( ! pentrywordwrite(fd, file, "\n"))
+		return(0);
+
+	return(1);
 }
 
 int
 main(int argc, char *argv[])
 {
-	int	 	 c, fl, fd, newfd, create, found, rc;
-	char	 	 buf[PATH_MAX];
-	const char	*file, *pname, *auser, *realm, *homedir;
+	int	 	 c, fd, create, found, rc, passwd, newfd;
+	char	 	 file[PATH_MAX], 
+			 digestnew[MD5_DIGEST_LENGTH * 2 + 1],
+			 digestold[MD5_DIGEST_LENGTH * 2 + 1];
+	const char	*pname, *auser, *realm, *homedir;
 	size_t		 i, sz, len, line, elsz;
 	struct pentry	 eline;
 	struct pentry	*els;
@@ -227,37 +260,47 @@ main(int argc, char *argv[])
 		++pname;
 
 	/* Prepare our default CALDIR/kcaldav.passwd file. */
-	sz = strlcpy(buf, CALDIR, sizeof(buf));
-	if (sz >= sizeof(buf)) {
-		kerrx("%s: path too long", buf);
+	sz = strlcpy(file, CALDIR, sizeof(file));
+	if (sz >= sizeof(file)) {
+		kerrx("%s: path too long", file);
 		return(EXIT_FAILURE);
-	} else if ('/' == buf[sz - 1])
-		buf[sz - 1] = '\0';
-
-	sz = strlcat(buf, "/kcaldav.passwd", sizeof(buf));
-	if (sz >= sizeof(buf)) {
-		kerrx("%s: path too long", buf);
-		return(EXIT_FAILURE);
-	}
-
+	} 
+	
 	realm = "kcaldav";
-	file = buf;
 	create = 0;
+	passwd = 1;
 	els = NULL;
 	elsz = 0;
 	homedir = NULL;
 	rc = 0;
+	verbose = 0;
 
-	while (-1 != (c = getopt(argc, argv, "cd:f:"))) 
+	while (-1 != (c = getopt(argc, argv, "cd:f:nv"))) 
 		switch (c) {
 		case ('c'):
-			create = 1;
+			create = passwd = 1;
 			break;
 		case ('d'):
 			homedir = optarg;
-			break;
+			if ('/' == homedir[0])
+				break;
+			fprintf(stderr, "%s: not absolute\n", homedir);
+			goto usage;
 		case ('f'):
-			file = optarg;
+			if ('\0' == optarg[0]) {
+				fprintf(stderr, "empty path\n");
+				goto usage;
+			}
+			sz = strlcpy(file, optarg, sizeof(file));
+			if (sz < sizeof(file))
+				break;
+			fprintf(stderr, "%s: path too long\n", file);
+			goto usage;
+		case ('n'):
+			passwd = 0;
+			break;
+		case ('v'):
+			verbose = 1;
 			break;
 		default:
 			goto usage;
@@ -268,15 +311,42 @@ main(int argc, char *argv[])
 	if (0 == argc) 
 		goto usage;
 
+	/* Arrange our path. */
+	if ('/' == file[sz - 1])
+		file[sz - 1] = '\0';
+	sz = strlcat(file, "/kcaldav.passwd", sizeof(file));
+	if (sz >= sizeof(file)) {
+		kerrx("%s: path too long", file);
+		return(EXIT_FAILURE);
+	}
+
+	/* 
+	 * Process the username, make sure the realm is coherent, then
+	 * immediately hash the password before we even acquire a lock
+	 * on the password file.
+	 */
+	assert('\0' != realm[0]);
 	auser = argv[0];
+	if ('\0' == auser[0]) {
+		fprintf(stderr, "empty username\n");
+		goto usage;
+	} 
+	
+	/* If we're not creating a new entry, get the existing. */
+	if ( ! create && ! gethash(0, digestold, auser, realm))
+		return(EXIT_FAILURE);
+	/* If we're going to set our password, hash it now. */
+	if (passwd && ! gethash(1, digestnew, auser, realm)) 
+		return(EXIT_FAILURE);
 
 	/*
 	 * If we're allowed to create entries, allow us to create the
 	 * file as well.
-	 * Otherwise, read only--but both with an exclusive lock.
+	 * We open this in shared mode because we don't want to block
+	 * other readers while we're fiddling with password input.
+	 * We then take a digest of the whole file.
 	 */
-	fl = create ? O_RDWR|O_CREAT : O_RDWR;
-	if (-1 == (fd = open_lock_ex(file, fl, 0600)))
+	if (-1 == (fd = open_lock_ex(file, O_RDWR|O_CREAT, 0600)))
 		return(EXIT_FAILURE);
 
 	/* 
@@ -288,7 +358,8 @@ main(int argc, char *argv[])
 		close_unlock(file, fd);
 		return(EXIT_FAILURE);
 	} else if (NULL == (f = fdopen(newfd, "r"))) {
-		kerr("%s: fopen", file);
+		kerr("%s: fdopen", file);
+		close(fd);
 		close_unlock(file, fd);
 		return(EXIT_FAILURE);
 	}
@@ -340,15 +411,12 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	/*
-	 * Now we actually do the processing.
-	 * We want to handle three separate cases:
-	 *   (1) empty file, create with new entry
-	 *   (2) non-empty file, add new entry
-	 *   (3) non-empty file, modify existing entry
-	 */
-	if (create && (0 == elsz || (elsz && ! found))) {
-		/* New/empty file or new entry. */
+	if (create && ! found) {
+		/* 
+		 * New/empty file or new entry.
+		 * For this, we simply slap the requested new entry into
+		 * the file and that's that.
+		 */
 		pp = reallocarray
 			(els, elsz + 1, 
 			 sizeof(struct pentry));
@@ -358,17 +426,23 @@ main(int argc, char *argv[])
 		} 
 		els = pp;
 		i = elsz++;
-		if ( ! pentrynew(&els[i], auser, homedir)) {
+		if ( ! pentrynew(&els[i], auser, digestnew, homedir)) {
 			kerr(NULL);
 			goto out;
-		} else if ( ! setpass(&els[i], realm))
-			goto out;
-	} else if (elsz && found) {
+		} 
+	} else if (create) {
+		fprintf(stderr, "%s: principal exists\n", auser);
+		goto out;
+	} else if (found) {
 		/* File with existing entry. */
 		for (i = 0; i < elsz ; i++)
 			if (0 == strcmp(els[i].user, auser))
 				break;
 		assert(i < elsz);
+		if (memcmp(els[i].hash, digestold, sizeof(digestold))) {
+			fprintf(stderr, "password mismatch\n");
+			goto out;
+		}
 		if (NULL != homedir) {
 			free(els[i].homedir);
 			els[i].homedir = strdup(homedir);
@@ -376,42 +450,30 @@ main(int argc, char *argv[])
 				kerr(NULL);
 				goto out;
 			}
-		}
-		if ( ! setpass(&els[i], realm))
-			goto out;
+		} 
+		if (passwd)
+			memcpy(els[i].hash, digestnew, sizeof(digestnew));
 	} else {
-		fprintf(stderr, "%s: no pre-existing "
-			"principal, cannot add new\n", auser);
+		fprintf(stderr, "%s: does not "
+			"exist, use -c to add\n", auser);
 		goto out;
 	}
 
-	/* Now we re-open the file stream for writing. */
-	if (lseek(fd, 0, SEEK_SET)) {
+	if (-1 == ftruncate(fd, 0)) {
+		kerr("%s: ftruncate", file);
+		goto out;
+	} else if (-1 == lseek(fd, 0, SEEK_SET)) {
 		kerr("%s: lseek", file);
-		goto out;
-	} else if (-1 == (newfd = dup(fd))) {
-		kerr("%s: dup", file);
-		goto out;
-	} else if (NULL == (f = fdopen(newfd, "w"))) {
-		kerr("%s: fopen", file);
 		goto out;
 	}
 
 	/* Flush to the file stream. */
 	for (i = 0; i < elsz; i++)
-		if ( ! pentrywrite(f, file, &els[i])) {
+		if ( ! pentrywrite(fd, file, &els[i])) {
 			fprintf(stderr, "%s: WARNING: FILE IN "
 				"INCONSISTENT STATE\n", file);
 			break;
 		}
-
-	if (-1 == fclose(f))
-		kerr("%s: fclose", file);
-
-	if (i == elsz) {
-		printf("%s: user modified: %s\n", file, auser);
-		rc = 1;
-	}
 out:
 	pentriesfree(els, elsz);
 	close_unlock(file, fd);

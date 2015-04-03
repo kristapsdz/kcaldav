@@ -73,7 +73,7 @@ open_lock_sh(const char *file, int flags, mode_t mode)
 		kerr("%s: open", file);
 		errno = er;
 		return(fd);
-	} else if (-1 != flock(fd, LOCK_EX))
+	} else if (-1 != flock(fd, LOCK_SH))
 		return(fd);
 
 	er = errno;
@@ -83,7 +83,7 @@ open_lock_sh(const char *file, int flags, mode_t mode)
 	errno = er;
 	return(-1);
 #else
-	if (-1 != (fd = open(file, flags | O_EXLOCK, mode))) 
+	if (-1 != (fd = open(file, flags | O_SHLOCK, mode))) 
 		return(fd);
 	er = errno;
 	kerr("%s: open shared", file);
