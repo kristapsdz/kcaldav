@@ -27,11 +27,13 @@
 #include <stdlib.h>
 #include <string.h>
 #ifdef __linux__
+#include <bsd/stdio.h>
 #include <bsd/string.h>
 #include <bsd/readpassphrase.h>
 #else
 #include <readpassphrase.h>
 #endif
+#include <unistd.h>
 
 #include "extern.h"
 #include "md5.h"
