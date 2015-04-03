@@ -25,9 +25,9 @@
 .\" Not used in OpenBSD.
 .Sh SYNOPSIS
 .Nm kcaldav.passwd
-.Op Fl c
+.Op Fl cn
 .Op Fl d Ar homedir
-.Op Fl f Ar passfile
+.Op Fl f Ar passdir
 .Op Ar user
 .Sh DESCRIPTION
 The
@@ -38,33 +38,39 @@ file for an instance of
 .Xr kcaldav 8 .
 By default,
 .Nm
-will only change the password for an existing user
+will change the password for an existing user
 .Ar user
-in password file
-.Pa @CALDIR@/kcaldav.passwd .
+in the
+.Xr kcaldav 8
+calendar root
+.Pa @CALDIR@ .
 Its arguments are as follows:
 .Bl -tag -width Ds
 .It Fl c
-Create a new user, possibly creating the password file in the process.
-If you do not use this flag and
-.Ar user
-does not exist, the password file is not changed.
+Create a new user.
+Does nothing if a user by that name already exists.
+.It Fl n
+Do not change the user password, but only the user attributes (e.g.,
+.Fl d ) .
 .It Fl d Ar homedir
 Specify the home directory (within the
 .Xr kcaldav 8
 file-system root) of
 .Ar user .
-If unspecified and a new user is created, this defaults to
+If unspecified and a new user is created with
+.Fl c ,
+this defaults to
 .Pf / Ar user .
 This must be an absolute path.
-.It Fl f Ar passfile
-Specify an alternative password file.
+.It Fl f Ar passdir
+Specify an alternative password directory.
 .It Ar user
 The user to be created or modified.
 .El
 .Pp
 This utility should always be used to edit the password file: it manages
 locking and sanity-checks input.
+.\" .Sh IMPLEMENTATION NOTES
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
 .\" For sections 2, 3, and 9 function return values only.

@@ -204,4 +204,4 @@ clean:
 	rm -f config.h config.log
 
 .8.8.html .5.5.html .1.1.html:
-	mandoc -Thtml $< >$@
+	mandoc -Wall -Thtml $< >$@
