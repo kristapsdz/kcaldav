@@ -79,6 +79,43 @@ validate(const char *pass, const char *method,
 	return(0 == strcmp(auth->response, skey3));
 }
 
+int
+prncpl_line(char *string, size_t sz,
+	const char *file, size_t line, struct pentry *p)
+{
+
+	if (0 == sz || '\n' != string[sz - 1]) {
+		kerrx("%s:%zu: no newline", file, line);
+		return(0);
+	} 
+	string[sz - 1] = '\0';
+	memset(p, 0, sizeof(struct pentry));
+
+	/* Read in all of the required fields. */
+	if (NULL == (p->user = strsep(&string, ":")))
+		kerrx("%s:%zu: missing name", file, line);
+	else if (NULL == (p->pass = strsep(&string, ":")))
+		kerrx("%s:%zu: missing passwd", file, line);
+	else if (NULL == (p->uid = strsep(&string, ":")))
+		kerrx("%s:%zu: missing uid", file, line);
+	else if (NULL == (p->gid = strsep(&string, ":")))
+		kerrx("%s:%zu: missing gid", file, line);
+	else if (NULL == (p->cls = strsep(&string, ":")))
+		kerrx("%s:%zu: missing class", file, line);
+	else if (NULL == (p->change = strsep(&string, ":")))
+		kerrx("%s:%zu: missing change", file, line);
+	else if (NULL == (p->expire = strsep(&string, ":")))
+		kerrx("%s:%zu: missing expire", file, line);
+	else if (NULL == (p->gecos = strsep(&string, ":")))
+		kerrx("%s:%zu: missing gecos", file, line);
+	else if (NULL == (p->homedir = strsep(&string, ":")))
+		kerrx("%s:%zu: missing homedir", file, line);
+	else 
+		return(1);
+
+	return(0);
+}
+
 /*
  * Parse the passwd(5)-style database from "file".
  * Look for the principal matching the username in "auth", and fill in
@@ -91,11 +128,11 @@ int
 prncpl_parse(const char *file, const char *method,
 	const struct httpauth *auth, struct prncpl **pp)
 {
-	size_t	 len, line;
-	char	*cp, *string, *pass, *user, *uid, *gid, 
-		*class, *change, *expire, *gecos, *homedir;
-	FILE	*f;
-	int	 rc;
+	size_t	 	 len, line;
+	struct pentry	 entry;
+	char		*cp;
+	FILE		*f;
+	int	 	 rc;
 
 	*pp = NULL;
 
@@ -104,7 +141,7 @@ prncpl_parse(const char *file, const char *method,
 		return(0);
 	}
 
-	rc = 0;
+	rc = -2;
 	line = 0;
 	/*
 	 * Carefully make sure that we explicit_bzero() then contents of
@@ -113,59 +150,22 @@ prncpl_parse(const char *file, const char *method,
 	 * password hashes that are in this file via our memory.
 	 */
 	while (NULL != (cp = fgetln(f, &len))) {
-		line++;
-		/* Nil-terminate the buffer. */
-		if (0 == len || '\n' != cp[len - 1]) {
-			kerrx("%s:%zu: no newline", file, line);
-			continue;
+		if ( ! prncpl_line(cp, len, file, ++line, &entry)) {
+			rc = 0;
+			explicit_bzero(cp, len);
+			break;
 		}
-		cp[len - 1] = '\0';
-		string = cp;
 
-		/* Read in all of the required fields. */
-		if (NULL == (user = strsep(&string, ":"))) {
-			kerrx("%s:%zu: missing name", file, line);
-			explicit_bzero(cp, len);
-			break;
-		} else if (NULL == (pass = strsep(&string, ":"))) {
-			kerrx("%s:%zu: missing passwd", file, line);
-			explicit_bzero(cp, len);
-			break;
-		} else if (NULL == (uid = strsep(&string, ":"))) {
-			kerrx("%s:%zu: missing uid", file, line);
-			explicit_bzero(cp, len);
-			break;
-		} else if (NULL == (gid = strsep(&string, ":"))) {
-			kerrx("%s:%zu: missing gid", file, line);
-			explicit_bzero(cp, len);
-			break;
-		} else if (NULL == (class = strsep(&string, ":"))) {
-			kerrx("%s:%zu: missing class", file, line);
-			explicit_bzero(cp, len);
-			break;
-		} else if (NULL == (change = strsep(&string, ":"))) {
-			kerrx("%s:%zu: missing change", file, line);
-			explicit_bzero(cp, len);
-			break;
-		} else if (NULL == (expire = strsep(&string, ":"))) {
-			kerrx("%s:%zu: missing expire", file, line);
-			explicit_bzero(cp, len);
-			break;
-		} else if (NULL == (gecos = strsep(&string, ":"))) {
-			kerrx("%s:%zu: missing gecos", file, line);
-			explicit_bzero(cp, len);
-			break;
-		} else if (NULL == (homedir = strsep(&string, ":"))) {
-			kerrx("%s:%zu: missing homedir", file, line);
-			explicit_bzero(cp, len);
-			break;
-		}
+		/* XXX: blind parse. */
+		if (NULL == auth)
+			continue;
 
 		/* Is this the user we're looking for? */
-		if (strcmp(user, auth->user)) {
+
+		if (strcmp(entry.user, auth->user)) {
 			explicit_bzero(cp, len);
 			continue;
-		} else if ( ! validate(pass, method, auth)) {
+		} else if ( ! validate(entry.pass, method, auth)) {
 			kerrx("%s:%zu: password mismatch with "
 				"HTTP authorisation", file, line);
 			explicit_bzero(cp, len);
@@ -176,9 +176,9 @@ prncpl_parse(const char *file, const char *method,
 		rc = -1;
 		if (NULL == (*pp = calloc(1, sizeof(struct prncpl)))) 
 			kerr(NULL);
-		else if (NULL == ((*pp)->name = strdup(user)))
+		else if (NULL == ((*pp)->name = strdup(entry.user)))
 			kerr(NULL);
-		else if (NULL == ((*pp)->homedir = strdup(homedir)))
+		else if (NULL == ((*pp)->homedir = strdup(entry.homedir)))
 			kerr(NULL);
 		else
 			rc = 1;
@@ -189,16 +189,14 @@ prncpl_parse(const char *file, const char *method,
 
 	/* If we had errors, bail out now. */
 	if ( ! feof(f) && rc <= 0) {
-		if (rc > 0)
+		if (-2 == rc)
 			kerr("%s: fgetln", file);
 		if (-1 == fclose(f))
 			kerr("%s: fclose", file);
 		prncpl_free(*pp);
 		pp = NULL;
-		return(rc > 0 ? -1 : rc);
-	}
-
-	if (-1 == fclose(f))
+		return(rc < 0 ? -1 : rc);
+	} else if (-1 == fclose(f))
 		kerr("%s: fclose", file);
 
 	return(1);
