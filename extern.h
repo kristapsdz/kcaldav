@@ -133,15 +133,15 @@ struct	prncpl {
  * These are parsed out of the principal file.
  */
 struct	pentry {
-	char	*pass;
-	char	*user;
-	char	*uid;
-	char	*gid;
-	char 	*cls; 
-	char	*change;
-	char	*expire; 
-	char	*gecos;
-	char	*homedir;
+	char	*hash; /* MD5(username:realm:pass) */
+	char	*user; /* username */
+	char	*uid; /* (not used) */
+	char	*gid; /* (not used) */
+	char 	*cls;  /* (not used) */
+	char	*change; /* (not used) */
+	char	*expire;  /* (not used) */
+	char	*gecos; /* (not used) */
+	char	*homedir; /* principal home */
 };
 
 /*

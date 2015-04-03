@@ -33,6 +33,12 @@
 #include "extern.h"
 #include "md5.h"
 
+/*
+ * Read in the password from stdin.
+ * This requires that we're connected to a terminal.
+ * Then compose the password into a hash HA1 as defined by RFC 2069,
+ * which we'll use for authentication.
+ */
 static int
 setpass(struct pentry *p, const char *realm)
 {
@@ -42,22 +48,26 @@ setpass(struct pentry *p, const char *realm)
 	size_t		 i;
 	unsigned char	 ha[MD5_DIGEST_LENGTH];
 
-	assert(NULL != p->pass);
-	explicit_bzero(p->pass, strlen(p->pass));
-	free(p->pass);
-
-	if (NULL == (p->pass = malloc(MD5_DIGEST_LENGTH * 2 + 1))) {
+	/* Zero and free, just in case. */
+	assert(NULL != p->hash);
+	explicit_bzero(p->hash, strlen(p->hash));
+	free(p->hash);
+	p->hash = malloc(MD5_DIGEST_LENGTH * 2 + 1);
+	if (NULL == p->hash) {
 		kerr(NULL);
 		return(0);
 	}
 
+	/* Read in password. */
 	pp = readpassphrase("New password: ", 
 		pbuf, sizeof(pbuf), RPP_REQUIRE_TTY);
 	if (NULL == pp) {
 		fprintf(stderr, "unable to read passphrase\n");
+		explicit_bzero(pbuf, strlen(pbuf));
 		return(0);
 	}
 
+	/* Hash according to RFC 2069's HA1. */
 	MD5Init(&ctx);
 	MD5Update(&ctx, p->user, strlen(p->user));
 	MD5Update(&ctx, ":", 1);
@@ -65,8 +75,12 @@ setpass(struct pentry *p, const char *realm)
 	MD5Update(&ctx, ":", 1);
 	MD5Update(&ctx, pbuf, strlen(pbuf));
 	MD5Final(ha, &ctx);
+
+	/* Convert to hex format. */
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
-		snprintf(&p->pass[i * 2], 3, "%02x", ha[i]);
+		snprintf(&p->hash[i * 2], 3, "%02x", ha[i]);
+
+	/* Zero the password buffer. */
 	explicit_bzero(pbuf, strlen(pbuf));
 	return(1);
 }
@@ -75,10 +89,10 @@ static void
 pentryfree(struct pentry *p)
 {
 
-	if (NULL != p->pass)
-		explicit_bzero(p->pass, strlen(p->pass));
+	if (NULL != p->hash)
+		explicit_bzero(p->hash, strlen(p->hash));
 
-	free(p->pass);
+	free(p->hash);
 	free(p->user);
 	free(p->uid);
 	free(p->gid);
@@ -105,7 +119,7 @@ pentrydup(struct pentry *p, const struct pentry *ep)
 
 	memset(p, 0, sizeof(struct pentry));
 
-	if (NULL == (p->pass = strdup(ep->pass)))
+	if (NULL == (p->hash = strdup(ep->hash)))
 		return(0);
 	else if (NULL == (p->user = strdup(ep->user)))
 		return(0);
@@ -128,13 +142,49 @@ pentrydup(struct pentry *p, const struct pentry *ep)
 }
 
 static int
+pentrynew(struct pentry *p, const char *user, const char *homedir)
+{
+	size_t 	 sz;
+
+	memset(p, 0, sizeof(struct pentry));
+
+	if (NULL == (p->hash = strdup("")))
+		return(0);
+	else if (NULL == (p->user = strdup(user)))
+		return(0);
+	else if (NULL == (p->uid = strdup("")))
+		return(0);
+	else if (NULL == (p->gid = strdup("")))
+		return(0);
+	else if (NULL == (p->cls = strdup("")))
+		return(0);
+	else if (NULL == (p->change = strdup("")))
+		return(0);
+	else if (NULL == (p->expire = strdup("")))
+		return(0);
+	else if (NULL == (p->gecos = strdup("")))
+		return(0);
+
+	if (NULL == homedir) {
+		sz = strlen(user) + 2;
+		if (NULL == (p->homedir = malloc(sz))) 
+			return(0);
+		strlcpy(p->homedir, "/", sz);
+		strlcat(p->homedir, user, sz);
+	} else if (NULL == (p->homedir = strdup(homedir)))
+		return(0);
+
+	return(1);
+}
+
+static int
 pentrywrite(FILE *f, const char *file, const struct pentry *p)
 {
 	size_t	 len;
 	int	 wrote;
 
 	len = strlen(p->user) +
-		strlen(p->pass) +
+		strlen(p->hash) +
 		strlen(p->uid) + 
 		strlen(p->gid) +
 		strlen(p->cls) +
@@ -145,7 +195,7 @@ pentrywrite(FILE *f, const char *file, const struct pentry *p)
 		10;
 
 	wrote = fprintf(f, "%s:%s:%s:%s:%s:%s:%s:%s:%s:\n",
-		p->user, p->pass, p->uid, p->gid, p->cls,
+		p->user, p->hash, p->uid, p->gid, p->cls,
 		p->change, p->expire, p->gecos, p->homedir);
 
 	if (wrote < 1)
@@ -161,9 +211,9 @@ pentrywrite(FILE *f, const char *file, const struct pentry *p)
 int
 main(int argc, char *argv[])
 {
-	int	 	 c, fl, fd, newfd, create, found;
+	int	 	 c, fl, fd, newfd, create, found, rc;
 	char	 	 buf[PATH_MAX];
-	const char	*file, *pname, *auser, *realm;
+	const char	*file, *pname, *auser, *realm, *homedir;
 	size_t		 i, sz, len, line, elsz;
 	struct pentry	 eline;
 	struct pentry	*els;
@@ -195,11 +245,16 @@ main(int argc, char *argv[])
 	create = 0;
 	els = NULL;
 	elsz = 0;
+	homedir = NULL;
+	rc = 0;
 
-	while (-1 != (c = getopt(argc, argv, "cf:"))) 
+	while (-1 != (c = getopt(argc, argv, "cd:f:"))) 
 		switch (c) {
 		case ('c'):
 			create = 1;
+			break;
+		case ('d'):
+			homedir = optarg;
 			break;
 		case ('f'):
 			file = optarg;
@@ -279,14 +334,10 @@ main(int argc, char *argv[])
 			kerr("%s: fgetln", file);
 		if (-1 == fclose(f))
 			kerr("%s: fclose", file);
-		pentriesfree(els, elsz);
-		close_unlock(file, fd);
-		return(EXIT_FAILURE);
+		goto out;
 	} else if (-1 == fclose(f)) {
 		kerr("%s: fclose", file);
-		pentriesfree(els, elsz);
-		close_unlock(file, fd);
-		return(EXIT_FAILURE);
+		goto out;
 	}
 
 	/*
@@ -296,100 +347,54 @@ main(int argc, char *argv[])
 	 *   (2) non-empty file, add new entry
 	 *   (3) non-empty file, modify existing entry
 	 */
-	if (0 == elsz && create) {
-		/* New/empty file. */
-		assert(0 == found);
-		eline.user = (char *)auser;
-		eline.pass = (char *)"";
-		eline.uid = (char *)"";
-		eline.gid = (char *)"";
-		eline.cls = (char *)"";
-		eline.change = (char *)"";
-		eline.expire = (char *)"";
-		eline.gecos = (char *)"";
-		eline.homedir = (char *)"";
-		els = malloc(sizeof(struct pentry));
-		if (NULL == els) {
+	if (create && (0 == elsz || (elsz && ! found))) {
+		/* New/empty file or new entry. */
+		pp = reallocarray
+			(els, elsz + 1, 
+			 sizeof(struct pentry));
+		if (NULL == pp) {
 			kerr(NULL);
-			close_unlock(file, fd);
-			return(EXIT_FAILURE);
-		} else if ( ! pentrydup(els, &eline)) {
+			goto out;
+		} 
+		els = pp;
+		i = elsz++;
+		if ( ! pentrynew(&els[i], auser, homedir)) {
 			kerr(NULL);
-			pentryfree(els);
-			close_unlock(file, fd);
-			return(EXIT_FAILURE);
-		} else if ( ! setpass(els, realm)) {
-			pentriesfree(els, elsz);
-			close_unlock(file, fd);
-			return(EXIT_FAILURE);
-		}
-		elsz = 1;
-		found = 1;
+			goto out;
+		} else if ( ! setpass(&els[i], realm))
+			goto out;
 	} else if (elsz && found) {
 		/* File with existing entry. */
 		for (i = 0; i < elsz ; i++)
 			if (0 == strcmp(els[i].user, auser))
 				break;
 		assert(i < elsz);
-		if ( ! setpass(&els[i], realm)) {
-			pentriesfree(els, elsz);
-			close_unlock(file, fd);
-			return(EXIT_FAILURE);
+		if (NULL != homedir) {
+			free(els[i].homedir);
+			els[i].homedir = strdup(homedir);
+			if (NULL == els[i].homedir) {
+				kerr(NULL);
+				goto out;
+			}
 		}
-	} else if (elsz && create && ! found) {
-		/* File needing new entry. */
-		eline.user = (char *)auser;
-		eline.pass = (char *)"";
-		eline.uid = (char *)"";
-		eline.gid = (char *)"";
-		eline.cls = (char *)"";
-		eline.change = (char *)"";
-		eline.expire = (char *)"";
-		eline.gecos = (char *)"";
-		eline.homedir = (char *)"";
-		pp = reallocarray(els, 
-			elsz, sizeof(struct pentry));
-		if (NULL == pp) {
-			kerr(NULL);
-			pentriesfree(els, elsz);
-			close_unlock(file, fd);
-			return(EXIT_FAILURE);
-		} 
-		els = pp;
-		elsz++;
-		if ( ! pentrydup(&els[elsz - 1], &eline)) {
-			kerr(NULL);
-			pentriesfree(els, elsz);
-			close_unlock(file, fd);
-			return(EXIT_FAILURE);
-		} else if ( ! setpass(&els[elsz - 1], realm)) {
-			pentriesfree(els, elsz);
-			close_unlock(file, fd);
-			return(EXIT_FAILURE);
-		}
+		if ( ! setpass(&els[i], realm))
+			goto out;
 	} else {
 		fprintf(stderr, "%s: no pre-existing "
 			"principal, cannot add new\n", auser);
-		close_unlock(file, fd);
-		return(EXIT_FAILURE);
+		goto out;
 	}
 
 	/* Now we re-open the file stream for writing. */
 	if (lseek(fd, 0, SEEK_SET)) {
 		kerr("%s: lseek", file);
-		pentriesfree(els, elsz);
-		close_unlock(file, fd);
-		return(EXIT_FAILURE);
+		goto out;
 	} else if (-1 == (newfd = dup(fd))) {
 		kerr("%s: dup", file);
-		pentriesfree(els, elsz);
-		close_unlock(file, fd);
-		return(EXIT_FAILURE);
+		goto out;
 	} else if (NULL == (f = fdopen(newfd, "w"))) {
 		kerr("%s: fopen", file);
-		pentriesfree(els, elsz);
-		close_unlock(file, fd);
-		return(EXIT_FAILURE);
+		goto out;
 	}
 
 	/* Flush to the file stream. */
@@ -399,14 +404,22 @@ main(int argc, char *argv[])
 				"INCONSISTENT STATE\n", file);
 			break;
 		}
+
 	if (-1 == fclose(f))
 		kerr("%s: fclose", file);
 
-	printf("%s: user modified: %s\n", file, auser);
+	if (i == elsz) {
+		printf("%s: user modified: %s\n", file, auser);
+		rc = 1;
+	}
+out:
 	pentriesfree(els, elsz);
 	close_unlock(file, fd);
-	return(i == elsz ? EXIT_SUCCESS : EXIT_FAILURE);
+	return(rc ? EXIT_SUCCESS : EXIT_FAILURE);
 usage:
-	fprintf(stderr, "usage: %s [-f passwd] user\n", pname);
+	fprintf(stderr, "usage: %s "
+		"[-d homedir] "
+		"[-f file] "
+		"user\n", pname);
 	return(EXIT_FAILURE);
 }

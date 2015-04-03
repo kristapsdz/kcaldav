@@ -1,4 +1,4 @@
-.SUFFIXES: .5 .8 .5.html .8.html
+.SUFFIXES: .5 .8 .5.html .8.html .1 .1.html
 
 # You'll absolutely want to change this. 
 # It is the directory prepended to all calendar requests.
@@ -44,13 +44,16 @@ TESTOBJS 	 = test-auth.o \
 		   test-prncpl.o
 MANS		 = kcaldav.8 \
 		   kcaldav.conf.5 \
+		   kcaldav.passwd.1 \
 		   kcaldav.passwd.5
 HTMLS	 	 = index.html \
 		   kcaldav.8.html \
 		   kcaldav.conf.5.html \
+		   kcaldav.passwd.1.html \
 		   kcaldav.passwd.5.html
 MANS		 = kcaldav.8 \
 		   kcaldav.conf.5 \
+		   kcaldav.passwd.1 \
 		   kcaldav.passwd.5
 CTESTSRCS	 = test-explicit_bzero.c \
 		   test-fparseln.c \
@@ -200,5 +203,5 @@ clean:
 	rm -f test-memmem test-reallocarray test-open-lock text-explicit_bzero
 	rm -f config.h config.log
 
-.8.8.html .5.5.html:
+.8.8.html .5.5.html .1.1.html:
 	mandoc -Thtml $< >$@
