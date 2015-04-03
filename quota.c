@@ -16,12 +16,6 @@
  */
 #include "config.h"
 
-#ifdef __OpenBSD__
-#include <ufs/ufs/quota.h>
-#endif
-#ifdef __APPLE__
-#include <sys/quota.h>
-#endif
 #ifdef __linux__
 #include <sys/vfs.h>
 #else
@@ -45,11 +39,6 @@ quota(const char *file, int fd,
 	long long *used, long long *avail)
 {
 	struct statfs	 sfs;
-#ifndef __linux__
-	struct dqblk	 quota;
-	int		 fl;
-#endif
-
 	if (-1 == fstatfs(fd, &sfs)) {
 		kerr("%s: fstafs", file);
 		return(0);
@@ -58,20 +47,6 @@ quota(const char *file, int fd,
 	*used = sfs.f_blocks * sfs.f_bsize;
 	*avail = sfs.f_bfree * sfs.f_bsize;
 
-#ifndef __linux__
-	fl = Q_GETQUOTA | USRQUOTA;
-	if (-1 != quotactl(file, fl, getuid(), (char *)&quota)) {
-#ifdef __OpenBSD__
-		*used = sfs.f_bsize * quota.dqb_curblocks;
-		*avail = sfs.f_bsize *
-			(quota.dqb_bsoftlimit - quota.dqb_curblocks);
-#else
-		*used = quota.dqb_curbytes;
-		*avail = quota.dqb_bsoftlimit - quota.dqb_curbytes;
-#endif
-	} else if (ENOTSUP != errno)
-		kerr("%s: quotactl", file);
-#endif
-
+	/* TODO: quotactl(2). */
 	return(1);
 }
