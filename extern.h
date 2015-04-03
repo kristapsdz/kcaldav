@@ -129,6 +129,22 @@ struct	prncpl {
 };
 
 /*
+ * Principal entry.
+ * These are parsed out of the principal file.
+ */
+struct	pentry {
+	char	*pass;
+	char	*user;
+	char	*uid;
+	char	*gid;
+	char 	*cls; 
+	char	*change;
+	char	*expire; 
+	char	*gecos;
+	char	*homedir;
+};
+
+/*
  * A collection configuration.
  * A principal (struct prncpl) is matched against the configuration list
  * to produce the permissions.
@@ -158,35 +174,37 @@ void		  kverrx(const char *, size_t, const char *, ...);
 
 typedef int	(*ical_putchar)(int, void *);
 
-void 		 bufappend(struct buf *, const char *, size_t);
-void		 bufreset(struct buf *);
+void 		  bufappend(struct buf *, const char *, size_t);
+void		  bufreset(struct buf *);
 
-struct ical 	*ical_parse(const char *, const char *, size_t sz);
-struct ical 	*ical_parsefile(const char *);
-struct ical 	*ical_parsefile_open(const char *, int *);
-int		 ical_parsefile_close(const char *, int);
-void		 ical_free(struct ical *);
-int		 ical_print(const struct ical *, ical_putchar, void *);
-int		 ical_printfile(int, const struct ical *);
+struct ical 	 *ical_parse(const char *, const char *, size_t sz);
+struct ical 	 *ical_parsefile(const char *);
+struct ical 	 *ical_parsefile_open(const char *, int *);
+int		  ical_parsefile_close(const char *, int);
+void		  ical_free(struct ical *);
+int		  ical_print(const struct ical *, ical_putchar, void *);
+int		  ical_printfile(int, const struct ical *);
 
-struct caldav	*caldav_parsefile(const char *);
-struct caldav 	*caldav_parse(const char *, size_t);
-void		 caldav_free(struct caldav *);
+struct caldav	 *caldav_parsefile(const char *);
+struct caldav 	 *caldav_parse(const char *, size_t);
+void		  caldav_free(struct caldav *);
 
-void		 ctag_get(const char *, char *);
-int		 ctag_update(const char *);
+void		  ctag_get(const char *, char *);
+int		  ctag_update(const char *);
 
-int		 config_parse(const char *, struct config **, const struct prncpl *);
-void		 config_free(struct config *);
+int		  config_parse(const char *, struct config **, const struct prncpl *);
+void		  config_free(struct config *);
 
-int		 open_lock_ex(const char *, int, mode_t);
-int		 open_lock_sh(const char *, int, mode_t);
-int		 close_unlock(const char *, int);
-int		 quota(const char *, int, long long *, long long *);
+int		  open_lock_ex(const char *, int, mode_t);
+int		  open_lock_sh(const char *, int, mode_t);
+int		  close_unlock(const char *, int);
+int		  quota(const char *, int, long long *, long long *);
 
-int		 prncpl_parse(const char *, const char *,
-			const struct httpauth *, struct prncpl **);
-void		 prncpl_free(struct prncpl *);
+int		  prncpl_parse(const char *, const char *,
+		        const struct httpauth *, struct prncpl **);
+void		  prncpl_free(struct prncpl *);
+int		  prncpl_line(char *, size_t, 
+			const char *, size_t, struct pentry *);
 
 struct httpauth	*httpauth_parse(const char *);
 void		 httpauth_free(struct httpauth *);
