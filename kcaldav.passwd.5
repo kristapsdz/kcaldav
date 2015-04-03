@@ -34,21 +34,27 @@ file defines principals for a
 .Xr kcaldav 8
 instance.
 It follows the syntax of
-.Xr passwd 5 ,
-although it only requires
-.Dv name ,
-.Dv password
-.Pq unencrypted! ,
-.Dv gecos ,
+.Xr passwd 5 :
+.Pp
+.D1 name:pass:uid:gid:class:change:exp:gecos:home:shell
+.Pp
+The version for
+.Nm
+only requires the
+.Dv name
+.Pq login name ,
+.Dv pass
+.Pq hashed password ,
 and
 .Dv home_dir
+.Pq absolute path relative to calendar root
 fields.
-The
-.Dv home_dir
-field defines the principal's home URI: it
-.Em must
-end with a trailing slash.
 The other fields are ignored.
+.Pp
+You should
+.Em only
+edit this file with
+.Xr kcaldav.passwd 1 .
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .\" .Sh IMPLEMENTATION NOTES
@@ -66,6 +72,7 @@ The other fields are ignored.
 .\" .Sh ERRORS
 .\" For sections 2, 3, 4, and 9 errno settings only.
 .Sh SEE ALSO
+.Xr kcaldav.passwd 1 ,
 .Xr kcaldav 8
 .\" .Sh STANDARDS
 .\" .Sh HISTORY
