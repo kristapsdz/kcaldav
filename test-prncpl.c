@@ -16,9 +16,6 @@
  */
 #include "config.h"
 
-#include <sys/stat.h>
-#include <sys/mman.h>
-
 #include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -31,11 +28,7 @@
 int
 main(int argc, char *argv[])
 {
-	int		 fd, c;
-	struct stat	 st;
-	size_t		 sz;
-	char		*map, *buf;
-	struct httpauth	*p = NULL;
+	int		 c;
 	struct prncpl	*prncpl = NULL;
 
 	if (-1 != (c = getopt(argc, argv, "")))
@@ -44,50 +37,10 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (2 != argc)
+	if (1 != argc)
 		return(EXIT_FAILURE);
 
-	if (-1 == (fd = open(argv[0], O_RDONLY, 0))) {
-		perror(argv[0]);
-		return(EXIT_FAILURE);
-	} else if (-1 == fstat(fd, &st)) {
-		perror(argv[0]);
-		close(fd);
-		return(EXIT_FAILURE);
-	} 
-
-	sz = st.st_size;
-	map = mmap(NULL, sz, PROT_READ, MAP_SHARED, fd, 0);
-	close(fd);
-
-	if (MAP_FAILED == map) {
-		perror(argv[0]);
-		return(EXIT_FAILURE);
-	} 
-
-	buf = malloc(sz + 1);
-	memcpy(buf, map, sz);
-	buf[sz] = '\0';
-	munmap(map, sz);
-	
-	if (NULL != (p = httpauth_parse(buf)) && NULL != p->user) {
-		printf("username: %s\n",
-			NULL == p->user ? "(none)" : p->user);
-		printf("realm: %s\n",
-			NULL == p->realm ? "(none)" : p->realm);
-		printf("nonce: %s\n",
-			NULL == p->nonce ? "(none)" : p->nonce);
-		printf("response: %s\n",
-			NULL == p->response ? "(none)" : p->response);
-		printf("uri: %s\n",
-			NULL == p->uri ? "(none)" : p->uri);
-		c = prncpl_parse(argv[1], "GET", p, &prncpl);
-		if (c > 0 && NULL != prncpl)
-			printf("principal: %s\n", prncpl->name);
-	}
-
-	httpauth_free(p);
+	c = prncpl_parse(argv[0], "GET", NULL, &prncpl);
 	prncpl_free(prncpl);
-	free(buf);
-	return(NULL == p ? EXIT_FAILURE : EXIT_SUCCESS);
+	return(NULL == prncpl ? EXIT_FAILURE : EXIT_SUCCESS);
 }

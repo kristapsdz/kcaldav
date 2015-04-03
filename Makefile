@@ -13,12 +13,12 @@ BINLDFLAGS	 = -L/usr/local/lib
 BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
 
 # For OpenBSD:
-LIBS		 = -lexpat -lutil 
-STATIC		 = -static
+#LIBS		 = -lexpat -lutil 
+#STATIC		 = -static
 
 # For Mac OS X:
-#LIBS		 = -lexpat 
-#STATIC		 = 
+LIBS		 = -lexpat 
+STATIC		 = 
 
 # For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
@@ -128,6 +128,7 @@ www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
 afl: all
 	install -m 0555 test-ical afl/test-ical
+	install -m 0555 test-prncpl afl/test-prncpl
 
 config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 	rm -f config.log

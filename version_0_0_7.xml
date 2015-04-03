@@ -6,9 +6,9 @@
 	</header>
 	<aside>
 		Linux support thanks to a lot of compatibility glue.
-		I'm especially displeased with Linux while doing this project: not only are quota limits impossible to determine without knowing
-		the device file, it doesn't even have <code>O_EXLOCK</code> and <code>O_SHLOCK</code>.
+		I'm especially displeased with Linux while doing this project: it doesn't even have <code>O_EXLOCK</code> and <code>O_SHLOCK</code>!
 		I'm just using <a href="http://libbsd.freedesktop.org/wiki/">libbsd</a> to prevent code duplication.
 		While refactoring, consolidate logging functions and add <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
+		Run the principal parsing routines through the <a href="http://lcamtuf.coredump.cx/afl/">American fuzzy lop</a> (nothing found).
 	</aside>
 </article>
