@@ -84,18 +84,20 @@ prncpl_line(char *string, size_t sz,
 	const char *file, size_t line, struct pentry *p)
 {
 
+	memset(p, 0, sizeof(struct pentry));
 	if (0 == sz || '\n' != string[sz - 1]) {
 		kerrx("%s:%zu: no newline", file, line);
 		return(0);
 	} 
 	string[sz - 1] = '\0';
-	memset(p, 0, sizeof(struct pentry));
 
 	/* Read in all of the required fields. */
 	if (NULL == (p->user = strsep(&string, ":")))
 		kerrx("%s:%zu: missing name", file, line);
 	else if (NULL == (p->pass = strsep(&string, ":")))
 		kerrx("%s:%zu: missing passwd", file, line);
+	else if (MD5_DIGEST_LENGTH * 2 != strlen(p->pass))
+		kerrx("%s:%zu: bad passwd length", file, line);
 	else if (NULL == (p->uid = strsep(&string, ":")))
 		kerrx("%s:%zu: missing uid", file, line);
 	else if (NULL == (p->gid = strsep(&string, ":")))
