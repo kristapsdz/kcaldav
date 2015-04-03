@@ -78,7 +78,7 @@ method_delete(struct kreq *r)
 			kerr("%s: unlink", st->path);
 			http_error(r, KHTTP_505);
 		} else {
-			ctagcache_update(st->ctagfile);
+			ctag_update(st->ctagfile);
 			http_error(r, KHTTP_204);
 		}
 		ical_parsefile_close(st->path, fd);
@@ -87,7 +87,7 @@ method_delete(struct kreq *r)
 	} else if ( ! st->isdir) {
 		kerrx("%s: WARNING: unsafe delete", st->path);
 		if (-1 != unlink(st->path))  {
-			ctagcache_update(st->ctagfile);
+			ctag_update(st->ctagfile);
 			http_error(r, KHTTP_204);
 		} else {
 			kerr("%s: unlink", st->path);
@@ -135,5 +135,5 @@ method_delete(struct kreq *r)
 		http_error(r, KHTTP_505);
 	else
 		http_error(r, KHTTP_204);
-	ctagcache_update(st->ctagfile);
+	ctag_update(st->ctagfile);
 }

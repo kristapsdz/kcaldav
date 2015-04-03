@@ -183,13 +183,13 @@ method_put(struct kreq *r)
 			ical_parsefile_close(st->path, fd);
 			ical_free(p);
 			ical_free(cur);
-			ctagcache_update(st->ctagfile);
+			ctag_update(st->ctagfile);
 			if (-1 == unlink(st->temp) && ENOENT != er)
 				kerr("%s: unlink", st->temp);
 			return;
 		}
 		/* It worked! */
-		ctagcache_update(st->ctagfile);
+		ctag_update(st->ctagfile);
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_201]);
 		khttp_head(r, kresps[KRESP_ETAG], 
@@ -231,7 +231,7 @@ method_put(struct kreq *r)
 			kerr("%s: unlink", st->path);
 		close_unlock(st->path, fd);
 		ical_free(p);
-		ctagcache_update(st->ctagfile);
+		ctag_update(st->ctagfile);
 		return;
 	}
 
@@ -242,6 +242,6 @@ method_put(struct kreq *r)
 	khttp_body(r);
 	close_unlock(st->path, fd);
 	ical_free(p);
-	ctagcache_update(st->ctagfile);
+	ctag_update(st->ctagfile);
 }
 
