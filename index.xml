@@ -52,7 +52,7 @@
 				</ol>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
-					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> <a
+					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a>, <a
 						href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>, and <a
 						href="kcaldav.passwd.5.html">kcaldav.passwd(5)</a>.
 					If it lacks information or clarity, that's a bug.
