@@ -17,6 +17,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -68,6 +69,93 @@ validate(const char *hash, const char *method,
 	return(0 == strcmp(auth->response, skey3));
 }
 
+static int
+prncpl_hexstring(const char *cp)
+{
+
+	/* No non-ASCII, quote, colon, or escape chars. */
+	for ( ; '\0' != *cp; cp++) {
+		if (isdigit(*cp))
+			continue;
+		if (isalpha(*cp) && islower(*cp))
+			continue;
+		return(0);
+	}
+	return(1);
+}
+
+/*
+ * Make sure that the string is valid.
+ * We accept OCTET strings (see section 2.2 in RFC 2616) but disallow
+ * quotes (so quoted pairs aren't confused), colons (so the password
+ * file isn't confused), and escapes (so escape mechanisms aren't
+ * confused).
+ */
+static int
+prncpl_string(const char *cp)
+{
+
+	for ( ; '\0' != *cp; cp++)
+		if ('"' == *cp || ':' == *cp || '\\' == *cp)
+			return(0);
+
+	return(1);
+}
+
+/*
+ * Validate the entries in "p".
+ * This function MUST be used when reading from or before writing to the
+ * password file!
+ */
+int
+prncpl_pentry(const struct pentry *p)
+{
+
+	/* Make sure all entries are strings. */
+	if ( ! prncpl_string(p->user))
+		return(0);
+	if ( ! prncpl_string(p->hash))
+		return(0);
+	if ( ! prncpl_string(p->uid))
+		return(0);
+	if ( ! prncpl_string(p->gid))
+		return(0);
+	if ( ! prncpl_string(p->cls))
+		return(0);
+	if ( ! prncpl_string(p->change))
+		return(0);
+	if ( ! prncpl_string(p->expire))
+		return(0);
+	if ( ! prncpl_string(p->gecos))
+		return(0);
+	if ( ! prncpl_string(p->homedir))
+		return(0);
+
+	/* No empty usernames. */
+	if ('\0' == p->user[0])
+		return(0);
+	/* Proper MD5 digest. */
+	if (MD5_DIGEST_LENGTH * 2 != strlen(p->hash))
+		return(0);
+	else if ( ! prncpl_hexstring(p->hash))
+		return(0);
+	/* Absolute homedir. */
+	if ('/' != p->homedir[0])
+		return(0);
+	/* No relative parts. */
+	if (strstr(p->homedir, "../") || strstr(p->homedir, "/.."))
+		return(0);
+
+	return(1);
+}
+
+/*
+ * Given a newline-terminated "string" (NOT nil-terminated), first
+ * terminate the string the parse its colon-separated parts.
+ * The "p" fields must (1) each exist in the string and (2) pass
+ * prncpl_pentry(), which is run automatically.
+ * If either of these fails, zero is returned; else non-zero.
+ */
 int
 prncpl_line(char *string, size_t sz,
 	const char *file, size_t line, struct pentry *p)
@@ -83,12 +171,8 @@ prncpl_line(char *string, size_t sz,
 	/* Read in all of the required fields. */
 	if (NULL == (p->user = strsep(&string, ":")))
 		kerrx("%s:%zu: missing name", file, line);
-	else if ('\0' == p->user[0]) 
-		kerrx("%s:%zu: name too short", file, line);
 	else if (NULL == (p->hash = strsep(&string, ":")))
 		kerrx("%s:%zu: missing hash", file, line);
-	else if (MD5_DIGEST_LENGTH * 2 != strlen(p->hash))
-		kerrx("%s:%zu: bad hash length", file, line);
 	else if (NULL == (p->uid = strsep(&string, ":")))
 		kerrx("%s:%zu: missing uid", file, line);
 	else if (NULL == (p->gid = strsep(&string, ":")))
@@ -103,9 +187,9 @@ prncpl_line(char *string, size_t sz,
 		kerrx("%s:%zu: missing gecos", file, line);
 	else if (NULL == (p->homedir = strsep(&string, ":")))
 		kerrx("%s:%zu: missing homedir", file, line);
-	else if ('/' != p->homedir[0])
-		kerrx("%s:%zu: homedir not absolute", file, line);
-	else 
+	else if ( ! prncpl_pentry(p))
+		kerrx("%s:%zu: invalid field(s)", file, line);
+	else
 		return(1);
 
 	return(0);
@@ -134,11 +218,8 @@ prncpl_parse(const char *file, const char *method,
 	/* We want to have a shared (readonly) lock. */
 	if (-1 == (fd = open_lock_sh(file, O_RDONLY, 0)))
 		return(0);
-
-	if (NULL == (f = fdopen(fd, "r"))) {
-		kerr("%s: fdopen", file);
+	else if (NULL == (f = fdopen_lock(file, fd, "r")))
 		return(0);
-	}
 
 	rc = -2;
 	line = 0;
@@ -190,14 +271,13 @@ prncpl_parse(const char *file, const char *method,
 	if ( ! feof(f) && rc <= 0) {
 		if (-2 == rc)
 			kerr("%s: fgetln", file);
-		if (-1 == fclose(f))
-			kerr("%s: fclose", file);
+		fclose_unlock(file, f, fd);
 		prncpl_free(*pp);
 		pp = NULL;
 		return(rc < 0 ? -1 : rc);
-	} else if (-1 == fclose(f))
-		kerr("%s: fclose", file);
+	}
 
+	fclose_unlock(file, f, fd);
 	return(1);
 }
 

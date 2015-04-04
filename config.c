@@ -130,27 +130,21 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 	int		 rc, fl, fd;
 	long long	 bytesused, bytesavail;
 
-	if (-1 == (fd = open(file, O_RDONLY, 0))) {
-		kerr("%s: open", file);
+	if (-1 == (fd = open_lock_sh(file, O_RDONLY, 0600)))
 		return(0);
-	} else if ( ! quota(file, fd, &bytesused, &bytesavail)) {
+
+	if ( ! quota(file, fd, &bytesused, &bytesavail)) {
 		kerrx("%s: quota failure", file);
-		if (-1 == close(fd))
-			kerr("%s: close", file);
+		close_unlock(file, fd);
 		return(0);
-	} else if (NULL == (f = fdopen(fd, "r"))) {
-		kerr("%s: fdopen", file);
-		if (-1 == close(fd))
-			kerr("%s: close", file);
+	} else if (NULL == (f = fdopen_lock(file, fd, "r"))) 
 		return(0);
-	}
 
 	line = 0;
 	cp = NULL;
 	if (NULL == (*pp = calloc(1, sizeof(struct config)))) {
 		kerr(NULL);
-		if (-1 == fclose(f))
-			kerr("%s: fclose", file);
+		fclose_unlock(file, f, fd);
 		return(-1);
 	}
 
@@ -216,8 +210,7 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 			kerr("%s: fparseln", file);
 		else
 			kerrx("%s: fail parse", file);
-		if (-1 == fclose(f))
-			kerr("%s: fclose", file);
+		fclose_unlock(file, f, fd);
 		free(cp);
 		config_free(*pp);
 		*pp = NULL;
@@ -227,8 +220,7 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 
 	assert(rc > 0);
 	free(cp);
-	if (-1 == fclose(f))
-		kerr("%s: fclose", file);
+	fclose_unlock(file, f, fd);
 
 	if ((rc = config_defaults(file, *pp)) <= 0) {
 		config_free(*pp);

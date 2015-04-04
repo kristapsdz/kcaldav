@@ -109,6 +109,7 @@ struct	caldav {
  * Parsed HTTP ``Authorization'' header (RFC 2617).
  * We only keep the critical parts required for authentication.
  */
+#define	KREALM		"kcaldav"
 struct	httpauth {
 	int		 authorised;
 	char		*user;
@@ -188,7 +189,6 @@ void		  ical_free(struct ical *);
 int		  ical_print(const struct ical *, ical_putchar, void *);
 int		  ical_printfile(int, const struct ical *);
 
-struct caldav	 *caldav_parsefile(const char *);
 struct caldav 	 *caldav_parse(const char *, size_t);
 void		  caldav_free(struct caldav *);
 
@@ -198,6 +198,8 @@ int		  ctag_update(const char *);
 int		  config_parse(const char *, struct config **, const struct prncpl *);
 void		  config_free(struct config *);
 
+FILE		 *fdopen_lock(const char *, int, const char *);
+int		  fclose_unlock(const char *, FILE *, int);
 int		  open_lock_ex(const char *, int, mode_t);
 int		  open_lock_sh(const char *, int, mode_t);
 int		  close_unlock(const char *, int);
@@ -208,6 +210,7 @@ int		  prncpl_parse(const char *, const char *,
 void		  prncpl_free(struct prncpl *);
 int		  prncpl_line(char *, size_t, 
 			const char *, size_t, struct pentry *);
+int		  prncpl_pentry(const struct pentry *p);
 
 struct httpauth	*httpauth_parse(const char *);
 void		 httpauth_free(struct httpauth *);
