@@ -46,8 +46,8 @@
 						directory), <code>LIBS</code>, or <code>STATIC</code> (reasonable operating system defaults are
 						noted);</li>
 					<li>compile with <code>make</code>;</li>
-					<li><code>make install</code> the manpages, and <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>,
-						setting <code>PREFIX=/usr/local</code> to the root; and;</li>
+					<li><code>make install</code> the manpages and <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>,
+						setting <code>PREFIX=/usr/local</code> to the root; and</li>
 					<li><code>make installcgi</code> the CGI script, setting <code>CGIPREFIX=/var/www/cgi-bin</code> to the
 						CGI script target.</li>
 				</ol>

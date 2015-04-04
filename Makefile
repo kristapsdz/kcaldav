@@ -23,7 +23,6 @@ STATIC		 = -static
 #LIBS		 = -lexpat -lutil -lbsd
 #STATIC		 = 
 
-
 # You probably don't want to change anything after this.
 BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
 BINS		 = kcaldav \
@@ -141,8 +140,8 @@ config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 	CC="$(CC)" CFLAGS="$(CFLAGS)" ./configure
 
 installcgi: all
-	mkdir -p $(PREFIX)
-	install -m 0555 kcaldav $(PREFIX)
+	mkdir -p $(CGIPREFIX)
+	install -m 0555 kcaldav $(CGIPREFIX)
 
 install: 
 	mkdir -p $(PREFIX)/bin
