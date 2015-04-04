@@ -1,0 +1,15 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.0.8</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-04-05">2015-04-05</time>
+	</header>
+	<aside>
+		Verify that all <code>open()</code> invocations use advisory locks.
+		Simplify re-opening locked files with <code>fdopen()</code> into its own utility function.
+		Disallow symbolic links everywhere.
+		(This may be relaxed in the future...)
+		Drop privileges in <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>, making it sensitive to the <var>setuid</var> or
+		<var>setgid</var> bits.
+	</aside>
+</article>

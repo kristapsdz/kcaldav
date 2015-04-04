@@ -489,32 +489,3 @@ caldav_parse(const char *buf, size_t sz)
 	return(p.p);
 }
 
-struct caldav *
-caldav_parsefile(const char *file)
-{
-	int		 fd;
-	char		*map;
-	size_t		 sz;
-	struct stat	 st;
-	struct caldav	*p;
-
-	if (-1 == (fd = open(file, O_RDONLY, 0))) 
-		return(NULL);
-
-	if (-1 == fstat(fd, &st)) {
-		close(fd);
-		return(NULL);
-	} 
-
-	sz = st.st_size;
-	map = mmap(NULL, sz, PROT_READ, MAP_SHARED, fd, 0);
-	close(fd);
-
-	if (MAP_FAILED == map) 
-		return(NULL);
-
-	p = caldav_parse(map, sz);
-	munmap(map, sz);
-	return(p);
-}
-

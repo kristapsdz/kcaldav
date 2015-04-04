@@ -12,12 +12,12 @@ CPPFLAGS	+= -I/usr/local/include
 BINLDFLAGS	 = -L/usr/local/lib
 
 # For OpenBSD:
-LIBS		 = -lexpat -lutil 
-STATIC		 = -static
+#LIBS		 = -lexpat -lutil 
+#STATIC		 = -static
 
 # For Mac OS X:
-#LIBS		 = -lexpat 
-#STATIC		 = 
+LIBS		 = -lexpat 
+STATIC		 = 
 
 # For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
@@ -122,8 +122,9 @@ ALLOBJS		 = $(TESTOBJS) \
 VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_5.xml \
 		   version_0_0_6.xml \
-		   version_0_0_7.xml
-VERSION		 = 0.0.7
+		   version_0_0_7.xml \
+		   version_0_0_8.xml
+VERSION		 = 0.0.8
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 
@@ -198,10 +199,12 @@ index.html: index.xml $(VERSIONS)
 	sblg -t index.xml -o- $(VERSIONS) | sed "s!@VERSION@!$(VERSION)!g" >$@
 
 kcaldav.8: kcaldav.in.8
-	sed "s!@CALDIR@!$(CALDIR)!" kcaldav.in.8 >$@
+	sed -e "s!@CALDIR@!$(CALDIR)!g" \
+	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.in.8 >$@
 
 kcaldav.passwd.1: kcaldav.passwd.in.1
-	sed "s!@CALDIR@!$(CALDIR)!" kcaldav.passwd.in.1 >$@
+	sed -e "s!@CALDIR@!$(CALDIR)!g" \
+	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.passwd.in.1 >$@
 
 clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1

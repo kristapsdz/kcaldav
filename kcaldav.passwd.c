@@ -52,23 +52,42 @@ gethash(int new, char *digest,
 {
 	char		 pbuf[BUFSIZ];
 	char		*pp;
+	const char	*phrase;
 	MD5_CTX		 ctx;
 	size_t		 i;
 	unsigned char	 ha[MD5_DIGEST_LENGTH];
 
 	assert('\0' != user[0] && '\0' != realm[0]);
 
+	switch (new) {
+	case (0):
+		phrase = "Old password: ";
+		break;
+	case (1):
+		phrase = "New password: ";
+		break;
+	case (2):
+		phrase = "Repeat new password: ";
+		break;
+	default:
+		abort();
+	}
+
 	/* Read in password. */
-	pp = readpassphrase(new ? 
-		"New password: " : "Old password: ", 
-		pbuf, sizeof(pbuf), RPP_REQUIRE_TTY);
+	pp = readpassphrase(phrase, pbuf, 
+		sizeof(pbuf), RPP_REQUIRE_TTY);
 
 	if (NULL == pp) {
-		fprintf(stderr, "unable to read passphrase\n");
+		fprintf(stderr, "Unable to read passphrase.\n");
 		explicit_bzero(pbuf, strlen(pbuf));
 		return(0);
 	} else if ('\0' == pbuf[0])
 		return(0);
+
+	if (strlen(pbuf) < 6) {
+		fprintf(stderr, "Come on: more than five letters.\n");
+		return(0);
+	}
 
 	/* Hash according to RFC 2069's HA1. */
 	MD5Init(&ctx);
@@ -141,7 +160,7 @@ pentrydup(struct pentry *p, const struct pentry *ep)
 	else if (NULL == (p->homedir = strdup(ep->homedir)))
 		return(0);
 
-	return(1);
+	return(prncpl_pentry(p));
 }
 
 static int
@@ -179,7 +198,7 @@ pentrynew(struct pentry *p, const char *user,
 	} else if (NULL == (p->homedir = strdup(homedir)))
 		return(0);
 
-	return(1);
+	return(prncpl_pentry(p));
 }
 
 static int
@@ -244,18 +263,40 @@ pentrywrite(int fd, const char *file, const struct pentry *p)
 int
 main(int argc, char *argv[])
 {
-	int	 	 c, fd, create, found, rc, passwd, newfd;
+	int	 	 c, fd, create, rc, passwd;
 	char	 	 file[PATH_MAX], 
 			 digestnew[MD5_DIGEST_LENGTH * 2 + 1],
+			 digestrep[MD5_DIGEST_LENGTH * 2 + 1],
 			 digestold[MD5_DIGEST_LENGTH * 2 + 1];
-	const char	*pname, *auser, *realm, *homedir;
+	const char	*pname, *realm, *homedir, *altuser;
+	uid_t		 euid;
+	gid_t		 egid;
 	size_t		 i, sz, len, line, elsz;
+	ssize_t		 found;
 	struct pentry	 eline;
 	struct pentry	*els;
-	char		*cp;
+	char		*cp, *user;
 	FILE		*f;
 	void		*pp;
+	struct stat	 st;
 
+	euid = geteuid();
+	egid = getegid();
+
+	/* 
+	 * Temporarily drop privileges.
+	 * We don't want to have them until we're opening the password
+	 * file itself.
+	 */
+	if (-1 == setegid(getgid())) {
+		kerr("setegid");
+		return(EXIT_FAILURE);
+	} else if (-1 == seteuid(getuid())) {
+		kerr("seteuid");
+		return(EXIT_FAILURE);
+	}
+
+	/* Establish program name. */
 	if (NULL == (pname = strrchr(argv[0], '/')))
 		pname = argv[0];
 	else
@@ -264,35 +305,32 @@ main(int argc, char *argv[])
 	/* Prepare our default CALDIR/kcaldav.passwd file. */
 	sz = strlcpy(file, CALDIR, sizeof(file));
 	if (sz >= sizeof(file)) {
-		kerrx("%s: path too long", file);
+		kerrx("%s: default path too long", file);
 		return(EXIT_FAILURE);
 	} 
 	
-	realm = "kcaldav";
+	f = NULL;
+	realm = KREALM;
 	create = 0;
 	passwd = 1;
+	user = NULL;
 	els = NULL;
 	elsz = 0;
 	homedir = NULL;
 	rc = 0;
+	fd = -1;
 	verbose = 0;
+	altuser = NULL;
 
-	while (-1 != (c = getopt(argc, argv, "cd:f:nv"))) 
+	while (-1 != (c = getopt(argc, argv, "cd:f:nu:v"))) 
 		switch (c) {
 		case ('c'):
 			create = passwd = 1;
 			break;
 		case ('d'):
 			homedir = optarg;
-			if ('/' == homedir[0])
-				break;
-			fprintf(stderr, "%s: not absolute\n", homedir);
-			goto usage;
+			break;
 		case ('f'):
-			if ('\0' == optarg[0]) {
-				fprintf(stderr, "empty path\n");
-				goto usage;
-			}
 			sz = strlcpy(file, optarg, sizeof(file));
 			if (sz < sizeof(file))
 				break;
@@ -301,6 +339,9 @@ main(int argc, char *argv[])
 		case ('n'):
 			passwd = 0;
 			break;
+		case ('u'):
+			altuser = optarg;
+			break;
 		case ('v'):
 			verbose = 1;
 			break;
@@ -308,62 +349,85 @@ main(int argc, char *argv[])
 			goto usage;
 		}
 
-	argc -= optind;
-	argv += optind;
-	if (0 == argc) 
-		goto usage;
+	assert('\0' != realm[0]);
 
-	/* Arrange our path. */
-	if ('/' == file[sz - 1])
+	/* Arrange our kcaldav.passwd file. */
+	if ('\0' == file[0]) {
+		fprintf(stderr, "Empty path!?\n");
+		goto out;
+	} else if ('/' == file[sz - 1])
 		file[sz - 1] = '\0';
 	sz = strlcat(file, "/kcaldav.passwd", sizeof(file));
 	if (sz >= sizeof(file)) {
 		kerrx("%s: path too long", file);
-		return(EXIT_FAILURE);
+		goto out;
 	}
 
 	/* 
-	 * Process the username, make sure the realm is coherent, then
-	 * immediately hash the password before we even acquire a lock
-	 * on the password file.
+	 * Assign our user name.
+	 * This is either going to be given with -u (which is a
+	 * privileged operation) or inherited from our login creds.
 	 */
-	assert('\0' != realm[0]);
-	auser = argv[0];
-	if ('\0' == auser[0]) {
-		fprintf(stderr, "empty username\n");
-		goto usage;
-	} 
-	
+	user = strdup(NULL == altuser ? getlogin() : altuser);
+	if (NULL == user) {
+		kerr(NULL);
+		goto out;
+	}
+
 	/* If we're not creating a new entry, get the existing. */
-	if ( ! create && ! gethash(0, digestold, auser, realm))
-		return(EXIT_FAILURE);
+	if ( ! create && ! gethash(0, digestold, user, realm))
+		goto out;
+
 	/* If we're going to set our password, hash it now. */
-	if (passwd && ! gethash(1, digestnew, auser, realm)) 
-		return(EXIT_FAILURE);
+	if (passwd) {
+		if ( ! gethash(1, digestnew, user, realm)) 
+			goto out;
+		if ( ! gethash(2, digestrep, user, realm)) 
+			goto out;
+		if (memcmp(digestnew, digestrep, sizeof(digestnew))) {
+			fprintf(stderr, "Passwords don't match.\n");
+			goto out;
+		}
+	}
+
+	/* Regain privileges. */
+	if (-1 == setgid(egid)) {
+		kerr("setgid");
+		goto out;
+	} else if (-1 == setuid(euid)) {
+		kerr("setuid");
+		goto out;
+	}
 
 	/*
-	 * If we're allowed to create entries, allow us to create the
-	 * file as well.
-	 * We open this in shared mode because we don't want to block
-	 * other readers while we're fiddling with password input.
-	 * We then take a digest of the whole file.
+	 * Open the file itself.
+	 * This is a privileged operation, hence occuring with our
+	 * regained effective credentials.
 	 */
-	if (-1 == (fd = open_lock_ex(file, O_RDWR|O_CREAT, 0600)))
-		return(EXIT_FAILURE);
+	if (-1 == (fd = open_lock_ex(file, O_RDWR, 0)))
+		goto out;
+	else if (NULL == (f = fdopen_lock(file, fd, "r")))
+		goto out;
 
-	/* 
-	 * Make a copy of our file descriptor because fclose() will
-	 * close() the one that we currently have.
-	 */
-	if (-1 == (newfd = dup(fd))) {
-		kerr("%s: dup", file);
-		close_unlock(file, fd);
-		return(EXIT_FAILURE);
-	} else if (NULL == (f = fdopen(newfd, "r"))) {
-		kerr("%s: fdopen", file);
-		close(fd);
-		close_unlock(file, fd);
-		return(EXIT_FAILURE);
+	/* Now drop privileges entirely! */
+	if (-1 == setgid(getgid())) {
+		kerr("setgid");
+		goto out;
+	} else if (-1 == setuid(getuid())) {
+		kerr("setuid");
+		goto out;
+	}
+
+	/* Check security of privileged operations. */
+	if (create || (NULL != altuser)) {
+		if (-1 == fstat(fd, &st)) {
+			kerr("fstat");
+			goto out;
+		} else if (st.st_uid != getuid()) {
+			fprintf(stderr, "Password file owner must "
+				"match the real user with -c.\n");
+			goto out;
+		}
 	}
 
 	/*
@@ -373,7 +437,7 @@ main(int argc, char *argv[])
 	 * password hashes in memory.
 	 */
 	line = 0;
-	found = 0;
+	found = -1;
 	while (NULL != (cp = fgetln(f, &len))) {
 		if ( ! prncpl_line(cp, len, file, ++line, &eline)) {
 			explicit_bzero(cp, len);
@@ -391,8 +455,8 @@ main(int argc, char *argv[])
 			kerr(NULL);
 			explicit_bzero(cp, len);
 			break;
-		} else if (0 == strcmp(eline.user, auser))
-			found = 1;
+		} else if (0 == strcmp(eline.user, user))
+			found = (ssize_t)(elsz - 1);
 
 		/* Next line... */
 		explicit_bzero(cp, len);
@@ -413,7 +477,7 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	if (create && ! found) {
+	if (create && found < 0) {
 		/* 
 		 * New/empty file or new entry.
 		 * For this, we simply slap the requested new entry into
@@ -428,18 +492,15 @@ main(int argc, char *argv[])
 		} 
 		els = pp;
 		i = elsz++;
-		if ( ! pentrynew(&els[i], auser, digestnew, homedir)) {
+		if ( ! pentrynew(&els[i], user, digestnew, homedir)) {
 			kerr(NULL);
 			goto out;
 		} 
 	} else if (create) {
-		fprintf(stderr, "%s: principal exists\n", auser);
+		fprintf(stderr, "%s: principal exists\n", user);
 		goto out;
-	} else if (found) {
-		/* File with existing entry. */
-		for (i = 0; i < elsz ; i++)
-			if (0 == strcmp(els[i].user, auser))
-				break;
+	} else if (found >= 0) {
+		i = (size_t)found;
 		assert(i < elsz);
 		if (memcmp(els[i].hash, digestold, sizeof(digestold))) {
 			fprintf(stderr, "password mismatch\n");
@@ -455,12 +516,15 @@ main(int argc, char *argv[])
 		} 
 		if (passwd)
 			memcpy(els[i].hash, digestnew, sizeof(digestnew));
+		if ( ! prncpl_pentry(&els[i]))
+			goto out;
 	} else {
 		fprintf(stderr, "%s: does not "
-			"exist, use -c to add\n", auser);
+			"exist, use -c to add\n", user);
 		goto out;
 	}
 
+	/* Zero the existing file and reset our position. */
 	if (-1 == ftruncate(fd, 0)) {
 		kerr("%s: ftruncate", file);
 		goto out;
@@ -469,7 +533,12 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	/* Flush to the file stream. */
+	/* 
+	 * Flush to the open file descriptor.
+	 * If this fails at any time, we're pretty much hosed.
+	 * TODO: backup the original file and swap it back in, if
+	 * something goes wrong.
+	 */
 	for (i = 0; i < elsz; i++)
 		if ( ! pentrywrite(fd, file, &els[i])) {
 			fprintf(stderr, "%s: WARNING: FILE IN "
@@ -477,13 +546,17 @@ main(int argc, char *argv[])
 			break;
 		}
 out:
+	free(user);
 	pentriesfree(els, elsz);
+	if (NULL != f)
+		fclose(f);
 	close_unlock(file, fd);
 	return(rc ? EXIT_SUCCESS : EXIT_FAILURE);
 usage:
 	fprintf(stderr, "usage: %s "
+		"[-cn] "
 		"[-d homedir] "
 		"[-f file] "
-		"user\n", pname);
+		"[-u user]\n", pname);
 	return(EXIT_FAILURE);
 }
