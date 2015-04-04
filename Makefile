@@ -7,24 +7,25 @@ CALDIR		 = /caldav
 CGIPREFIX	 = /var/www/cgi-bin
 PREFIX		 = /usr/local
 
-# Add any special library directories here.
+# Add any special dependency directories here.
 CPPFLAGS	+= -I/usr/local/include
 BINLDFLAGS	 = -L/usr/local/lib
-BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
 
 # For OpenBSD:
-#LIBS		 = -lexpat -lutil 
-#STATIC		 = -static
+LIBS		 = -lexpat -lutil 
+STATIC		 = -static
 
 # For Mac OS X:
-LIBS		 = -lexpat 
-STATIC		 = 
+#LIBS		 = -lexpat 
+#STATIC		 = 
 
 # For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
 #STATIC		 = 
 
+
 # You probably don't want to change anything after this.
+BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-auth \
