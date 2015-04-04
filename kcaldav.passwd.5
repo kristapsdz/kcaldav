@@ -38,9 +38,9 @@ It follows the syntax of
 .Pp
 .D1 name:pass:uid:gid:class:change:exp:gecos:home:shell
 .Pp
-The version for
-.Nm
-only requires the
+The syntax for
+.Nm ,
+however, only requires the
 .Dv name
 .Pq login name ,
 .Dv pass
@@ -51,10 +51,16 @@ and
 fields.
 The other fields are ignored.
 .Pp
+Each field can accept all characters but for the ASCII colon,
+double-quotation mark, or backslash.
+.Pp
 You should
 .Em only
 edit this file with
 .Xr kcaldav.passwd 1 .
+Moreover, this file may
+.Em not
+be a symbolic link.
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .\" .Sh IMPLEMENTATION NOTES

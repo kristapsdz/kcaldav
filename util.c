@@ -91,8 +91,9 @@ http_error(struct kreq *r, enum khttp c)
 			snprintf(nonce + i, 2, "%01X", 
 				arc4random_uniform(128));
 		khttp_head(r, kresps[KRESP_WWW_AUTHENTICATE],
-			"Digest realm=\"kcaldav\" "
-			"quop=\"\" nonce=\"%s\"", nonce);
+			"Digest realm=\"%s\" "
+			"quop=\"\" nonce=\"%s\"", 
+			KREALM, nonce);
 		break;
 	default:
 		break;

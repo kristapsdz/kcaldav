@@ -28,7 +28,7 @@
 .Op Fl cn
 .Op Fl d Ar homedir
 .Op Fl f Ar passdir
-.Op Ar user
+.Op Fl u Ar user
 .Sh DESCRIPTION
 The
 .Nm
@@ -36,40 +36,91 @@ program updates the
 .Xr kcaldav.passwd 5
 file for an instance of
 .Xr kcaldav 8 .
-By default,
-.Nm
-will change the password for the existing
-.Ar user
-in the
-.Xr kcaldav 8
-calendar root
-.Pa @CALDIR@ .
+By default, it changes the
+.Pa @CALDIR@/kcaldav.passwd
+password for the user with the currently logged-in username.
 Its arguments are as follows:
 .Bl -tag -width Ds
 .It Fl c
 Create a new user.
+The current real user (via
+.Xr getuid 2 )
+must match the password file owner to use this option.
 Does nothing if a user by that name already exists.
 .It Fl n
 Do not change the user password, but only the user attributes (e.g.,
 .Fl d ) .
 .It Fl d Ar homedir
-Specify the home directory (within the
+Change the home directory (within the
 .Xr kcaldav 8
-file-system root) of
-.Ar user .
+file-system root) of the requested user.
 If unspecified and a new user is created with
 .Fl c ,
 this defaults to
-.Pf / Ar user .
+.Pa /<user> .
 This must be an absolute path.
 .It Fl f Ar passdir
 Specify an alternative password directory.
-.It Ar user
-The user to be created or modified.
+.It Fl u Ar user
+Use an alternative username.
+The current real user (via
+.Xr getuid 2 )
+must match the password file owner to use this option.
 .El
 .Pp
-This utility should always be used to edit the password file: it manages
-locking and sanity-checks input.
+Since
+.Nm
+is designed for use in a multi-user system, and possibly one with
+multiple
+.Xr kcaldav.passwd 5
+files, special care is taken for security.
+.Bl -enum
+.It
+The
+.Xr kcaldav.passwd 5
+file is
+.Em never
+created by
+.Nm .
+You must manually create an empty password file.
+The owner of the password file should be considered the administrator
+(usually root, but local owners are ok).
+The group of the password file should be the web server process.
+The permissions should then be
+.Li 0640 .
+.It
+You can then add new users with
+.Fl c
+using
+.Xr sudo 8
+or as the owner of the file directly.
+.It
+Existing users can then modify their own passwords with
+.Xr sudo 8 .
+If, however, the set-user-ID bit is set on the
+.Nm
+binary, and the owner of the binary is the same as the owner of the password
+file, logged-in users can set their own passwords.
+.El
+.Pp
+By using this somewhat contrived scheme, a standalone instance of
+.Xr kcaldav 8
+can have a local non-privileged administrator, adding and removing users
+as she sees fit.
+.Pp
+If there's a system-wide
+.Xr kcaldav 8
+for use by logged-in users, the set-user-ID bits can be used to make
+sure that users can only change passwords on their own accounts.
+.Em Warning :
+if you have multiple
+.Xr kcaldav.passwd 5
+files with overlapping usernames, users can try to change
+.Qq their
+passwords on other password files!
+You can protect against this by having other non-system
+.Xr kcaldav.passwd 5
+files have different owners.
 .\" .Sh IMPLEMENTATION NOTES
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
