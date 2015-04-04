@@ -69,15 +69,21 @@ ALLSRCS		 = Makefile \
 		   compat-memmem.c \
 		   compat-reallocarray.c \
 		   config.c \
+		   configure \
+		   config.h.post \
+		   config.h.pre \
 		   ctag.c \
 		   delete.c \
 		   err.c \
+		   extern.h \
 		   get.c \
 		   httpauth.c \
 		   ical.c \
 		   kcaldav.c \
+		   kcaldav.h \
 		   kcaldav.passwd.c \
 		   md5.c \
+		   md5.h \
 		   open.c \
 		   options.c \
 		   quota.c \
