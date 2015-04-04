@@ -141,15 +141,18 @@ config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 	CC="$(CC)" CFLAGS="$(CFLAGS)" ./configure
 
 installcgi: all
-	mkdir -p $(CGIPREFIX)
-	install -m 0555 kcaldav $(CGIPREFIX)
+	mkdir -p $(PREFIX)
+	install -m 0555 kcaldav $(PREFIX)
 
-install: installcgi
-	mkdir -p $(PREFIX)/man8
-	mkdir -p $(PREFIX)/man5
-	install -m 0444 kcaldav.conf.5 $(PREFIX)/man5
-	install -m 0444 kcaldav.passwd.5 $(PREFIX)/man5
-	install -m 0444 kcaldav.8 $(PREFIX)/man8
+install: 
+	mkdir -p $(PREFIX)/bin
+	mkdir -p $(PREFIX)/man/man8
+	mkdir -p $(PREFIX)/man/man5
+	mkdir -p $(PREFIX)/man/man1
+	install -m 0755 kcaldav.passwd.1 $(PREFIX)/bin
+	install -m 0444 kcaldav.conf.5 $(PREFIX)/man/man5
+	install -m 0444 kcaldav.passwd.5 $(PREFIX)/man/man5
+	install -m 0444 kcaldav.8 $(PREFIX)/man/man8
 
 installwww: www
 	mkdir -p $(PREFIX)/snapshots
