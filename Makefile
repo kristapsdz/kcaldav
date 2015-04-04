@@ -147,8 +147,7 @@ install: installcgi
 
 installwww: www
 	mkdir -p $(PREFIX)/snapshots
-	install -m 0444 index.html index.css $(HTMLS) $(PREFIX)
-	install -m 0444 sample.c $(PREFIX)/sample.c.txt
+	install -m 0444 index.css $(HTMLS) $(PREFIX)
 	install -m 0444 kcaldav.tgz kcaldav.tgz.sha512 $(PREFIX)/snapshots/
 	install -m 0444 kcaldav.tgz $(PREFIX)/snapshots/kcaldav-$(VERSION).tgz
 	install -m 0444 kcaldav.tgz.sha512 $(PREFIX)/snapshots/kcaldav-$(VERSION).tgz.sha512
