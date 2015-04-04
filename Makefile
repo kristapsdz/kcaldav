@@ -143,7 +143,7 @@ installcgi: all
 	mkdir -p $(CGIPREFIX)
 	install -m 0555 kcaldav $(CGIPREFIX)
 
-install: 
+install: all
 	mkdir -p $(PREFIX)/bin
 	mkdir -p $(PREFIX)/man/man8
 	mkdir -p $(PREFIX)/man/man5
