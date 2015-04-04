@@ -35,17 +35,13 @@ To use
 .Nm ,
 you'll need to first populate the calendar root directory
 .Ar caldir .
-This is relative to the CGI script's file-system root (in the event of
-.Xr chroot 2 ) ,
-defaulting to
+This is relative to the CGI script's file-system root, defaulting to
 .Pa @CALDIR@ .
-You'll need a password file (for HTTP authorisation, see
-.Xr kcaldav.passwd 5 ) ,
-then for each collection (calendar directory in
-.Ar caldir ) ,
-a configuration file (see
-.Xr kcaldav.conf 5 )
-defining the permissions of that collection and other information.
+This requires a
+.Xr kcaldav.passwd 5
+password file and a
+.Xr kcaldav.conf 5
+configuration file for each calendar collection.
 .Pp
 Once finished, you can point your calendar client to the owned
 collection within the calendar root.
@@ -58,13 +54,20 @@ and is reachable at
 .Pp
 Moreover, assume your calendar root
 .Pa @CALDIR@
-contains
-.Pa kcaldav.passwd ;
+contains a
+.Xr kcaldav.passwd 5
 and you have installed a single collection at
 .Pa @CALDIR@/kristaps
 consisting of
 .Pa kcaldav.conf
 and some calendars.
+.Bd -unfilled -offset indent
+.Pa @CALDIR@/kcaldav.passwd
+.Pa @CALDIR@/kristaps
+.Pa @CALDIR@/kristaps/kcaldav.conf
+.Pa @CALDIR@/kristaps/vevent-001.ics
+.Pa @CALDIR@/kristaps/vevent-002.ics
+.Ed
 You can point your browser to the following:
 .Pp
 .D1 http://localhost/cgi-bin/kcaldav/kristaps/
