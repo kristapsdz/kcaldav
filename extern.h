@@ -183,9 +183,12 @@ struct	config {
 __BEGIN_DECLS
 
 /* Logging functions. */
-void		  kvdbg(const char *, size_t, const char *, ...);
-void		  kverr(const char *, size_t, const char *, ...);
-void		  kverrx(const char *, size_t, const char *, ...);
+void		  kvdbg(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+void		  kverr(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+void		  kverrx(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
 #define	 	  kerr(fmt, ...) \
 		  kverr(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 #define	 	  kdbg(fmt, ...) \

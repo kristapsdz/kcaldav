@@ -66,7 +66,7 @@ validate(const char *hash, const char *method,
 		for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
 			snprintf(&skey1[i * 2], 3, "%02x", ha1[i]);
 	} else 
-		memcpy(skey1, hash, MD5_DIGEST_LENGTH * 2);
+		strlcpy(skey1, hash, sizeof(skey1));
 
 	if (HTTPQOP_AUTH_INT == auth->qop) {
 		MD5Init(&ctx);
@@ -87,8 +87,7 @@ validate(const char *hash, const char *method,
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
 		snprintf(&skey2[i * 2], 3, "%02x", ha2[i]);
 
-	if (HTTPQOP_AUTH_INT == auth->qop ||
-		 HTTPQOP_AUTH == auth->qop) {
+	if (HTTPQOP_AUTH_INT == auth->qop || HTTPQOP_AUTH == auth->qop) {
 		MD5Init(&ctx);
 		MD5Update(&ctx, skey1, MD5_DIGEST_LENGTH * 2);
 		MD5Update(&ctx, ":", 1);

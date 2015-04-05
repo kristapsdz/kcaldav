@@ -30,6 +30,7 @@ static	const char *const httpalgs[HTTPALG__MAX] = {
 };
 
 static	const char *const httpqops[HTTPQOP__MAX] = {
+	NULL, /* HTTPQOP_NONE */
 	"auth", /* HTTPQOP_AUTH */
 	"auth-int" /* HTTPQOP_AUTH_INT */
 };
@@ -59,75 +60,6 @@ httpauth_nexttok(const char **next, char delim)
 		(*next)++;
 
 	return(cp);
-}
-
-/*
- * Parse a token.
- * We don't strictly follow RFC 2615's TOKEN specification, which says
- * that tokens can be followed by any separator.
- * We only use commas as separators.
- */
-static int
-httpauth_token(size_t *val, const char **cp,
-	const char *const *vals, size_t valsz)
-{
-	const char	*start, *end;
-	size_t		 len;
-
-	for (start = *cp; '\0' != **cp; (*cp)++)
-		if (isspace((int)**cp))
-			break;
-		else if (',' == **cp)
-			break;
-
-	end = *cp;
-	while (isspace((int)**cp))
-		(*cp)++;
-	if (',' == **cp)
-		(*cp)++;
-	while (isspace((int)**cp))
-		(*cp)++;
-
-	len = end - start;
-
-	for (*val = 0; *val < valsz; (*val)++)
-		if (strlen(vals[*val]) != len)
-			continue;
-		else if (0 == strncasecmp(start, vals[*val], len))
-			break;
-
-	if (*val < valsz) {
-		kerrx("unknown token: %.*s", (int)len, start);
-		return(0);
-	}
-
-	return(1);
-}
-
-static int
-httpauth_alg(enum httpalg *val, const char **cp)
-{
-	size_t	 i;
-
-	if ( ! httpauth_token(&i, cp, httpalgs, HTTPALG__MAX)) {
-		kerrx("unknown HTTP algorithm");
-		return(0);
-	}
-	*val = i;
-	return(1);
-}
-
-static int
-httpauth_qop(enum httpqop *val, const char **cp)
-{
-	size_t	 i;
-
-	if ( ! httpauth_token(&i, cp, httpqops, HTTPQOP__MAX)) {
-		kerrx("unknown HTTP QOP");
-		return(0);
-	}
-	*val = i;
-	return(1);
 }
 
 /*
@@ -182,6 +114,59 @@ httpauth_value(char **val, const char **cp)
 
 	memcpy(*val, start, end - start);
 	(*val)[end - start] = '\0';
+	return(1);
+}
+
+/*
+ * Parse a token.
+ * We don't strictly follow RFC 2615's TOKEN specification, which says
+ * that tokens can be followed by any separator.
+ * We only use commas as separators.
+ */
+static int
+httpauth_token(size_t *val, const char **cp,
+	const char *const *vals, size_t valsz)
+{
+	char	*parsed;
+
+	if ( ! httpauth_value(&parsed, cp))
+		return(0);
+
+	for (*val = 0; *val < valsz; (*val)++) {
+		if (NULL == vals[*val])
+			continue;
+		if (0 == strcasecmp(parsed, vals[*val])) {
+			free(parsed);
+			return(1);
+		}
+	}
+
+	return(*val < valsz);
+}
+
+static int
+httpauth_alg(enum httpalg *val, const char **cp)
+{
+	size_t	 i;
+
+	if ( ! httpauth_token(&i, cp, httpalgs, HTTPALG__MAX)) {
+		kerrx("unknown HTTP algorithm");
+		return(0);
+	}
+	*val = i;
+	return(1);
+}
+
+static int
+httpauth_qop(enum httpqop *val, const char **cp)
+{
+	size_t	 i;
+
+	if ( ! httpauth_token(&i, cp, httpqops, HTTPQOP__MAX)) {
+		kerrx("unknown HTTP QOP");
+		return(0);
+	}
+	*val = i;
 	return(1);
 }
 

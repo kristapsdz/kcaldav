@@ -16,6 +16,8 @@
  */
 #include "config.h"
 
+#include <sys/stat.h>
+
 #include <assert.h>
 #include <getopt.h>
 #include <limits.h>
@@ -51,6 +53,8 @@ req2path(struct kreq *r, const char *caldir)
 {
 	struct state	*st = r->arg;
 	size_t	 	 sz;
+	int		 machack = 0;
+	struct stat	 s;
 	char		*cp;
 
 	/* Absolutely don't let it empty paths! */
@@ -86,16 +90,6 @@ req2path(struct kreq *r, const char *caldir)
 		return(0);
 	}
 
-	/* Create our full pathname. */
-	sz = strlcpy(st->rpath, r->pname, sizeof(st->rpath));
-	if (sz && '/' == st->rpath[sz - 1])
-		st->rpath[sz - 1] = '\0';
-	sz = strlcat(st->rpath, r->fullpath, sizeof(st->rpath));
-	if (sz > sizeof(st->rpath)) {
-		kerrx("%s: path too long", st->rpath);
-		return(0);
-	}
-
 	/* Create our principal filename. */
 	sz = strlcpy(st->prncplfile, caldir, sizeof(st->prncplfile));
 	if (sz >= sizeof(st->prncplfile)) {
@@ -123,19 +117,51 @@ req2path(struct kreq *r, const char *caldir)
 	/* Is the request on a collection? */
 	st->isdir = '/' == st->path[sz - 1];
 
+	/*
+	 * XXX: Mac OS X iCal hack.
+	 * iCal will issue a PROPFIND for a collection and omit the
+	 * trailing slash, even when configured otherwise.
+	 * Thus, we need to make locally sure that the fullpath appended
+	 * to the caldir is a directory or not, then rewrite the request
+	 * to reflect this.
+	 * This WILL leak information between principals (what is a
+	 * directory and what isn't), but for the time being, I don't
+	 * know what else to do about it.
+	 */
+	if ( ! st->isdir && KMETHOD_PROPFIND == r->method) 
+		if (-1 != stat(st->path, &s) && S_ISDIR(s.st_mode)) {
+			kerrx("MAC OSX HACK");
+			st->isdir = 1;
+			sz = strlcat(st->path, "/", sizeof(st->path));
+			if (sz >= sizeof(st->path)) {
+				kerrx("%s: path too long", st->path);
+				return(0);
+			}
+			machack = 1;
+		}
+
+	/* Create our full pathname. */
+	sz = strlcpy(st->rpath, r->pname, sizeof(st->rpath));
+	if (sz && '/' == st->rpath[sz - 1])
+		st->rpath[sz - 1] = '\0';
+	sz = strlcat(st->rpath, r->fullpath, sizeof(st->rpath));
+	if (machack)
+		sz = strlcat(st->rpath, "/", sizeof(st->rpath));
+	if (sz > sizeof(st->rpath)) {
+		kerrx("%s: path too long", st->rpath);
+		return(0);
+	}
+
 	if ( ! st->isdir) {
 		/* Create our file-system mapped temporary pathname. */
-		sz = strlcpy(st->temp, caldir, sizeof(st->temp));
-		if ('/' == st->temp[sz - 1])
-			st->temp[sz - 1] = '\0';
-		strlcat(st->temp, r->fullpath, sizeof(st->temp));
+		strlcpy(st->temp, st->path, sizeof(st->temp));
 		cp = strrchr(st->temp, '/');
 		assert(NULL != cp);
 		assert('\0' != cp[1]);
 		cp[1] = '.';
 		cp[2] = '\0';
 		strlcat(st->temp, 
-			strrchr(r->fullpath, '/') + 1, 
+			strrchr(st->path, '/') + 1, 
 			sizeof(st->temp));
 		strlcat(st->temp, ".", sizeof(st->temp));
 		sz = strlcat(st->temp, ".XXXXXXXX", sizeof(st->temp));
@@ -174,6 +200,15 @@ req2path(struct kreq *r, const char *caldir)
 		kerrx("%s: path too long", st->configfile);
 		return(0);
 	}
+
+	kdbg("path = %s", st->path);
+	kdbg("temp = %s", st->temp);
+	kdbg("dir = %s", st->dir);
+	kdbg("ctagfile = %s", st->ctagfile);
+	kdbg("configfile = %s", st->configfile);
+	kdbg("prncplfile = %s", st->prncplfile);
+	kdbg("rpath = %s", st->rpath);
+	kdbg("isdir = %d", st->isdir);
 
 	return(1);
 }
@@ -228,18 +263,22 @@ main(int argc, char *argv[])
 	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
 
+	kdbg("%s: %s", r.fullpath, 
+		KMETHOD__MAX == r.method ? 
+		"(unknown)" : kmethods[r.method]);
+
 	/* 
 	 * Get the full body of the request, if any.
 	 * We'll use this when we're validating the HTTP authorisation.
 	 * This will be stored in the fieldmap (or fieldnmap) because we
 	 * pass the opaque request body into the kvalid function above.
 	 */
-	if (NULL != r.fieldmap[0]) {
+	if (NULL != r.fieldmap && NULL != r.fieldmap[0]) {
 		req = r.fieldmap[0]->val;
 		reqsz = r.fieldmap[0]->valsz;
-	} else if (NULL != r.fieldnmap[0]) {
-		req = r.fieldmap[0]->val;
-		reqsz = r.fieldmap[0]->valsz;
+	} else if (NULL != r.fieldnmap && NULL != r.fieldnmap[0]) {
+		req = r.fieldnmap[0]->val;
+		reqsz = r.fieldnmap[0]->valsz;
 	} else {
 		req = "";
 		reqsz = 0;
@@ -294,6 +333,8 @@ main(int argc, char *argv[])
 		goto out;
 	} 
 
+	kdbg("%s: HTTP authorisation: %s", st->path, st->auth->user);
+
 	/*
 	 * Next, parse the our passwd file and look up the given HTTP
 	 * authorisation name within the database.
@@ -319,6 +360,8 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
+	kdbg("%s: principal authorisation: %s", st->path, st->auth->user);
+
 	/* 
 	 * We require a configuration file in the directory where we've
 	 * been requested to introspect.
@@ -340,6 +383,8 @@ main(int argc, char *argv[])
 		http_error(&r, KHTTP_403);
 		goto out;
 	}
+
+	kdbg("%s: configuration parsed: %s", st->path, kmethods[r.method]);
 
 	/* 
 	 * We're ready to go!
