@@ -25,7 +25,7 @@
 .\" Not used in OpenBSD.
 .Sh SYNOPSIS
 .Nm kcaldav.passwd
-.Op Fl cn
+.Op Fl Cn
 .Op Fl d Ar homedir
 .Op Fl f Ar passdir
 .Op Fl u Ar user
@@ -41,11 +41,12 @@ By default, it changes the
 password for the user with the currently logged-in username.
 Its arguments are as follows:
 .Bl -tag -width Ds
-.It Fl c
+.It Fl C
 Create a new user.
 The current real user (via
 .Xr getuid 2 )
-must match the password file owner to use this option.
+must match the password file owner to use this option, or the real user
+must be root.
 Does nothing if a user by that name already exists.
 .It Fl n
 Do not change the user password, but only the user attributes (e.g.,
@@ -55,7 +56,7 @@ Change the home directory (within the
 .Xr kcaldav 8
 file-system root) of the requested user.
 If unspecified and a new user is created with
-.Fl c ,
+.Fl C ,
 this defaults to
 .Pa /<user> .
 This must be an absolute path.
@@ -65,7 +66,8 @@ Specify an alternative password directory.
 Use an alternative username.
 The current real user (via
 .Xr getuid 2 )
-must match the password file owner to use this option.
+must match the password file owner to use this option, or the real user
+must be root.
 .El
 .Pp
 Since
@@ -90,7 +92,7 @@ The permissions should then be
 .Li 0640 .
 .It
 You can then add new users with
-.Fl c
+.Fl C
 using
 .Xr sudo 8
 or as the owner of the file directly.

@@ -322,9 +322,9 @@ main(int argc, char *argv[])
 	verbose = 0;
 	altuser = NULL;
 
-	while (-1 != (c = getopt(argc, argv, "cd:f:nu:v"))) 
+	while (-1 != (c = getopt(argc, argv, "Cd:f:nu:v"))) 
 		switch (c) {
-		case ('c'):
+		case ('C'):
 			create = passwd = 1;
 			break;
 		case ('d'):
@@ -418,8 +418,11 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	/* Check security of privileged operations. */
-	if (create || (NULL != altuser)) {
+	/* 
+	 * Check security of privileged operations.
+	 * Root is, of course, exempt.
+	 */
+	if (0 != getuid() && (create || NULL != altuser)) {
 		if (-1 == fstat(fd, &st)) {
 			kerr("fstat");
 			goto out;
@@ -554,7 +557,7 @@ out:
 	return(rc ? EXIT_SUCCESS : EXIT_FAILURE);
 usage:
 	fprintf(stderr, "usage: %s "
-		"[-cn] "
+		"[-Cn] "
 		"[-d homedir] "
 		"[-f file] "
 		"[-u user]\n", pname);

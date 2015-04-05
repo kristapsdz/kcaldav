@@ -57,8 +57,6 @@
 						href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>, and <a
 						href="kcaldav.passwd.5.html">kcaldav.passwd(5)</a>.
 					If it lacks information or clarity, that's a bug.
-					You'll need <a href="http://kristaps.bsd.lv/kcgi">kcgi</a> and <a
-						href="http://expat.sourceforge.net/">libexpat</a> installed as a compile-time dependencies.
 				</p>
 			</section>
 			<section>
