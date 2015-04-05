@@ -71,7 +71,13 @@ open_lock_ex(const char *file, int flags, mode_t mode)
 {
 	int	 fd, er; /* preserve the errno */
 
+	/* Mac OSX has different semantics for O_NOFOLLOW. */
+#ifdef	__APPLE__
 	flags |= O_SYMLINK;
+#else
+	flags |= O_NOFOLLOW;
+#endif
+
 #ifdef	__linux__
 	if (-1 != (fd = flopen(file, flags, mode))) 
 		return(open_test_symlink(file, fd));
@@ -96,7 +102,13 @@ open_lock_sh(const char *file, int flags, mode_t mode)
 {
 	int	 fd, er; /* preserve the errno */
 
+	/* Mac OSX has different semantics for O_NOFOLLOW. */
+#ifdef	__APPLE__
 	flags |= O_SYMLINK;
+#else
+	flags |= O_NOFOLLOW;
+#endif
+
 #ifndef	HAVE_OPEN_LOCK
 	if (-1 == (fd = open(file, flags, mode))) {
 		er = errno;
