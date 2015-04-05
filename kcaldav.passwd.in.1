@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: April 4 2015 $
+.Dd $Mdocdate: April 5 2015 $
 .Dt KCALDAV.PASSWD 1
 .Os
 .Sh NAME
@@ -38,7 +38,8 @@ file for an instance of
 .Xr kcaldav 8 .
 By default, it changes the
 .Pa @CALDIR@/kcaldav.passwd
-password for the user with the currently logged-in username.
+password for the user with the currently logged-in username, prompting
+for the existing passwords when it does so.
 Its arguments are as follows:
 .Bl -tag -width Ds
 .It Fl C
