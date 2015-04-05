@@ -3,8 +3,8 @@
 # You'll absolutely want to change this. 
 # It is the directory prepended to all calendar requests.
 # It should not end in a trailing slash.
-CALDIR		 = /caldav
-CGIPREFIX	 = /var/www/cgi-bin
+CALDIR		 = /Users/kristaps/Sites
+CGIPREFIX	 = $(CALDIR)
 PREFIX		 = /usr/local
 
 # Add any special dependency directories here.
@@ -12,12 +12,12 @@ CPPFLAGS	+= -I/usr/local/include
 BINLDFLAGS	 = -L/usr/local/lib
 
 # For OpenBSD:
-LIBS		 = -lexpat -lutil 
-STATIC		 = -static
+#LIBS		 = -lexpat -lutil 
+#STATIC		 = -static
 
 # For Mac OS X:
-#LIBS		 = -lexpat 
-#STATIC		 = 
+LIBS		 = -lexpat 
+STATIC		 = 
 
 # For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
@@ -123,7 +123,8 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_5.xml \
 		   version_0_0_6.xml \
 		   version_0_0_7.xml \
-		   version_0_0_8.xml
+		   version_0_0_8.xml \
+		   version_0_0_9.xml
 VERSION		 = 0.0.8
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"

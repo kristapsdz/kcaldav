@@ -42,7 +42,7 @@ main(int argc, char *argv[])
 	if (1 != argc)
 		return(EXIT_FAILURE);
 
-	c = prncpl_parse(argv[0], "GET", NULL, &prncpl);
+	c = prncpl_parse(argv[0], "GET", NULL, &prncpl, "", 0);
 	prncpl_free(prncpl);
 	return(NULL == prncpl ? EXIT_FAILURE : EXIT_SUCCESS);
 }

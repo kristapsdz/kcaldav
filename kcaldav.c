@@ -212,13 +212,15 @@ main(int argc, char *argv[])
 	struct kvalid	 valid = { kvalid, "" };
 	struct state	*st;
 	int		 rc;
-	const char	*caldir = NULL;
+	size_t		 reqsz;
+	const char	*caldir, *req;
 
 	setlinebuf(stderr);
 
 	while (-1 != getopt(argc, argv, "")) 
 		/* Spin. */ ;
 
+	caldir = NULL;
 	argv += optind;
 	if ((argc -= optind) > 0)
 		caldir = argv[0];
@@ -226,12 +228,30 @@ main(int argc, char *argv[])
 	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
 
+	/* 
+	 * Get the full body of the request, if any.
+	 * We'll use this when we're validating the HTTP authorisation.
+	 * This will be stored in the fieldmap (or fieldnmap) because we
+	 * pass the opaque request body into the kvalid function above.
+	 */
+	if (NULL != r.fieldmap[0]) {
+		req = r.fieldmap[0]->val;
+		reqsz = r.fieldmap[0]->valsz;
+	} else if (NULL != r.fieldnmap[0]) {
+		req = r.fieldmap[0]->val;
+		reqsz = r.fieldmap[0]->valsz;
+	} else {
+		req = "";
+		reqsz = 0;
+	}
+
 	if (NULL == (r.arg = st = calloc(1, sizeof(struct state)))) {
 		kerr(NULL);
 		http_error(&r, KHTTP_505);
 		goto out;
 	}
 
+	/* Disallow bogus HTTP methods. */
 	if (KMETHOD__MAX == r.method) {
 		http_error(&r, KHTTP_405);
 		goto out;
@@ -281,8 +301,8 @@ main(int argc, char *argv[])
 	 * file doesn't exist or is malformed.
 	 * It might set the principal to NULL if not found.
 	 */
-	rc = prncpl_parse(st->prncplfile, 
-		kmethods[r.method], st->auth, &st->prncpl);
+	rc = prncpl_parse(st->prncplfile, kmethods[r.method], 
+		st->auth, &st->prncpl, req, reqsz);
 
 	if (rc < 0) {
 		kerrx("memory failure (principal)");
