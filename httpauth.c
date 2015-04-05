@@ -24,6 +24,16 @@
 
 #include "extern.h"
 
+static	const char *const httpalgs[HTTPALG__MAX] = {
+	"MD5", /* HTTPALG_MD5 */
+	"MD5-sess" /* HTTPALG_MD5_SESS */
+};
+
+static	const char *const httpqops[HTTPQOP__MAX] = {
+	"auth", /* HTTPQOP_AUTH */
+	"auth-int" /* HTTPQOP_AUTH_INT */
+};
+
 /*
  * Parses the next token part.
  * Returns the start of the token.
@@ -49,6 +59,75 @@ httpauth_nexttok(const char **next, char delim)
 		(*next)++;
 
 	return(cp);
+}
+
+/*
+ * Parse a token.
+ * We don't strictly follow RFC 2615's TOKEN specification, which says
+ * that tokens can be followed by any separator.
+ * We only use commas as separators.
+ */
+static int
+httpauth_token(size_t *val, const char **cp,
+	const char *const *vals, size_t valsz)
+{
+	const char	*start, *end;
+	size_t		 len;
+
+	for (start = *cp; '\0' != **cp; (*cp)++)
+		if (isspace((int)**cp))
+			break;
+		else if (',' == **cp)
+			break;
+
+	end = *cp;
+	while (isspace((int)**cp))
+		(*cp)++;
+	if (',' == **cp)
+		(*cp)++;
+	while (isspace((int)**cp))
+		(*cp)++;
+
+	len = end - start;
+
+	for (*val = 0; *val < valsz; (*val)++)
+		if (strlen(vals[*val]) != len)
+			continue;
+		else if (0 == strncasecmp(start, vals[*val], len))
+			break;
+
+	if (*val < valsz) {
+		kerrx("unknown token: %.*s", (int)len, start);
+		return(0);
+	}
+
+	return(1);
+}
+
+static int
+httpauth_alg(enum httpalg *val, const char **cp)
+{
+	size_t	 i;
+
+	if ( ! httpauth_token(&i, cp, httpalgs, HTTPALG__MAX)) {
+		kerrx("unknown HTTP algorithm");
+		return(0);
+	}
+	*val = i;
+	return(1);
+}
+
+static int
+httpauth_qop(enum httpqop *val, const char **cp)
+{
+	size_t	 i;
+
+	if ( ! httpauth_token(&i, cp, httpqops, HTTPQOP__MAX)) {
+		kerrx("unknown HTTP QOP");
+		return(0);
+	}
+	*val = i;
+	return(1);
 }
 
 /*
@@ -131,21 +210,29 @@ httpauth_parse(const char *cp)
 	 * However, we only parse a subset of the tokens.
 	 */
 	start = httpauth_nexttok(&cp, '\0');
-	if (strncmp(start, "Digest", 6))
+	if (strncasecmp(start, "Digest", 6))
 		return(auth);
 
 	for (rc = 1; 1 == rc && '\0' != *cp; ) {
 		start = httpauth_nexttok(&cp,  '=');
-		if (0 == strncmp(start, "username", 8))
+		if (0 == strncasecmp(start, "username", 8))
 			rc = httpauth_value(&auth->user, &cp);
-		else if (0 == strncmp(start, "realm", 5))
+		else if (0 == strncasecmp(start, "realm", 5))
 			rc = httpauth_value(&auth->realm, &cp);
-		else if (0 == strncmp(start, "nonce", 5))
+		else if (0 == strncasecmp(start, "nonce", 5))
 			rc = httpauth_value(&auth->nonce, &cp);
-		else if (0 == strncmp(start, "response", 8))
+		else if (0 == strncasecmp(start, "cnonce", 6))
+			rc = httpauth_value(&auth->cnonce, &cp);
+		else if (0 == strncasecmp(start, "response", 8))
 			rc = httpauth_value(&auth->response, &cp);
-		else if (0 == strncmp(start, "uri", 3))
+		else if (0 == strncasecmp(start, "uri", 3))
 			rc = httpauth_value(&auth->uri, &cp);
+		else if (0 == strncasecmp(start, "algorithm", 9))
+			rc = httpauth_alg(&auth->alg, &cp);
+		else if (0 == strncasecmp(start, "qop", 3))
+			rc = httpauth_qop(&auth->qop, &cp);
+		else if (0 == strncasecmp(start, "nc", 2))
+			rc = httpauth_value(&auth->count, &cp);
 		else
 			rc = httpauth_value(NULL, &cp);
 	}
@@ -155,12 +242,26 @@ httpauth_parse(const char *cp)
 		return(NULL);
 	}
 
+	/* Minimum requirements. */
 	auth->authorised = 
 		NULL != auth->user &&
 		NULL != auth->realm &&
 		NULL != auth->nonce &&
 		NULL != auth->response &&
 		NULL != auth->uri;
+
+	/* Additional requirements: MD5-sess. */
+	if (auth->authorised && HTTPALG_MD5_SESS == auth->alg) 
+		auth->authorised = NULL != auth->cnonce;
+
+	/* Additional requirements: qop. */
+	if (auth->authorised && 
+		(HTTPQOP_AUTH == auth->qop ||
+		 HTTPQOP_AUTH_INT == auth->qop))
+		auth->authorised = 
+			NULL != auth->count &&
+			NULL != auth->cnonce;
+
 	return(auth);
 }
 
@@ -176,5 +277,7 @@ httpauth_free(struct httpauth *p)
 	free(p->uri);
 	free(p->response);
 	free(p->nonce);
+	free(p->count);
+	free(p->cnonce);
 	free(p);
 }
