@@ -37,31 +37,83 @@
 
 static int
 validate(const char *hash, const char *method,
-	const struct httpauth *auth)
+	const struct httpauth *auth,
+	const char *req, size_t reqsz)
 {
 	MD5_CTX	 	 ctx;
-	unsigned char	 ha2[MD5_DIGEST_LENGTH],
+	unsigned char	 ha1[MD5_DIGEST_LENGTH],
+			 ha2[MD5_DIGEST_LENGTH],
 			 ha3[MD5_DIGEST_LENGTH];
-	char		 skey2[MD5_DIGEST_LENGTH * 2 + 1],
+	char		 skey1[MD5_DIGEST_LENGTH * 2 + 1],
+			 skey2[MD5_DIGEST_LENGTH * 2 + 1],
 			 skey3[MD5_DIGEST_LENGTH * 2 + 1];
 	size_t		 i;
 
-	MD5Init(&ctx);
-	MD5Update(&ctx, method, strlen(method));
-	MD5Update(&ctx, ":", 1);
-	MD5Update(&ctx, auth->uri, strlen(auth->uri));
-	MD5Final(ha2, &ctx);
+	/*
+	 * MD5-sess hashes the nonce and client nonce as well as the
+	 * existing hash (user/real/pass).
+	 * Note that the existing hash is MD5_DIGEST_LENGTH * 2 as
+	 * validated by prncpl_pentry().
+	 */
+	if (HTTPALG_MD5_SESS == auth->alg) {
+		MD5Init(&ctx);
+		MD5Update(&ctx, hash, strlen(hash));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->cnonce, strlen(auth->cnonce));
+		MD5Final(ha1, &ctx);
+		for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
+			snprintf(&skey1[i * 2], 3, "%02x", ha1[i]);
+	} else 
+		memcpy(skey1, hash, MD5_DIGEST_LENGTH * 2);
+
+	if (HTTPQOP_AUTH_INT == auth->qop) {
+		MD5Init(&ctx);
+		MD5Update(&ctx, method, strlen(method));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->uri, strlen(auth->uri));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, req, reqsz);
+		MD5Final(ha2, &ctx);
+	} else {
+		MD5Init(&ctx);
+		MD5Update(&ctx, method, strlen(method));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->uri, strlen(auth->uri));
+		MD5Final(ha2, &ctx);
+	}
 
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
 		snprintf(&skey2[i * 2], 3, "%02x", ha2[i]);
 
-	MD5Init(&ctx);
-	MD5Update(&ctx, hash, strlen(hash));
-	MD5Update(&ctx, ":", 1);
-	MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
-	MD5Update(&ctx, ":", 1);
-	MD5Update(&ctx, skey2, strlen(skey2));
-	MD5Final(ha3, &ctx);
+	if (HTTPQOP_AUTH_INT == auth->qop ||
+		 HTTPQOP_AUTH == auth->qop) {
+		MD5Init(&ctx);
+		MD5Update(&ctx, skey1, MD5_DIGEST_LENGTH * 2);
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->count, strlen(auth->count));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->cnonce, strlen(auth->cnonce));
+		MD5Update(&ctx, ":", 1);
+		if (HTTPQOP_AUTH_INT == auth->qop)
+			MD5Update(&ctx, "auth-int", 8);
+		else
+			MD5Update(&ctx, "auth", 4);
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, skey2, MD5_DIGEST_LENGTH * 2);
+		MD5Final(ha3, &ctx);
+	} else {
+		MD5Init(&ctx);
+		MD5Update(&ctx, skey1, MD5_DIGEST_LENGTH * 2);
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, skey2, MD5_DIGEST_LENGTH * 2);
+		MD5Final(ha3, &ctx);
+	}
 
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
 		snprintf(&skey3[i * 2], 3, "%02x", ha3[i]);
@@ -204,8 +256,9 @@ prncpl_line(char *string, size_t sz,
  * Returns >0 on success.
  */
 int
-prncpl_parse(const char *file, const char *method,
-	const struct httpauth *auth, struct prncpl **pp)
+prncpl_parse(const char *file, const char *m,
+	const struct httpauth *auth, struct prncpl **pp,
+	const char *r, size_t rsz)
 {
 	size_t	 	 len, line;
 	struct pentry	 entry;
@@ -245,9 +298,9 @@ prncpl_parse(const char *file, const char *method,
 		if (strcmp(entry.user, auth->user)) {
 			explicit_bzero(cp, len);
 			continue;
-		} else if ( ! validate(entry.hash, method, auth)) {
-			kerrx("%s:%zu: hash mismatch with "
-				"HTTP authorisation", file, line);
+		} else if ( ! validate(entry.hash, m, auth, r, rsz)) {
+			kerrx("%s:%zu: HTTP authorisation "
+				"failed", file, line);
 			explicit_bzero(cp, len);
 			continue;
 		}

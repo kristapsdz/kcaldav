@@ -105,6 +105,19 @@ struct	caldav {
 	size_t		  hrefsz;
 };
 
+enum	httpalg {
+	HTTPALG_MD5 = 0,
+	HTTPALG_MD5_SESS,
+	HTTPALG__MAX
+};
+
+enum	httpqop {
+	HTTPQOP_NONE = 0,
+	HTTPQOP_AUTH,
+	HTTPQOP_AUTH_INT,
+	HTTPQOP__MAX
+};
+
 /*
  * Parsed HTTP ``Authorization'' header (RFC 2617).
  * We only keep the critical parts required for authentication.
@@ -112,11 +125,15 @@ struct	caldav {
 #define	KREALM		"kcaldav"
 struct	httpauth {
 	int		 authorised;
+	enum httpalg	 alg;
+	enum httpqop	 qop;
 	char		*user;
 	char		*uri;
 	char		*realm;
 	char		*nonce;
+	char		*cnonce;
 	char		*response;
+	char		*count;
 };
 
 /*
@@ -206,7 +223,8 @@ int		  close_unlock(const char *, int);
 int		  quota(const char *, int, long long *, long long *);
 
 int		  prncpl_parse(const char *, const char *,
-		        const struct httpauth *, struct prncpl **);
+		        const struct httpauth *, struct prncpl **,
+			const char *, size_t);
 void		  prncpl_free(struct prncpl *);
 int		  prncpl_line(char *, size_t, 
 			const char *, size_t, struct pentry *);
