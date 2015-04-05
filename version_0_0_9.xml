@@ -1,0 +1,11 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.0.9</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-04-06">2015-04-06</time>
+	</header>
+	<aside>
+		Fully implement <a href="https://tools.ietf.org/html/rfc2617">RFC 2617</a> for authorisation.
+		This includes the <q>MD5-sess</q>, <q>auth</q>, and <q>auth-int</q> directives.
+	</aside>
+</article>
