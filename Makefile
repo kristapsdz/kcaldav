@@ -12,12 +12,12 @@ CPPFLAGS	+= -I/usr/local/include
 BINLDFLAGS	 = -L/usr/local/lib
 
 # For OpenBSD:
-#LIBS		 = -lexpat -lutil 
-#STATIC		 = -static
+LIBS		 = -lexpat -lutil 
+STATIC		 = -static
 
 # For Mac OS X:
-LIBS		 = -lexpat 
-STATIC		 = 
+#LIBS		 = -lexpat 
+#STATIC		 = 
 
 # For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
