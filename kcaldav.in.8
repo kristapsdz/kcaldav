@@ -54,22 +54,23 @@ and is reachable at
 .Pp
 Moreover, assume your calendar root
 .Pa @CALDIR@
-(in a file-system
+is based in the web server's
 .Xr chroot 2
-accessable to the web server)
-contains a
+in
+.Pa /var/www .
+It contains a
 .Xr kcaldav.passwd 5
-and you have installed a single collection at
-.Pa @CALDIR@/kristaps
+and a single collection at
+.Pa /var/www@CALDIR@/kristaps
 consisting of
 .Pa kcaldav.conf
 and some calendars.
 .Bd -unfilled -offset indent
-.Pa @CALDIR@/kcaldav.passwd
-.Pa @CALDIR@/kristaps
-.Pa @CALDIR@/kristaps/kcaldav.conf
-.Pa @CALDIR@/kristaps/vevent-001.ics
-.Pa @CALDIR@/kristaps/vevent-002.ics
+.Pa /var/www@CALDIR@/kcaldav.passwd
+.Pa /var/www@CALDIR@/kristaps
+.Pa /var/www@CALDIR@/kristaps/kcaldav.conf
+.Pa /var/www@CALDIR@/kristaps/vevent-001.ics
+.Pa /var/www@CALDIR@/kristaps/vevent-002.ics
 .Ed
 .Pp
 You can then point your browser to the following:
@@ -79,55 +80,50 @@ You can then point your browser to the following:
 Note the trailing slash, otherwise the request is interpreted as for a
 resource (file), not a collection (directory).
 .Ss System-Wide Calendar Administration
-In this subsection, I describe how to set up
-.Nm
-for a UNIX multi-user system.
-I assume the calendar root
-.Pa @CALDIR@
-is at
-.Pa /var/www@CALDIR@ ,
-which is accessable by the web server running as user www.
-I also assume a dummy user kcaldav.
+Let
+.Ar caldir
+be mapped to
+.Pa /tmp ,
+which is readable by the web server running as user www.
+Let the dummy user kcaldav be the owner of kcaldav files.
 First, initialise
 .Xr kcaldav.passwd 5
-to the appropriate permissions, and make
+to the appropriate permissions, then make
 .Xr kcaldav.passwd 1
 set-user-ID for modifying the file.
 .Bd -literal -offset indent
-# touch /var/www@CALDIR@/kcaldav.passwd
-# chown kcaldav:www /var/www@CALDIR@/kcaldav.passwd
-# chmod 0640 /var/www@CALDIR@/kcaldav.passwd
+# install -m 0640 -o kcaldav -g www /dev/null /tmp/kcaldav.passwd
 # chown kcaldav @PREFIX@/bin/kcaldav.passwd
 # chmod u+s @PREFIX@/bin/kcaldav.passwd
 .Ed
 .Pp
-Now any local user can modify her principal's password without administrator
-intervention.
-Create these principals as follows:
+Create user principals as follows:
 .Bd -literal -offset indent
-# sudo -u kcaldav kcaldav.passwd -c <user1>
-# sudo -u kcaldav kcaldav.passwd -c <user2>
+# kcaldav.passwd -f /tmp -c <user1>
+# kcaldav.passwd -f /tmp -c <user2>
 # ...
 .Ed
-That's it!
+.Pp
+Now any local user can modify her principal's password without
+administrator intervention.
+.Pp
+.Dl user1% kcaldav.passwd -f /tmp
 .Ss Local Calendar Administration
-This setup is easier.
-Just create the
+Let
+.Ar caldir
+be mapped to
+.Pa /tmp ,
+which is readable by the web server running asuser www
+and can read-writable by the logged-in user.
+First, create the
 .Xr kcaldav.passwd 5
 as any user, then add principals as necessary.
-This assumes that
-.Pa @CALDIR@
-can be modified by the logged-in user.
-.Bd -literal -offset indent
-% touch @CALDIR@/kcaldav.passwd
-% chmod 640 @CALDIR@/kcaldav.passwd
-% chgrp www @CALDIR@/kcaldav.passwd
-.Ed
 .Pp
-Create and modify principals as follows:
-.Bd -literal -offset indent
-% kcaldav.passwd -c <user> -f `pwd`
-.Ed
+.Dl % install -m 640 -g www /dev/null /tmp/kcaldav.passwd
+.Pp
+Then, create and modify principals as follows:
+.Pp
+.Dl % kcaldav.passwd -c <user> -f /tmp
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .Sh IMPLEMENTATION NOTES
