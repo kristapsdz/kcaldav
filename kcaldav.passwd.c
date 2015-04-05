@@ -78,14 +78,14 @@ gethash(int new, char *digest,
 		sizeof(pbuf), RPP_REQUIRE_TTY);
 
 	if (NULL == pp) {
-		fprintf(stderr, "Unable to read passphrase.\n");
+		fprintf(stderr, "unable to read passphrase\n");
 		explicit_bzero(pbuf, strlen(pbuf));
 		return(0);
 	} else if ('\0' == pbuf[0])
 		return(0);
 
 	if (strlen(pbuf) < 6) {
-		fprintf(stderr, "Come on: more than five letters.\n");
+		fprintf(stderr, "come on: more than five letters\n");
 		return(0);
 	}
 
@@ -353,7 +353,7 @@ main(int argc, char *argv[])
 
 	/* Arrange our kcaldav.passwd file. */
 	if ('\0' == file[0]) {
-		fprintf(stderr, "Empty path!?\n");
+		fprintf(stderr, "empty path!?\n");
 		goto out;
 	} else if ('/' == file[sz - 1])
 		file[sz - 1] = '\0';
@@ -374,9 +374,13 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	/* If we're not creating a new entry, get the existing. */
-	if ( ! create && ! gethash(0, digestold, user, realm))
-		goto out;
+	/* 
+	 * If we're not creating a new entry and we're setting our own
+	 * password, get the existing password. 
+	 */
+	if ( ! create && NULL == altuser)
+		if ( ! gethash(0, digestold, user, realm))
+			goto out;
 
 	/* If we're going to set our password, hash it now. */
 	if (passwd) {
@@ -385,7 +389,7 @@ main(int argc, char *argv[])
 		if ( ! gethash(2, digestrep, user, realm)) 
 			goto out;
 		if (memcmp(digestnew, digestrep, sizeof(digestnew))) {
-			fprintf(stderr, "Passwords don't match.\n");
+			fprintf(stderr, "passwords do not match\n");
 			goto out;
 		}
 	}
@@ -427,8 +431,8 @@ main(int argc, char *argv[])
 			kerr("fstat");
 			goto out;
 		} else if (st.st_uid != getuid()) {
-			fprintf(stderr, "Password file owner must "
-				"match the real user with -c.\n");
+			fprintf(stderr, "password file owner "
+				"must match the real user\n");
 			goto out;
 		}
 	}
@@ -505,7 +509,8 @@ main(int argc, char *argv[])
 	} else if (found >= 0) {
 		i = (size_t)found;
 		assert(i < elsz);
-		if (memcmp(els[i].hash, digestold, sizeof(digestold))) {
+		if (NULL == altuser && memcmp(els[i].hash, 
+				digestold, sizeof(digestold))) {
 			fprintf(stderr, "password mismatch\n");
 			goto out;
 		}
@@ -523,7 +528,7 @@ main(int argc, char *argv[])
 			goto out;
 	} else {
 		fprintf(stderr, "%s: does not "
-			"exist, use -c to add\n", user);
+			"exist, use -C to add\n", user);
 		goto out;
 	}
 
