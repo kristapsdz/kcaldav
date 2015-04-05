@@ -149,7 +149,7 @@ install: all
 	mkdir -p $(PREFIX)/man/man8
 	mkdir -p $(PREFIX)/man/man5
 	mkdir -p $(PREFIX)/man/man1
-	install -m 0755 kcaldav.passwd $(PREFIX)/bin
+	install -m 0555 kcaldav.passwd $(PREFIX)/bin
 	install -m 0444 kcaldav.conf.5 $(PREFIX)/man/man5
 	install -m 0444 kcaldav.passwd.5 $(PREFIX)/man/man5
 	install -m 0444 kcaldav.8 $(PREFIX)/man/man8
