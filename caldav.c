@@ -56,7 +56,6 @@ const enum proptype calprops[CALELEM__MAX] = {
 	PROP_GETCTAG, /* CALELEM_GETCTAG */
 	PROP_GETETAG, /* CALELEM_GETETAG */
 	PROP__MAX, /* CALELEM_HREF */
-	PROP__MAX, /* CALELEM_MKCALENDAR */
 	PROP_OWNER, /* CALELEM_OWNER */
 	PROP_PRINCIPAL_URL, /* CALELEM_PRINCIPAL_URL */
 	PROP__MAX, /* CALELEM_PROP */
@@ -101,7 +100,6 @@ const char *const calelems[CALELEM__MAX] = {
 	CALSERVNS "getctag", /* CALELEM_GETCTAG */
 	DAVNS "getetag", /* CALELEM_GETETAG */
 	DAVNS "href", /* CALELEM_HREF */
-	CALDAVNS "mkcalendar", /* CALELEM_MKCALENDAR */
 	DAVNS "owner", /* CALELEM_OWNER */
 	DAVNS "principal-URL", /* CALELEM_PRINCIPAL_URL */
 	DAVNS "prop", /* CALELEM_PROP */
@@ -245,7 +243,6 @@ parseclose(void *dat, const XML_Char *s)
 	struct parse	*p = dat;
 
 	switch (calelem_find(s)) {
-	case (CALELEM_MKCALENDAR):
 	case (CALELEM_CALENDAR_MULTIGET):
 	case (CALELEM_CALENDAR_QUERY):
 	case (CALELEM_PROPERTYUPDATE):
@@ -351,9 +348,6 @@ parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 		break;
 	case (CALELEM_CALENDAR_MULTIGET):
 		caldav_alloc(p, TYPE_CALMULTIGET);
-		break;
-	case (CALELEM_MKCALENDAR):
-		caldav_alloc(p, TYPE_MKCALENDAR);
 		break;
 	case (CALELEM_PROPERTYUPDATE):
 		caldav_alloc(p, TYPE_PROPERTYUPDATE);
