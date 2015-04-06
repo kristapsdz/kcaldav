@@ -29,7 +29,7 @@
 						href="https://tools.ietf.org/html/rfc2616">HTTP</a> (2616), and numerous extensions as detailed in <a
 						href="kcaldav.8.html">kcaldav(8)</a>.
 					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
-					It's known to work over <strong>simple</strong> setups with <a
+					It's known to work over <strong>simple</strong> (no <code>REPORT</code> filtering yet!) setups with <a
 						href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>,
 					Mac OS X iCal, and iOS7 (iPhone4) clients.
 					It compiles and runs on <a href="http://www.openbsd.org">OpenBSD</a>, Linux, and Mac OS X.
