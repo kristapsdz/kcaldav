@@ -37,8 +37,8 @@
 				</p>
 				<ol>
 					<li>install dependencies <a href="http://kristaps.bsd.lv/kcgi">kcgi</a>, <a
-							href="http://expat.sourceforge.net">expat</a> (the latter is usually part of the
-						operating system), and <a href="http://libbsd.freedesktop.org/wiki/">libbsd</a> if using
+							href="http://expat.sourceforge.net">expat</a> (usually part of the operating system),
+						and <a href="http://libbsd.freedesktop.org/wiki/">libbsd</a> if using
 						Linux;</li>
 					<li>download <a href="snapshots/kcaldav.tgz">sources</a>, unpack, and <a
 							href="snapshots/kcaldav.tgz.sha512">verify</a>;</li>
@@ -61,7 +61,7 @@
 			</section>
 			<section>
 				<h2>Release History</h2>
-				<nav data-sblg-nav="1" data-sblg-navsz="3" data-sblg-navcontent="1">
+				<nav data-sblg-nav="1" data-sblg-navsz="5" data-sblg-navcontent="1">
 					<time datetime="${sblg-date}">${sblg-date}</time>
 					(version <span class="version">${sblg-title}</span>):
 					${sblg-aside}
