@@ -294,6 +294,16 @@ main(int argc, char *argv[])
 	if (KMETHOD__MAX == r.method) {
 		http_error(&r, KHTTP_405);
 		goto out;
+	} 
+	
+	/*
+	 * Not all agents (e.g., Thunderbird's Lightning) are smart
+	 * enough to resend an OPTIONS request with HTTP authorisation,
+	 * so let this happen now.
+	 */
+	if (KMETHOD_OPTIONS == r.method) {
+		method_options(&r);
+		goto out;
 	}
 
 	/*
@@ -406,9 +416,6 @@ main(int argc, char *argv[])
 		break;
 	case (KMETHOD_DELETE):
 		method_delete(&r);
-		break;
-	case (KMETHOD_OPTIONS):
-		method_options(&r);
 		break;
 	default:
 		kerrx("%s: ignoring method %s",
