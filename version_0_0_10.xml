@@ -1,0 +1,10 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.0.10</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-04-07">2015-04-07</time>
+	</header>
+	<aside>
+		A small fix for some clients who aren't smart enough to resend HTTP OPTIONS after receiving a code 403 for the same.
+	</aside>
+</article>
