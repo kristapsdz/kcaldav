@@ -123,10 +123,15 @@ struct	icalnode {
 
 /*
  * An iCalendar component.
+ * Each of these may be associated with component properties such as the
+ * UID or DTSTART, which are referenced here.
  */
 struct	icalcomp {
 	struct icalcomp	*next;
 	enum icaltype	 type;
+	const char	*uid; /* UID of component */
+	const char	*start; /* DTSTART of component */
+	const char	*end; /* DTEND of component */
 };
 
 /*
