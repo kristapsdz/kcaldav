@@ -44,8 +44,16 @@ void
 kverrx(const char *file, size_t line, const char *fmt, ...)
 {
 	va_list	 ap;
+	char	 buf[32];
+#ifdef LOGTIMESTAMP
+	time_t	 t = time(NULL);
 
-	fprintf(stderr, "%s:%zu: ", file, line);
+	strftime(buf, sizeof(buf), "[%F %R]:", localtime(&t));
+#else
+	buf[0] = '\0';
+#endif
+
+	fprintf(stderr, "%s%s:%zu: ", buf, file, line);
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
@@ -57,8 +65,16 @@ kverr(const char *file, size_t line, const char *fmt, ...)
 {
 	int	 er = errno;
 	va_list	 ap;
+	char	 buf[32];
+#ifdef LOGTIMESTAMP
+	time_t	 t = time(NULL);
 
-	fprintf(stderr, "%s:%zu: ", file, line);
+	strftime(buf, sizeof(buf), "[%F %R]:", localtime(&t));
+#else
+	buf[0] = '\0';
+#endif
+
+	fprintf(stderr, "%s%s:%zu: ", buf, file, line);
 	if (NULL != fmt) {
 		va_start(ap, fmt);
 		vfprintf(stderr, fmt, ap);
