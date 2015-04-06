@@ -10,7 +10,10 @@
 			href="http://expat.sourceforge.net/">libexpat</a> namespace handlers.
 		Parsed documents are now properly checked for namespace and name of matching elements (e.g., <code>DAV::href</code>), not just
 		the name itself.
-		Also run the XML parsing routines through <a href="http://lcamtuf.coredump.cx/afl/">AFL</a> for quite some time to shake out
+		Run the XML parsing routines through <a href="http://lcamtuf.coredump.cx/afl/">AFL</a> for quite some time to shake out
 		stray bugs.
+		Add the ability to detect <a href="https://tools.ietf.org/html/rfc5545">iCalendar</a> components (VCALENDAR, VEVENT, VTODO,
+		etc.) during parse.
+		This paves the way for filtering capabilities later on.
 	</aside>
 </article>
