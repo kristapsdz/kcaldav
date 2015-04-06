@@ -12,8 +12,9 @@
 		the name itself.
 		Run the XML parsing routines through <a href="http://lcamtuf.coredump.cx/afl/">AFL</a> for quite some time to shake out
 		stray bugs.
-		Add the ability to detect <a href="https://tools.ietf.org/html/rfc5545">iCalendar</a> components (VCALENDAR, VEVENT, VTODO,
-		etc.) during parse.
-		This paves the way for filtering capabilities later on.
+		Add the ability to detect <a href="https://tools.ietf.org/html/rfc5545">iCalendar</a> components (<code>VCALENDAR</code>,
+		<code>VEVENT</code>, <code>VTODO</code>, etc.) and properties (<code>UID</code>, <code>DTSTART</code>, etc.) during parse and
+		stash references to them in linked component lists.
+		This paves the way for filtering capabilities in later versions.
 	</aside>
 </article>

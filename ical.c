@@ -252,6 +252,7 @@ ical_parse(const char *file, const char *cp, size_t sz)
 	unsigned char	 digest[16];
 	const char	*fp;
 	struct icalcomp	*comps[ICALTYPE__MAX];
+	enum icaltype	 type;
 
 	memset(&buf, 0, sizeof(struct buf));
 	memset(comps, 0, sizeof(comps));
@@ -312,11 +313,28 @@ ical_parse(const char *file, const char *cp, size_t sz)
 		 * For example, if we're a VTODO, then set the bit on
 		 * the calendar object that we contain the VTODO.
 		 */
-		if (NULL != val && 0 == strcmp("BEGIN", np->name))
+		if (NULL != val && 0 == strcmp("BEGIN", np->name)) {
 			if ( ! icalcomp_alloc(comps, p, np)) {
 				icalnode_free(np, 0);
 				break;
 			}
+		}
+
+		/*
+		 * Here we set specific component properties such as the
+		 * UID or DTSTART.
+		 */
+		if (NULL != val && NULL != np->parent &&
+			 ICALTYPE__MAX != np->parent->type) {
+			type = np->parent->type;
+			assert(NULL != comps[type]);
+			if (0 != strcasecmp(np->name, "uid"))
+				comps[type]->uid = np->val;
+			else if (0 != strcasecmp(np->name, "dtstart"))
+				comps[type]->start = np->val;
+			else if (0 != strcasecmp(np->name, "dtend"))
+				comps[type]->end = np->val;
+		}
 
 		/* Handle the first entry and bad nesting. */
 		if (NULL == p->first) {
