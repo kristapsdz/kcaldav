@@ -32,6 +32,16 @@
 #include "extern.h"
 #include "md5.h"
 
+const char *const icaltypes[ICALTYPE__MAX] = {
+	"VCALENDAR", /* ICALTYPE_VCALENDAR */
+	"VEVENT", /* ICALTYPE_VEVENT */
+	"VTODO", /* ICALTYPE_VTODO */
+	"VJOURNAL", /* ICALTYPE_VJOURNAL */
+	"VFREEBUSY", /* ICALTYPE_FVREEBUSY */
+	"VTIMEZONE", /* ICALTYPE_VTIMEZONE */
+	"VALARM", /* ICALTYPE_VALARM */
+};
+
 static void
 icalnode_free(struct icalnode *p, int first)
 {
@@ -240,6 +250,15 @@ ical_parse(const char *file, const char *cp, size_t sz)
 			kerr(NULL);
 			icalnode_free(np, 0);
 			break;
+		}
+
+		if (NULL != val && 0 == strcmp("BEGIN", np->name)) {
+			for (i = 0; i < ICALTYPE__MAX; i++) {
+				if (strcmp(icaltypes[i], np->val))
+					continue;
+				p->bits |= 1u << i;
+				break;
+			}
 		}
 
 		/* Handle the first entry and bad nesting. */

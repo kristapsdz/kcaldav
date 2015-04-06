@@ -168,23 +168,9 @@ collection_schedule_calendar_transp(struct kxmlreq *xml)
 void
 collection_supported_calendar_component_set(struct kxmlreq *xml)
 {
+	size_t	 i;
 
-	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
-		"name", "VCALENDAR", NULL);
-	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
-		"name", "VEVENT", NULL);
-	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
-		"name", "VTODO", NULL);
-	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
-		"name", "VJOURNAL", NULL);
-	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
-		"name", "VFREEBUSY", NULL);
-	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
-		"name", "VTIMEZONE", NULL);
-	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
-		"name", "VALARM", NULL);
-	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
-		"name", "STANDARD", NULL);
-	kxml_pushnullattrs(xml, XML_CALDAV_COMP,
-		"name", "DAYLIGHT", NULL);
+	for (i = 0; i < ICALTYPE__MAX; i++) 
+		kxml_pushnullattrs(xml, XML_CALDAV_COMP,
+			"name", icaltypes[i], NULL);
 }

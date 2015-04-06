@@ -86,7 +86,26 @@ struct	icalnode {
 	struct icalnode	*next;
 };
 
+enum	icaltype {
+	ICALTYPE_VCALENDAR,
+	ICALTYPE_VEVENT,
+	ICALTYPE_VTODO,
+	ICALTYPE_VJOURNAL,
+	ICALTYPE_FVREEBUSY,
+	ICALTYPE_VTIMEZONE,
+	ICALTYPE_VALARM,
+	ICALTYPE__MAX
+};
+
 struct	ical {
+	unsigned int	 bits;
+#define	ICAL_VCALENDAR	 0x001
+#define	ICAL_VEVENT	 0x002
+#define	ICAL_VTODO	 0x004
+#define	ICAL_VJOURNAL	 0x008
+#define	ICAL_VFREEBUSY	 0x010
+#define	ICAL_VTIMEZONE	 0x020
+#define	ICAL_VALARM	 0x040
 	char	 	 digest[33];
 	struct icalnode	*first;
 };
@@ -239,6 +258,7 @@ void		 httpauth_free(struct httpauth *);
 extern const enum proptype calprops[CALELEM__MAX];
 extern const enum calelem calpropelems[PROP__MAX];
 extern const char *const calelems[CALELEM__MAX];
+extern const char *const icaltypes[ICALTYPE__MAX];
 extern int verbose;
 
 __END_DECLS
