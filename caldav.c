@@ -170,21 +170,21 @@ propadd(struct parse *p, const XML_Char *name,
 	}
 
 	p->p->props[p->p->propsz].key = prop;
-	p->p->props[p->p->propsz].name = malloc(namesz + 1);
-	if (NULL == p->p->props[p->p->propsz].name) {
-		caldav_err(p, "memory exhausted");
-		return;
-	}
-	memcpy(p->p->props[p->p->propsz].name, name, namesz);
-	p->p->props[p->p->propsz].name[namesz] = '\0';
-
-	p->p->props[p->p->propsz].xmlns = malloc(nssz + 1);
+	p->p->props[p->p->propsz].xmlns = malloc(namesz + 1);
 	if (NULL == p->p->props[p->p->propsz].xmlns) {
 		caldav_err(p, "memory exhausted");
 		return;
 	}
-	memcpy(p->p->props[p->p->propsz].xmlns, ns, nssz);
-	p->p->props[p->p->propsz].xmlns[nssz] = '\0';
+	memcpy(p->p->props[p->p->propsz].xmlns, name, namesz);
+	p->p->props[p->p->propsz].xmlns[namesz] = '\0';
+
+	p->p->props[p->p->propsz].name = malloc(nssz + 1);
+	if (NULL == p->p->props[p->p->propsz].name) {
+		caldav_err(p, "memory exhausted");
+		return;
+	}
+	memcpy(p->p->props[p->p->propsz].name, ns, nssz);
+	p->p->props[p->p->propsz].name[nssz] = '\0';
 	kdbg("Property: %s, %s", 
 		p->p->props[p->p->propsz].name,
 		p->p->props[p->p->propsz].xmlns);
