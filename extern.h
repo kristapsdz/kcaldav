@@ -17,6 +17,10 @@
 #ifndef EXTERN_H
 #define EXTERN_H
 
+/*
+ * I only handle certain types of XML CalDAV documents (corresponding to
+ * the outer XML element).  This defines the request type per method.
+ */
 enum	type {
 	TYPE_CALMULTIGET,
 	TYPE_CALQUERY,
@@ -25,6 +29,9 @@ enum	type {
 	TYPE_PROPFIND,
 };
 
+/*
+ * Each of the XML elements we support.
+ */
 enum	calelem {
 	CALELEM_CALENDAR_DATA,
 	CALELEM_CALENDAR_HOME_SET,
@@ -52,6 +59,10 @@ enum	calelem {
 	CALELEM__MAX
 };
 
+/*
+ * Each of the property types within <DAV::prop> elements that we
+ * support.
+ */
 enum	proptype {
 	PROP_CALENDAR_DATA,
 	PROP_CALENDAR_HOME_SET,
@@ -72,20 +83,20 @@ enum	proptype {
 	PROP__MAX
 };
 
+/*
+ * Buffers are just dynamic nil-terminated strings that we constantly
+ * resize upward, then size to zero when we're done.
+ * I use these in several different places for growable strings.
+ */
 struct	buf {
 	char		*buf;
 	size_t		 sz;
 	size_t		 max;
 };
 
-struct	icalnode {
-	char		*name;
-	char		*val;
-	struct icalnode	*parent;
-	struct icalnode	*first;
-	struct icalnode	*next;
-};
-
+/*
+ * An iCalendar component type.
+ */
 enum	icaltype {
 	ICALTYPE_VCALENDAR,
 	ICALTYPE_VEVENT,
@@ -97,6 +108,34 @@ enum	icaltype {
 	ICALTYPE__MAX
 };
 
+/*
+ * A node in an iCalendar parse tree.
+ * Nodes don't necessarily correspond to component types.
+ */
+struct	icalnode {
+	char		*name;
+	char		*val; /* might be NULL */
+	enum icaltype	 type; /* if found, else ICALTYPE__MAX */
+	struct icalnode	*parent;
+	struct icalnode	*first;
+	struct icalnode	*next;
+};
+
+/*
+ * An iCalendar component.
+ */
+struct	icalcomp {
+	struct icalcomp	*next;
+	enum icaltype	 type;
+};
+
+/*
+ * Each iCalendar has a set of component types associated with it picked
+ * up during the parse (it's certainly an error not to define
+ * ICAL_VCALENDAR).
+ * Mark these off, then make a list of the correspondong nodes picked up
+ * for those types in the array of component pointers.
+ */
 struct	ical {
 	unsigned int	 bits;
 #define	ICAL_VCALENDAR	 0x001
@@ -108,14 +147,23 @@ struct	ical {
 #define	ICAL_VALARM	 0x040
 	char	 	 digest[33];
 	struct icalnode	*first;
+	struct icalcomp	*comps[ICALTYPE__MAX];
 };
 
+/*
+ * A CalDAV or DAV property in the XML request.
+ */
 struct	prop {
 	enum proptype	 key;
 	char		*name;
 	char		*xmlns;
 };
 
+/*
+ * A parsed CalDAV request.
+ * Given the type, this might have properties or hrefs that we care
+ * about--it depends.
+ */
 struct	caldav {
 	enum type	  type;
 	struct prop	 *props;
@@ -124,12 +172,18 @@ struct	caldav {
 	size_t		  hrefsz;
 };
 
+/*
+ * Algorithm for HTTP digest.
+ */
 enum	httpalg {
 	HTTPALG_MD5 = 0,
 	HTTPALG_MD5_SESS,
 	HTTPALG__MAX
 };
 
+/*
+ * Quality of protection (QOP) for HTTP digest.
+ */
 enum	httpqop {
 	HTTPQOP_NONE = 0,
 	HTTPQOP_AUTH,

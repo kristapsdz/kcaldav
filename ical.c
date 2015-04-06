@@ -61,9 +61,18 @@ icalnode_free(struct icalnode *p, int first)
 void
 ical_free(struct ical *p)
 {
+	struct icalcomp	*c;
+	size_t		 i;
 
 	if (NULL == p)
 		return;
+
+	for (i = 0; i < ICALTYPE__MAX; i++) {
+		while (NULL != (c = p->comps[i])) {
+			p->comps[i] = c->next;
+			free(c);
+		}
+	}
 	
 	icalnode_free(p->first, 0);
 	free(p);
@@ -97,6 +106,49 @@ ical_line(const char *cp, struct buf *buf, size_t *pos, size_t sz)
 	if (*pos < sz)
 		*pos += len + 2;
 	assert(*pos <= sz);
+	return(1);
+}
+
+/*
+ * We're at a BEGIN statement.
+ * See if this statement matchines one of our known components, e.g.,
+ * VEVENT.
+ * Then set that the iCalendar contains a VEVENT (bit-wise) and also
+ * append to a linked list of known VEVENTs.
+ * While here, mark that the node is a given type, too.
+ */
+static int
+icalcomp_alloc(struct icalcomp **comps, 
+	struct ical *p, struct icalnode *np)
+{
+	size_t	 i;
+
+	np->type = ICALTYPE__MAX;
+	for (i = 0; i < ICALTYPE__MAX; i++) {
+		if (strcmp(icaltypes[i], np->val))
+			continue;
+		p->bits |= 1u << i;
+		np->type = i;
+		if (NULL != comps[i]) {
+			assert(NULL != p->comps[i]);
+			comps[i]->next = calloc
+				(1, sizeof(struct icalcomp));
+			comps[i] = comps[i]->next;
+		} else {
+			assert(NULL == p->comps[i]);
+			comps[i] = calloc
+				(1, sizeof(struct icalcomp));
+		}
+
+		if (NULL == comps[i]) {
+			kerr(NULL);
+			return(0);
+		} else if (NULL == p->comps[i])
+			p->comps[i] = comps[i];
+
+		break;
+	}
+
 	return(1);
 }
 
@@ -199,8 +251,10 @@ ical_parse(const char *file, const char *cp, size_t sz)
 	size_t		 i, pos, line;
 	unsigned char	 digest[16];
 	const char	*fp;
+	struct icalcomp	*comps[ICALTYPE__MAX];
 
 	memset(&buf, 0, sizeof(struct buf));
+	memset(comps, 0, sizeof(comps));
 
 	if (NULL == (p = calloc(1, sizeof(struct ical)))) {
 		kerr(NULL);
@@ -252,14 +306,17 @@ ical_parse(const char *file, const char *cp, size_t sz)
 			break;
 		}
 
-		if (NULL != val && 0 == strcmp("BEGIN", np->name)) {
-			for (i = 0; i < ICALTYPE__MAX; i++) {
-				if (strcmp(icaltypes[i], np->val))
-					continue;
-				p->bits |= 1u << i;
+		/*
+		 * If this line defines a component, then scan it and
+		 * set the appropriate field on our calendar.
+		 * For example, if we're a VTODO, then set the bit on
+		 * the calendar object that we contain the VTODO.
+		 */
+		if (NULL != val && 0 == strcmp("BEGIN", np->name))
+			if ( ! icalcomp_alloc(comps, p, np)) {
+				icalnode_free(np, 0);
 				break;
 			}
-		}
 
 		/* Handle the first entry and bad nesting. */
 		if (NULL == p->first) {
