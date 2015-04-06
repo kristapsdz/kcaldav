@@ -11,20 +11,24 @@ PREFIX		 = /usr/local
 # The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
 # next to the date.
 # Some web servers provide this; others don't.
+
+#### For OpenBSD:
+LIBS		 = -lexpat -lutil 
+STATIC		 = -static
 CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1
 BINLDFLAGS	 = -L/usr/local/lib
 
-# For OpenBSD:
-LIBS		 = -lexpat -lutil 
-STATIC		 = -static
-
-# For Mac OS X:
+#### For Mac OS X:
 #LIBS		 = -lexpat 
 #STATIC		 = 
+#CPPFLAGS	+= -I/usr/local/include 
+#BINLDFLAGS	 = -L/usr/local/lib
 
-# For Linux:
+#### For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
 #STATIC		 = 
+#CPPFLAGS	+= -I/usr/local/include 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 # You probably don't want to change anything after this.
 BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
@@ -129,7 +133,7 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_8.xml \
 		   version_0_0_9.xml \
 		   version_0_0_10.xml
-VERSION		 = 0.0.9
+VERSION		 = 0.0.10
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 
