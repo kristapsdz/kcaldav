@@ -33,17 +33,14 @@
 
 #include "extern.h"
 
-struct	xmlns {
-	char		*prefix;
-	char		*urn;
-};
+#define CALDAVNS	"urn:ietf:params:xml:ns:caldav:"
+#define	DAVNS		"DAV::"
+#define	CALSERVNS	"http://calendarserver.org/ns/:"
 
 struct	parse {
 	struct caldav	 *p;
 	XML_Parser	  xp;
 	struct buf	  buf;
-	struct xmlns	 *xmlns;
-	size_t		  xmlnsz;
 };
 
 const enum proptype calprops[CALELEM__MAX] = {
@@ -92,29 +89,29 @@ const enum calelem calpropelems[PROP__MAX] = {
 };
 
 const char *const calelems[CALELEM__MAX] = {
-	"calendar-data", /* CALELEM_CALENDAR_DATA */
-	"calendar-home-set", /* CALELEM_CALENDAR_HOME_SET */
-	"calendar-multiget", /* CALELEM_CALENDAR_MULTIGET */
-	"calendar-query", /* CALELEM_CALENDAR_QUERY */
-	"calendar-user-address-set", /* CALELEM_CALENDAR_USER_ADDR... */
-	"current-user-principal", /* CALELEM_CURRENT_USER_PRINCIPAL */
-	"current-user-privilege-set", /* CALELEM_CURRENT_USER_PRIV... */
-	"displayname", /* CALELEM_DISPLAYNAME */
-	"getcontenttype", /* CALELEM_GETCONTENTTYPE */
-	"getctag", /* CALELEM_GETCTAG */
-	"getetag", /* CALELEM_GETETAG */
-	"href", /* CALELEM_HREF */
-	"mkcalendar", /* CALELEM_MKCALENDAR */
-	"owner", /* CALELEM_OWNER */
-	"principal-URL", /* CALELEM_PRINCIPAL_URL */
-	"prop", /* CALELEM_PROP */
-	"propertyupdate", /* CALELEM_PROPERTYUPDATE */
-	"propfind", /* CALELEM_PROPFIND */
-	"quota-available-bytes", /* CALELEM_QUOTA_AVAILABLE_BYTES */
-	"quota-used-bytes", /* CALELEM_QUOTA_USED_BYTES */
-	"resourcetype", /* CALELEM_RESOURCETYPE */
-	"schedule-calendar-transp", /* CALELEM_SCHEDULE_CALENDAR_T... */
-	"supported-calendar-component-set", /* CALELEM_SUPPORTED_C... */
+	CALDAVNS "calendar-data", /* CALELEM_CALENDAR_DATA */
+	CALDAVNS "calendar-home-set", /* CALELEM_CALENDAR_HOME_SET */
+	CALDAVNS "calendar-multiget", /* CALELEM_CALENDAR_MULTIGET */
+	CALDAVNS "calendar-query", /* CALELEM_CALENDAR_QUERY */
+	CALDAVNS "calendar-user-address-set", /* CALELEM_CALENDAR_USER_ADDR... */
+	DAVNS "current-user-principal", /* CALELEM_CURRENT_USER_PRINCIPAL */
+	DAVNS "current-user-privilege-set", /* CALELEM_CURRENT_USER_PRIV... */
+	DAVNS "displayname", /* CALELEM_DISPLAYNAME */
+	DAVNS "getcontenttype", /* CALELEM_GETCONTENTTYPE */
+	CALSERVNS "getctag", /* CALELEM_GETCTAG */
+	DAVNS "getetag", /* CALELEM_GETETAG */
+	DAVNS "href", /* CALELEM_HREF */
+	CALDAVNS "mkcalendar", /* CALELEM_MKCALENDAR */
+	DAVNS "owner", /* CALELEM_OWNER */
+	DAVNS "principal-URL", /* CALELEM_PRINCIPAL_URL */
+	DAVNS "prop", /* CALELEM_PROP */
+	DAVNS "propertyupdate", /* CALELEM_PROPERTYUPDATE */
+	DAVNS "propfind", /* CALELEM_PROPFIND */
+	DAVNS "quota-available-bytes", /* CALELEM_QUOTA_AVAILABLE_BYTES */
+	DAVNS "quota-used-bytes", /* CALELEM_QUOTA_USED_BYTES */
+	DAVNS "resourcetype", /* CALELEM_RESOURCETYPE */
+	CALDAVNS "schedule-calendar-transp", /* CALELEM_SCHEDULE_CALENDAR_T... */
+	CALDAVNS "supported-calendar-component-set", /* CALELEM_SUPPORTED_C... */
 };
 
 static void	parseclose(void *, const XML_Char *);
@@ -129,9 +126,9 @@ calelem_find(const XML_Char *name)
 
 	for (i = 0; i < CALELEM__MAX; i++)
 		if (0 == strcmp(calelems[i], name))
-			break;
+			return(i);
 
-	return(i);
+	return(CALELEM__MAX);
 }
 
 static void
@@ -150,36 +147,49 @@ caldav_err(struct parse *p, const char *fmt, ...)
 }
 
 static void
-propadd(struct parse *p, size_t ns, 
-	const char *name, enum proptype prop, const char *cp)
+propadd(struct parse *p, const XML_Char *name, 
+	enum proptype prop, const char *cp)
 {
+	const XML_Char	*ns;
+	size_t		 namesz, nssz;
 
 	if (NULL == p->p) {
 		caldav_err(p, "property list in unknown request");
 		return;
+	} else if (NULL != (ns = strrchr(name, ':'))) {
+		namesz = ns - name;
+		nssz = strlen(++ns);
+	} else {
+		namesz = strlen(name);
+		nssz = 0;
 	}
 
-	assert(ns < p->xmlnsz);
 	p->p->props = reallocarray(p->p->props,
 		p->p->propsz + 1, sizeof(struct prop));
-
 	if (NULL == p->p->props) {
 		caldav_err(p, "memory exhausted");
 		return;
 	}
 
 	p->p->props[p->p->propsz].key = prop;
-
-	p->p->props[p->p->propsz].name = strdup(name);
+	p->p->props[p->p->propsz].name = malloc(namesz + 1);
 	if (NULL == p->p->props[p->p->propsz].name) {
 		caldav_err(p, "memory exhausted");
 		return;
 	}
-	p->p->props[p->p->propsz].xmlns = strdup(p->xmlns[ns].urn);
+	memcpy(p->p->props[p->p->propsz].name, name, namesz);
+	p->p->props[p->p->propsz].name[namesz] = '\0';
+
+	p->p->props[p->p->propsz].xmlns = malloc(nssz + 1);
 	if (NULL == p->p->props[p->p->propsz].xmlns) {
 		caldav_err(p, "memory exhausted");
 		return;
 	}
+	memcpy(p->p->props[p->p->propsz].xmlns, ns, nssz);
+	p->p->props[p->p->propsz].xmlns[nssz] = '\0';
+	kdbg("Property: %s, %s", 
+		p->p->props[p->p->propsz].name,
+		p->p->props[p->p->propsz].xmlns);
 	p->p->propsz++;
 }
 
@@ -189,36 +199,6 @@ prop_free(struct prop *p)
 
 	free(p->xmlns);
 	free(p->name);
-}
-
-/*
- * Look up the XML namespace and adjust "sp" to point to the beginning
- * of the element name after the namespace.
- */
-static int
-xmlnsfind(struct parse *p, size_t *ns, const XML_Char **sp)
-{
-	const XML_Char	*cp, *nss;
-	size_t		 sz;
-
-	/* If we're in the default namespace, use empty string. */
-	nss = *sp;
-	if (NULL != (cp = strchr(*sp, ':'))) {
-		sz = cp - *sp;
-		*sp = cp + 1;
-	} else
-		sz = 0;
-
-	/* Look up the namespace in our table... */
-	for (*ns = 0; *ns < p->xmlnsz; (*ns)++) 
-		if (sz != strlen(p->xmlns[*ns].prefix))
-			continue;
-		else if (0 == strncmp(p->xmlns[*ns].prefix, nss, sz))
-			return(1);
-
-	caldav_err(p, "no matching namespace "
-		"(\"%.*s\")", (int)sz, nss);
-	return(0);
 }
 
 static int
@@ -259,70 +239,12 @@ cdata(void *dat)
 	/* Intentionally left blank. */
 }
 
-static int
-xmlnspush(struct parse *p, const XML_Char **attrs)
-{
-	const char	*pfx;
-	size_t	 	 i;
-
-	while (NULL != attrs && NULL != *attrs) {
-		if (strncmp(*attrs, "xmlns:", 6)) {
-			attrs += 2;
-			continue;
-		}
-		pfx = &(*attrs)[6];
-		attrs++;
-		for (i = 0; i < p->xmlnsz; i++) {
-			if (strcmp(pfx, p->xmlns[i].prefix))
-				continue;
-			free(p->xmlns[i].urn);
-			free(p->xmlns[i].prefix);
-			p->xmlns[i].prefix = strdup(pfx);
-			p->xmlns[i].urn = strdup(*attrs);
-			if (NULL == p->xmlns[i].prefix) {
-				kerr(NULL);
-				return(0);
-			} else if (NULL == p->xmlns[i].urn) {
-				kerr(NULL);
-				return(0);
-			}
-			break;
-		}
-		if (i == p->xmlnsz) {
-			p->xmlns = reallocarray(p->xmlns, 
-				p->xmlnsz + 1, sizeof(struct xmlns));
-			if (NULL == p->xmlns) {
-				kerr(NULL);
-				return(0);
-			}
-			p->xmlns[p->xmlnsz].prefix = strdup(pfx);
-			p->xmlns[p->xmlnsz].urn = strdup(*attrs);
-			if (NULL == p->xmlns[p->xmlnsz].prefix) {
-				kerr(NULL);
-				return(0);
-			} else if (NULL == p->xmlns[p->xmlnsz].urn) {
-				kerr(NULL);
-				return(0);
-			}
-			p->xmlnsz++;
-		}
-		attrs++;
-	}
-
-	return(1);
-}
-
 static void
 parseclose(void *dat, const XML_Char *s)
 {
 	struct parse	*p = dat;
-	enum calelem	 elem;
-	size_t		 ns;
 
-	if ( ! xmlnsfind(p, &ns, &s)) 
-		return;
-
-	switch ((elem = calelem_find(s))) {
+	switch (calelem_find(s)) {
 	case (CALELEM_MKCALENDAR):
 	case (CALELEM_CALENDAR_MULTIGET):
 	case (CALELEM_CALENDAR_QUERY):
@@ -359,10 +281,6 @@ propclose(void *dat, const XML_Char *s)
 {
 	struct parse	*p = dat;
 	enum calelem	 elem;
-	size_t		 ns;
-
-	if ( ! xmlnsfind(p, &ns, &s))
-		return;
 
 	switch ((elem = calelem_find(s))) {
 	case (CALELEM__MAX):
@@ -373,7 +291,7 @@ propclose(void *dat, const XML_Char *s)
 	default:
 		if (PROP__MAX == calprops[elem])
 			break;
-		propadd(p, ns, s, calprops[elem], p->buf.buf);
+		propadd(p, s, calprops[elem], p->buf.buf);
 		XML_SetDefaultHandler(p->xp, NULL);
 		break;
 	}
@@ -395,19 +313,19 @@ propopen(void *dat, const XML_Char *s, const XML_Char **atts)
 {
 	struct parse	*p = dat;
 	enum calelem	 elem;
-	size_t		 ns;
 
-	xmlnspush(p, atts);
-	if ( ! xmlnsfind(p, &ns, &s))
-		return;
+	if (CALELEM__MAX == (elem = calelem_find(s))) 
+		kdbg("Unknown property: %s", s);
+	else
+		kdbg("Known property: %s", s);
 
-	switch ((elem = calelem_find(s))) {
+	switch (elem) {
 	case (CALELEM__MAX):
-		propadd(p, ns, s, PROP__MAX, NULL);
+		propadd(p, s, PROP__MAX, NULL);
 		break;
 	default:
 		if (PROP__MAX == calprops[elem]) {
-			propadd(p, ns, s, PROP__MAX, NULL);
+			propadd(p, s, PROP__MAX, NULL);
 			break;
 		}
 		p->buf.sz = 0;
@@ -420,13 +338,14 @@ static void
 parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 {
 	struct parse	*p = dat;
-	size_t		 ns;
+	enum calelem	 elem;
 
-	xmlnspush(p, atts);
-	if ( ! xmlnsfind(p, &ns, &s))
-		return;
+	if (CALELEM__MAX != (elem = calelem_find(s)))
+		kdbg("Known element: %s", s);
+	else
+		kdbg("Unknown element: %s", s);
 
-	switch (calelem_find(s)) {
+	switch (elem) {
 	case (CALELEM_CALENDAR_QUERY):
 		caldav_alloc(p, TYPE_CALQUERY);
 		break;
@@ -458,11 +377,10 @@ struct caldav *
 caldav_parse(const char *buf, size_t sz)
 {
 	struct parse	 p;
-	size_t		 i;
 
 	memset(&p, 0, sizeof(struct parse));
 
-	if (NULL == (p.xp = XML_ParserCreate(NULL))) {
+	if (NULL == (p.xp = XML_ParserCreateNS(NULL, ':'))) {
 		kerr(NULL);
 		return(NULL);
 	}
@@ -481,11 +399,6 @@ caldav_parse(const char *buf, size_t sz)
 
 	XML_ParserFree(p.xp);
 	free(p.buf.buf);
-	for (i = 0; i < p.xmlnsz; i++) {
-		free(p.xmlns[i].prefix);
-		free(p.xmlns[i].urn);
-	}
-	free(p.xmlns);
 	return(p.p);
 }
 

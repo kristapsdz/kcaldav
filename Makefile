@@ -124,7 +124,8 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_6.xml \
 		   version_0_0_7.xml \
 		   version_0_0_8.xml \
-		   version_0_0_9.xml
+		   version_0_0_9.xml \
+		   version_0_0_10.xml
 VERSION		 = 0.0.9
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
@@ -136,6 +137,7 @@ www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 afl: all
 	install -m 0555 test-ical afl/test-ical
 	install -m 0555 test-prncpl afl/test-prncpl
+	install -m 0555 test-caldav afl/test-caldav
 
 config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 	rm -f config.log

@@ -6,5 +6,11 @@
 	</header>
 	<aside>
 		A small fix for some clients who aren't smart enough to resend HTTP OPTIONS after receiving a code 403 for the same.
+		Fitted the XML (CalDAV, DAV, etc.) parser with proper namespace support via the <a
+			href="http://expat.sourceforge.net/">libexpat</a> namespace handlers.
+		Parsed documents are now properly checked for namespace and name of matching elements (e.g., <code>DAV::href</code>), not just
+		the name itself.
+		Also run the XML parsing routines through <a href="http://lcamtuf.coredump.cx/afl/">AFL</a> for quite some time to shake out
+		stray bugs.
 	</aside>
 </article>
