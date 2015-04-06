@@ -68,7 +68,6 @@ static void
 propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 {
 	size_t	 	 i, nf;
-	const char	*tag;
 	collectionfp	 accepted[PROP__MAX + 1];
 	int		 ignore[PROP__MAX + 1];
 
@@ -121,21 +120,16 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 			if (ignore[dav->props[i].key])
 				continue;
 			nf++;
-			/*fprintf(stderr, "Unknown collection "
-				"property: %s (%s)\n", 
-				dav->props[i].name, 
-				dav->props[i].xmlns);*/
 			continue;
 		}
-		tag = calelems[calpropelems[dav->props[i].key]];
 		khttp_puts(xml->req, "<X:");
-		khttp_puts(xml->req, tag);
+		khttp_puts(xml->req, dav->props[i].name);
 		khttp_puts(xml->req, " xmlns:X=\"");
 		khttp_puts(xml->req, dav->props[i].xmlns);
 		khttp_puts(xml->req, "\">");
 		(*accepted[dav->props[i].key])(xml);
 		khttp_puts(xml->req, "</X:");
-		khttp_puts(xml->req, tag);
+		khttp_puts(xml->req, dav->props[i].name);
 		khttp_putc(xml->req, '>');
 	}
 	kxml_pop(xml);
@@ -180,7 +174,7 @@ propfind_resource(struct kxmlreq *xml,
 	struct state	*st = xml->req->arg;
 	struct ical	*ical;
 	size_t		 i, nf, sz;
-	const char	*tag, *pathp;
+	const char	*pathp;
 	char		 buf[PATH_MAX];
 	resourcefp	 accepted[PROP__MAX + 1];
 	int		 ignore[PROP__MAX + 1];
@@ -263,21 +257,16 @@ propfind_resource(struct kxmlreq *xml,
 			if (ignore[dav->props[i].key])
 				continue;
 			nf++;
-			/*fprintf(stderr, "Unknown resource "
-				"property: %s (%s)\n", 
-				dav->props[i].name, 
-				dav->props[i].xmlns);*/
 			continue;
 		}
-		tag = calelems[calpropelems[dav->props[i].key]];
 		khttp_puts(xml->req, "<X:");
-		khttp_puts(xml->req, tag);
+		khttp_puts(xml->req, dav->props[i].name);
 		khttp_puts(xml->req, " xmlns:X=\"");
 		khttp_puts(xml->req, dav->props[i].xmlns);
 		khttp_puts(xml->req, "\">");
 		(*accepted[dav->props[i].key])(xml, ical);
 		khttp_puts(xml->req, "</X:");
-		khttp_puts(xml->req, tag);
+		khttp_puts(xml->req, dav->props[i].name);
 		khttp_putc(xml->req, '>');
 	}
 	kxml_pop(xml);

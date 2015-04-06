@@ -8,16 +8,19 @@ CGIPREFIX	 = /var/www/cgi-bin
 PREFIX		 = /usr/local
 
 # Add any special dependency directories here.
-CPPFLAGS	+= -I/usr/local/include
+# The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
+# next to the date.
+# Some web servers provide this; others don't.
+CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1
 BINLDFLAGS	 = -L/usr/local/lib
 
 # For OpenBSD:
-#LIBS		 = -lexpat -lutil 
-#STATIC		 = -static
+LIBS		 = -lexpat -lutil 
+STATIC		 = -static
 
 # For Mac OS X:
-LIBS		 = -lexpat 
-STATIC		 = 
+#LIBS		 = -lexpat 
+#STATIC		 = 
 
 # For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
