@@ -50,7 +50,8 @@ Line endings may also be escaped with a backslash.
 Each line consists of a token and value separated by an equal sign (and
 possibly white-space), such as
 .Bd -literal -offset indent
-privilege = kristaps READ WRITE
+privilege = kristaps ALL
+displayname = Kristaps' Calendar
 email-address-set = kristaps@bsd.lv
 .Ed
 .Pp
@@ -69,9 +70,6 @@ It defaults to an empty string.
 Define access privileges for a named principal.
 This accepts the principal name then a space-separated list of
 privileges.
-The principal name may be
-.Qq _anonymous
-for the anonymous principal (no credentials).
 Privileges are case insensitive and may be
 .Qq NONE ,
 .Qq READ ,

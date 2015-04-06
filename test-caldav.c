@@ -27,7 +27,7 @@
 
 #include "extern.h"
 
-int verbose = 0;
+int verbose = 1;
 
 int
 main(int argc, char *argv[])
