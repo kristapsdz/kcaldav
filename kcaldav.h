@@ -29,7 +29,7 @@
 struct	state {
 	struct prncpl	*prncpl;
 	struct config	*cfg;
-	struct httpauth	*auth;
+	struct httpauth	 auth;
 	char		 path[PATH_MAX]; /* filesystem path */
 	char		 temp[PATH_MAX]; /* temporary path */
 	char		 dir[PATH_MAX]; /* "path" directory part */

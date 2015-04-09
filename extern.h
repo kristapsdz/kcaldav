@@ -196,20 +196,20 @@ enum	httpqop {
 
 /*
  * Parsed HTTP ``Authorization'' header (RFC 2617).
- * We only keep the critical parts required for authentication.
+ * These are just copied over from kcgi's values.
  */
 #define	KREALM		"kcaldav"
 struct	httpauth {
-	int		 authorised;
 	enum httpalg	 alg;
 	enum httpqop	 qop;
-	char		*user;
-	char		*uri;
-	char		*realm;
-	char		*nonce;
-	char		*cnonce;
-	char		*response;
-	char		*count;
+	const char	*user;
+	const char	*uri;
+	const char	*realm;
+	const char	*nonce;
+	const char	*cnonce;
+	const char	*response;
+	const char	*count;
+	const char	*opaque;
 };
 
 /*
@@ -308,9 +308,6 @@ void		  prncpl_free(struct prncpl *);
 int		  prncpl_line(char *, size_t, 
 			const char *, size_t, struct pentry *);
 int		  prncpl_pentry(const struct pentry *p);
-
-struct httpauth	*httpauth_parse(const char *);
-void		 httpauth_free(struct httpauth *);
 
 extern const enum proptype calprops[CALELEM__MAX];
 extern const enum calelem calpropelems[PROP__MAX];

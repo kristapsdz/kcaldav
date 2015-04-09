@@ -34,18 +34,15 @@ BINLDFLAGS	 = -L/usr/local/lib
 BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
-		   test-auth \
 		   test-caldav \
 		   test-config \
 		   test-ical \
 		   test-prncpl
-TESTSRCS 	 = test-auth.c \
-		   test-caldav.c \
+TESTSRCS 	 = test-caldav.c \
 		   test-config.c \
 		   test-ical.c \
 		   test-prncpl.c
-TESTOBJS 	 = test-auth.o \
-		   test-caldav.o \
+TESTOBJS 	 = test-caldav.o \
 		   test-config.o \
 		   test-ical.o \
 		   test-prncpl.o
@@ -83,7 +80,6 @@ ALLSRCS		 = Makefile \
 		   err.c \
 		   extern.h \
 		   get.c \
-		   httpauth.c \
 		   ical.c \
 		   kcaldav.c \
 		   kcaldav.h \
@@ -107,7 +103,6 @@ OBJS		 = buf.o \
 		   config.o \
 		   ctag.o \
 		   err.o \
-		   httpauth.o \
 		   ical.o \
 		   md5.o \
 		   open.o \
@@ -153,6 +148,7 @@ config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 installcgi: all
 	mkdir -p $(CGIPREFIX)
 	install -m 0555 kcaldav $(CGIPREFIX)
+	install -m 0555 kcaldav $(CGIPREFIX)/kcaldav.cgi
 
 install: all
 	mkdir -p $(PREFIX)/bin
@@ -188,9 +184,6 @@ kcaldav.passwd: kcaldav.passwd.o $(OBJS)
 
 test-ical: test-ical.o $(OBJS)
 	$(CC) -o $@ test-ical.o $(OBJS) $(LIBS)
-
-test-auth: test-auth.o $(OBJS)
-	$(CC) -o $@ test-auth.o $(OBJS) $(LIBS)
 
 test-caldav: test-caldav.o $(OBJS)
 	$(CC) -o $@ test-caldav.o $(OBJS) $(LIBS)
