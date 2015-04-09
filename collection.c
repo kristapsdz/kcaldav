@@ -61,6 +61,8 @@ collection_current_user_principal(struct kxmlreq *xml)
 	kxml_puts(xml, xml->req->pname);
 	kxml_puts(xml, st->prncpl->homedir);
 	kxml_pop(xml);
+	kdbg("%s: %s: %s%s", st->path, __func__, 
+		xml->req->pname, st->prncpl->homedir);
 }
 
 void
@@ -128,6 +130,7 @@ collection_principal_url(struct kxmlreq *xml)
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, st->rpath);
 	kxml_pop(xml);
+	kdbg("%s: %s: %s", st->path, __func__, st->rpath);
 }
 
 void

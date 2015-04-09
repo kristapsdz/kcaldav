@@ -32,6 +32,8 @@
 #include <util.h>
 #endif
 
+#include <kcgi.h>
+
 #include "extern.h"
 #include "md5.h"
 

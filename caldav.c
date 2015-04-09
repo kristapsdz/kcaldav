@@ -226,7 +226,10 @@ caldav_free(struct caldav *p)
 
 	for (i = 0; i < p->propsz; i++)
 		prop_free(&p->props[i]);
+	for (i = 0; i < p->hrefsz; i++)
+		free(p->hrefs[i]);
 	free(p->props);
+	free(p->hrefs);
 	free(p);
 }
 
