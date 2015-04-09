@@ -114,11 +114,9 @@ method_delete(struct kreq *r)
 	while (NULL != dirp && NULL != (dp = readdir(dirp))) {
 		if ('.' == dp->d_name[0])
 			continue;
-		if (0 == strcmp(dp->d_name, "kcaldav.conf"))
+		if ((sz = strlen(dp->d_name)) < 5)
 			continue;
-		if (0 == strcmp(dp->d_name, "kcaldav.passwd"))
-			continue;
-		if (0 == strcmp(dp->d_name, "kcaldav.ctag"))
+		if (strcasecmp(dp->d_name + sz - 4, ".ics"))
 			continue;
 		strlcpy(buf, st->path, sizeof(buf));
 		sz = strlcat(buf, dp->d_name, sizeof(buf));

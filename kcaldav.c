@@ -40,7 +40,7 @@
 #error "CALDIR token not defined!"
 #endif
 
-int verbose = 0;
+int verbose = 1;
 
 /*
  * Configure all paths used in our system.
@@ -317,33 +317,43 @@ main(int argc, char *argv[])
 		goto out;
 	} 
 
-	/*
-	 * Parse our HTTP credentials.
-	 * This must be digest authorisation passed from the web server.
-	 * NOTE: Apache will strip this out, so it's necessary to add a
-	 * rewrite rule to keep these.
-	 */
-	st->auth = httpauth_parse
-		(NULL == r.reqmap[KREQU_AUTHORIZATION] ?
-		 NULL : r.reqmap[KREQU_AUTHORIZATION]->val);
-
-	if (NULL == st->auth) {
-		kerrx("memory failure (httpauth)");
-		http_error(&r, KHTTP_505);
-		goto out;
-	} else if (0 == st->auth->authorised) {
-		/* No authorisation found (or failed). */
-		kerrx("%s: unauthorised", st->rpath);
+	if (KAUTH_DIGEST != r.rawauth.type) {
+		kerrx("%s: HTTP digest required", st->path);
 		http_error(&r, KHTTP_401);
 		goto out;
-	} else if (strcmp(st->auth->uri, st->rpath)) {
+	} else if (0 == r.rawauth.authorised) {
+		kerrx("%s: bad HTTP authorisation tokens", st->path);
+		http_error(&r, KHTTP_401);
+		goto out;
+	} else if (strcmp(r.rawauth.d.digest.uri, st->rpath)) {
 		kerrx("%s: bad authorisation URI: %s", 
-			st->rpath, st->auth->uri);
+			st->rpath, r.rawauth.d.digest.uri);
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 
 
-	kdbg("%s: HTTP authorisation: %s", st->path, st->auth->user);
+	kdbg("%s: HTTP authorisation: %s", 
+		st->path, r.rawauth.d.digest.user);
+
+	/* Copy HTTP authorisation. */
+	if (r.rawauth.d.digest.alg == KHTTPALG_MD5_SESS)
+		st->auth.alg = HTTPALG_MD5_SESS;
+	else
+		st->auth.alg = HTTPALG_MD5;
+	if (r.rawauth.d.digest.qop == KHTTPQOP_NONE)
+		st->auth.qop = HTTPQOP_NONE;
+	else if (r.rawauth.d.digest.qop == KHTTPQOP_AUTH)
+		st->auth.qop = HTTPQOP_AUTH;
+	else 
+		st->auth.qop = HTTPQOP_AUTH_INT;
+	st->auth.user = r.rawauth.d.digest.user;
+	st->auth.uri = r.rawauth.d.digest.uri;
+	st->auth.realm = r.rawauth.d.digest.realm;
+	st->auth.nonce = r.rawauth.d.digest.nonce;
+	st->auth.cnonce = r.rawauth.d.digest.cnonce;
+	st->auth.response = r.rawauth.d.digest.response;
+	st->auth.count = r.rawauth.d.digest.count;
+	st->auth.opaque = r.rawauth.d.digest.opaque;
 
 	/*
 	 * Next, parse the our passwd file and look up the given HTTP
@@ -353,7 +363,7 @@ main(int argc, char *argv[])
 	 * It might set the principal to NULL if not found.
 	 */
 	rc = prncpl_parse(st->prncplfile, kmethods[r.method], 
-		st->auth, &st->prncpl, req, reqsz);
+		&st->auth, &st->prncpl, req, reqsz);
 
 	if (rc < 0) {
 		kerrx("memory failure (principal)");
@@ -365,12 +375,12 @@ main(int argc, char *argv[])
 		goto out;
 	} else if (NULL == st->prncpl) {
 		kerrx("%s: bad principal authorisation: %s", 
-			st->prncplfile, st->auth->user);
+			st->prncplfile, st->auth.user);
 		http_error(&r, KHTTP_401);
 		goto out;
 	}
 
-	kdbg("%s: principal authorisation: %s", st->path, st->auth->user);
+	kdbg("%s: principal authorisation: %s", st->path, st->auth.user);
 
 	/* 
 	 * We require a configuration file in the directory where we've
@@ -394,7 +404,7 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	kdbg("%s: configuration parsed: %s", st->path, kmethods[r.method]);
+	kdbg("%s: configuration parsed", st->path);
 
 	/* 
 	 * We're ready to go!
@@ -428,7 +438,6 @@ out:
 	khttp_free(&r);
 	config_free(st->cfg);
 	prncpl_free(st->prncpl);
-	httpauth_free(st->auth);
 	free(st);
 	return(EXIT_SUCCESS);
 }

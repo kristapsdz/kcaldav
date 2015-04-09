@@ -310,7 +310,7 @@ static void
 propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
 {
 	struct state	*st = xml->req->arg;
-	size_t		 depth;
+	size_t		 depth, sz;
 	DIR		*dirp;
 	struct dirent	*dp;
 
@@ -336,11 +336,9 @@ propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
 	while (NULL != (dp = readdir(dirp))) {
 		if ('.' == dp->d_name[0])
 			continue;
-		if (0 == strcmp(dp->d_name, "kcaldav.conf"))
+		if ((sz = strlen(dp->d_name)) < 5)
 			continue;
-		if (0 == strcmp(dp->d_name, "kcaldav.passwd"))
-			continue;
-		if (0 == strcmp(dp->d_name, "kcaldav.ctag"))
+		if (strcasecmp(dp->d_name + sz - 4, ".ics"))
 			continue;
 		propfind_resource(xml, dav, dp->d_name);
 	}
