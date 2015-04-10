@@ -22,6 +22,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef LOGTIMESTAMP
+#include <time.h>
+#endif
 
 #include "extern.h"
 
