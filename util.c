@@ -87,6 +87,12 @@ http_error(struct kreq *r, enum khttp c)
 		khttp_head(r, "DAV", "1, access-control, calendar-access");
 		break;
 	case (KHTTP_401):
+		/*
+		 * FIXME: we essentially throw away the nonce
+		 * We should be keeping nonces in a database of client
+		 * sessions, then using the increasing (not necessarily
+		 * linearly, apparently) nonce-count value.
+		 */
 		for (i = 0; i < sizeof(nonce); i++)
 			snprintf(nonce + i, 2, "%01X", 
 				arc4random_uniform(128));
