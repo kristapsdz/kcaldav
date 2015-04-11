@@ -187,6 +187,9 @@ prncpl_pentry(const struct pentry *p)
 	/* No empty usernames. */
 	if ('\0' == p->user[0])
 		return(0);
+	/* No empty GECOS (email). */
+	if ('\0' == p->gecos[0])
+		return(0);
 	/* Proper MD5 digest. */
 	if (MD5_DIGEST_LENGTH * 2 != strlen(p->hash))
 		return(0);
@@ -314,6 +317,8 @@ prncpl_parse(const char *file, const char *m,
 			kerr(NULL);
 		else if (NULL == ((*pp)->homedir = strdup(entry.homedir)))
 			kerr(NULL);
+		else if (NULL == ((*pp)->email = strdup(entry.gecos)))
+			kerr(NULL);
 		else
 			rc = 1;
 
@@ -344,6 +349,7 @@ prncpl_free(struct prncpl *p)
 
 	free(p->name);
 	free(p->homedir);
+	free(p->email);
 	free(p);
 }
 

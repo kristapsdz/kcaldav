@@ -48,7 +48,7 @@ collection_calendar_user_address_set(struct kxmlreq *xml)
 
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, "mailto:");
-	kxml_puts(xml, st->cfg->emailaddress);
+	kxml_puts(xml, st->prncpl->email);
 	kxml_pop(xml);
 }
 

@@ -18,6 +18,7 @@
 
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/param.h>
 
 #include <assert.h>
 #include <fcntl.h>
@@ -165,7 +166,7 @@ pentrydup(struct pentry *p, const struct pentry *ep)
 
 static int
 pentrynew(struct pentry *p, const char *user, 
-	const char *hash, const char *homedir)
+	const char *hash, const char *homedir, const char *email)
 {
 	size_t 	 	 sz;
 	const char	*empty = "";
@@ -189,13 +190,37 @@ pentrynew(struct pentry *p, const char *user,
 	else if (NULL == (p->gecos = strdup(empty)))
 		return(0);
 
+	/*
+	 * If we don't have a home directory set, then default to the
+	 * username within the root directory, /</user>/.
+	 */
 	if (NULL == homedir) {
-		sz = strlen(user) + 2;
+		sz = strlen(user) + 3;
 		if (NULL == (p->homedir = malloc(sz))) 
 			return(0);
 		strlcpy(p->homedir, "/", sz);
 		strlcat(p->homedir, user, sz);
+		strlcat(p->homedir, "/", sz);
 	} else if (NULL == (p->homedir = strdup(homedir)))
+		return(0);
+
+	/*
+	 * If we don't have an email address, then set it to be current
+	 * username on the local host.
+	 * If there's no hostname, then use "localhost".
+	 */
+	if (NULL == email) {
+		sz = strlen(user) + MAXHOSTNAMELEN + 2;
+		if (NULL == (p->gecos = malloc(sz)))
+			return(0);
+		strlcpy(p->gecos, user, sz);
+		sz = strlcat(p->gecos, "@", sz);
+		if (-1 == gethostname(p->gecos + sz, MAXHOSTNAMELEN))
+			return(0);
+		sz = strlen(user) + MAXHOSTNAMELEN + 2;
+		if ('@' == p->gecos[strlen(p->gecos) - 1]) 
+			strlcat(p->gecos, "localhost", sz);
+	} else if (NULL == (p->gecos = strdup(email)))
 		return(0);
 
 	return(prncpl_pentry(p));
@@ -268,7 +293,8 @@ main(int argc, char *argv[])
 			 digestnew[MD5_DIGEST_LENGTH * 2 + 1],
 			 digestrep[MD5_DIGEST_LENGTH * 2 + 1],
 			 digestold[MD5_DIGEST_LENGTH * 2 + 1];
-	const char	*pname, *realm, *homedir, *altuser;
+	const char	*pname, *realm, *homedir, 
+	      		*altuser, *email;
 	uid_t		 euid;
 	gid_t		 egid;
 	size_t		 i, sz, len, line, elsz;
@@ -316,19 +342,22 @@ main(int argc, char *argv[])
 	user = NULL;
 	els = NULL;
 	elsz = 0;
-	homedir = NULL;
+	homedir = email = NULL;
 	rc = 0;
 	fd = -1;
 	verbose = 0;
 	altuser = NULL;
 
-	while (-1 != (c = getopt(argc, argv, "Cd:f:nu:v"))) 
+	while (-1 != (c = getopt(argc, argv, "Cd:e:f:nu:v"))) 
 		switch (c) {
 		case ('C'):
 			create = passwd = 1;
 			break;
 		case ('d'):
 			homedir = optarg;
+			break;
+		case ('e'):
+			email = optarg;
 			break;
 		case ('f'):
 			sz = strlcpy(file, optarg, sizeof(file));
@@ -499,7 +528,9 @@ main(int argc, char *argv[])
 		} 
 		els = pp;
 		i = elsz++;
-		if ( ! pentrynew(&els[i], user, digestnew, homedir)) {
+		c = pentrynew(&els[i], user, 
+			digestnew, homedir, email);
+		if (0 == c) {
 			kerr(NULL);
 			goto out;
 		} 
@@ -564,6 +595,7 @@ usage:
 	fprintf(stderr, "usage: %s "
 		"[-Cn] "
 		"[-d homedir] "
+		"[-e email] "
 		"[-f file] "
 		"[-u user]\n", pname);
 	return(EXIT_FAILURE);

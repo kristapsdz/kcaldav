@@ -45,11 +45,6 @@ static int
 config_defaults(const char *file, struct config *cfg)
 {
 
-	if (NULL == cfg->emailaddress) {
-		kerrx("%s: no email-address", file);
-		return(0);
-	}
-
 	if (NULL == cfg->displayname)
 		if ( ! set(&cfg->displayname, ""))
 			return(-1);
@@ -122,7 +117,8 @@ priv(struct config *cfg, const struct prncpl *prncpl,
  * Return >0 otherwise.
  */
 int
-config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
+config_parse(const char *file, 
+	struct config **pp, const struct prncpl *prncpl)
 {
 	FILE		*f;
 	size_t		 len, line;
@@ -187,8 +183,6 @@ config_parse(const char *file, struct config **pp, const struct prncpl *prncpl)
 			rc = priv(*pp, prncpl, file, line + 1, val);
 		else if (0 == strcmp(key, "displayname"))
 			rc = set(&(*pp)->displayname, val);
-		else if (0 == strcmp(key, "email-address-set"))
-			rc = set(&(*pp)->emailaddress, val);
 		else
 			rc = 1;
 
@@ -238,6 +232,5 @@ config_free(struct config *p)
 		return;
 
 	free(p->displayname);
-	free(p->emailaddress);
 	free(p);
 }
