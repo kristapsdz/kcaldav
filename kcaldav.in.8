@@ -99,8 +99,8 @@ set-user-ID for modifying the file.
 .Pp
 Create user principals as follows:
 .Bd -literal -offset indent
-# kcaldav.passwd -f /tmp -c <user1>
-# kcaldav.passwd -f /tmp -c <user2>
+# kcaldav.passwd -f /tmp -C -u <user1>
+# kcaldav.passwd -f /tmp -C -u <user2>
 # ...
 .Ed
 .Pp
@@ -113,17 +113,19 @@ Let
 .Ar caldir
 be mapped to
 .Pa /tmp ,
-which is readable by the web server running asuser www
+which is readable by the web server running as user www
 and can read-writable by the logged-in user.
 First, create the
 .Xr kcaldav.passwd 5
 as any user, then add principals as necessary.
-.Pp
-.Dl % install -m 640 -g www /dev/null /tmp/kcaldav.passwd
+.Bd -literal -offset indent
+% install -m 640 /dev/null /tmp/kcaldav.passwd
+# chgrp www /tmp/kcaldav.passwd
+.Ed
 .Pp
 Then, create and modify principals as follows:
 .Pp
-.Dl % kcaldav.passwd -c <user> -f /tmp
+.Dl % kcaldav.passwd -C -u <user> -f /tmp
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .Sh IMPLEMENTATION NOTES
