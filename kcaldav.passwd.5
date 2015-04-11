@@ -38,26 +38,43 @@ It follows the syntax of
 .Pp
 .D1 name:pass:uid:gid:class:change:exp:gecos:home:shell
 .Pp
-The syntax for
-.Nm ,
-however, only requires the
-.Dv name
-.Pq login name ,
-.Dv pass
-.Pq hashed password ,
-and
-.Dv home_dir
-.Pq absolute path relative to calendar root
-fields.
 The other fields are ignored.
 .Pp
 Each field can accept all characters but for the ASCII colon,
 double-quotation mark, or backslash.
 .Pp
+The syntax for
+.Nm ,
+however, only requires the following fields:
+.Bl -tag -width Ds
+.It Dv name
+User's login name.
+This is unique within the system.
+.It Dv pass
+The hashed password.
+The hashing scheme is defined in RFC 2617.
+Specifically, this is the MD5 hash of
+.Li username \(dq:\(dq realm \(dq:\(dq password ,
+where realm is the fixed string
+.Li kcaldav .
+The MD5 hash is stored as a 32-character hex string using lowercase
+letters.
+.It Dv gecos
+This field contains the e-mail address, which need not have any relation
+to the server hosting
+.Xr kcaldav 8 .
+.It Dv home_dir
+Absolute path relative to calendar root.
+This must end in a terminating slash.
+.El
+.Pp
 You should
 .Em only
 edit this file with
 .Xr kcaldav.passwd 1 .
+This ensures that the proper advisory locks are set so that a running
+.Xr kcaldav 8
+doesn't read a half-written file.
 Moreover, this file may
 .Em not
 be a symbolic link.

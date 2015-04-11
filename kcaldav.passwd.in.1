@@ -27,6 +27,7 @@
 .Nm kcaldav.passwd
 .Op Fl Cn
 .Op Fl d Ar homedir
+.Op Fl e Ar email
 .Op Fl f Ar passdir
 .Op Fl u Ar user
 .Sh DESCRIPTION
@@ -59,8 +60,18 @@ file-system root) of the requested user.
 If unspecified and a new user is created with
 .Fl C ,
 this defaults to
-.Pa /<user> .
-This must be an absolute path.
+.Ar /<user>/ .
+This must be an absolute path with a trailing slash.
+.It Fl d Ar email
+Change the e-mail address (gecos field) of the requested user.
+This can be any email address.
+If unspecified and the new user is created with
+.Fl C ,
+this defaults to 
+.Ar <user>@<hostname> ,
+where the hostname is looked up with
+.Xr gethostname 3
+and defaults to localhost if there's no hostname set.
 .It Fl f Ar passdir
 Specify an alternative password directory.
 .It Fl u Ar user
