@@ -133,7 +133,7 @@ VERSION		 = 0.0.11
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 
-all: $(BINS) kcaldav.8
+all: $(BINS) kcaldav.8 kcaldav.passwd.1
 
 www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
@@ -158,6 +158,7 @@ install: all
 	mkdir -p $(PREFIX)/man/man1
 	install -m 0555 kcaldav.passwd $(PREFIX)/bin
 	install -m 0444 kcaldav.conf.5 $(PREFIX)/man/man5
+	install -m 0444 kcaldav.passwd.1 $(PREFIX)/man/man1
 	install -m 0444 kcaldav.passwd.5 $(PREFIX)/man/man5
 	install -m 0444 kcaldav.8 $(PREFIX)/man/man8
 
