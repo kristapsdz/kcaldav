@@ -20,7 +20,7 @@
 		<article>
 			<section>
 				<p>
-					<span class="nm">kcaldav</span> is a simple CalDav server depending only on <a
+					<span class="nm">kcaldav</span> is a simple and safe CalDav server depending only on <a
 						href="http://kristaps.bsd.lv/kcgi">kcgi</a> and <a
 						href="http://expat.sourceforge.net/">libexpat</a>.
 					It implements the minimal subset of a large number of standards, including <a

@@ -291,6 +291,9 @@ void		  caldav_free(struct caldav *);
 void		  ctag_get(const char *, char *);
 int		  ctag_update(const char *);
 
+int		  nonce_verify(const char *, const char *, size_t);
+int		  nonce_new(const char *, char **);
+
 int		  config_parse(const char *, struct config **, const struct prncpl *);
 void		  config_free(struct config *);
 

@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: April 5 2015 $
+.Dd $Mdocdate: April 11 2015 $
 .Dt KCALDAV 8
 .Os
 .Sh NAME
@@ -129,6 +129,11 @@ Then, create and modify principals as follows:
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .Sh IMPLEMENTATION NOTES
+The
+.Nm
+system is fairly complicated, though as simple as it can be.
+It focusses on safety and security throughout.
+.Ss Locking and Consistency
 Internally,
 .Nm
 maintains file consistency by using file locks and temporary files.
@@ -166,14 +171,42 @@ and
 .Dv LOCK_SH ;
 and
 .Xr rename 2 .
-.Pp
-Files managed by
+.Ss File-system Security
+Each collection managed by
 .Nm
-are
-.Em never
-allowed to be symbolic links.
-This is a security precaution to make sure that files aren't processed
-outside of the calendar root.
+must be within the predefined server root.
+These collections are defined within
+.Xr kcaldav.passwd 5 ,
+relative to the server root.
+Collections cannot contain path components (e.g.,
+.Qq \&.. ) ,
+guaranteeing that collections must exist within the root.
+(Symbolic links are allowed for administrative ease.)
+A collection is not considered as such unless it contains a well-formed 
+.Xr kcaldav.conf 5
+file.
+.Pp
+Resource access is checked to be within a valid collection and not
+contain any path-escaping characters.
+Resources are not allowed to be symbolic links.
+.Ss Authentication
+.Nm
+requires HTTP
+.Qq QOP
+digest authentication.
+A nonce database
+.Pa kcaldav.nonce.db
+is maintained in the root calendar directory, consisting of nonce values
+and their current nonce counts.
+The
+.Pa kcaldav.nonce.db
+file is bound in size, with requests for new nonces evicting the oldest
+request.
+The use of nonces and nonce counts guarantees that principals are not
+subject to replay attacks.
+.Pp
+Nonces are 16-bytes of random data from
+.Xr arc4random_buf 3 .
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
 .\" For sections 2, 3, and 9 function return values only.
