@@ -135,5 +135,6 @@ method_delete(struct kreq *r)
 		http_error(r, KHTTP_505);
 	else
 		http_error(r, KHTTP_204);
+
 	ctag_update(st->ctagfile);
 }
