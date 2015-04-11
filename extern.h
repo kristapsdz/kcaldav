@@ -220,6 +220,7 @@ struct	httpauth {
 struct	prncpl {
 	char		*name;
 	char		*homedir;
+	char		*email;
 };
 
 /*
@@ -247,7 +248,6 @@ struct	config {
 	long long	  bytesused;
 	long long	  bytesavail;
 	char		 *displayname;
-	char		 *emailaddress;
 	unsigned int	  perms;
 #define	PERMS_NONE	  0x00
 #define	PERMS_READ	  0x01

@@ -44,9 +44,6 @@ main(int argc, char *argv[])
 		printf("displayname = [%s]\n",
 			NULL == p->displayname ?
 			"(none)" : p->displayname);
-		printf("emailaddress = [%s]\n",
-			NULL == p->emailaddress ?
-			"(none)" : p->emailaddress);
 		printf("privilege = ");
 		if (PERMS_NONE == p->perms)
 			printf(" NONE");

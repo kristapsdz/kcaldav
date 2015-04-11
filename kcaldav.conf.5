@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: April 4 2015 $
+.Dd $Mdocdate: April 6 2015 $
 .Dt KCALDAV.CONF 5
 .Os
 .Sh NAME
@@ -52,16 +52,12 @@ possibly white-space), such as
 .Bd -literal -offset indent
 privilege = kristaps ALL
 displayname = Kristaps' Calendar
-email-address-set = kristaps@bsd.lv
 .Ed
 .Pp
 Trailing and leading line white-space are discarded.
 .Pp
 The following configuration tokens are accepted:
 .Bl -tag -width Ds
-.It email-address-set
-This is mandatory.
-It consists of the collection owner's e-mail address.
 .It displayname
 This is the collection's natural-language name.
 It may be in UTF-8.
