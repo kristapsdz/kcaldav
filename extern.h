@@ -208,7 +208,7 @@ struct	httpauth {
 	const char	*nonce;
 	const char	*cnonce;
 	const char	*response;
-	const char	*count;
+	size_t		 count;
 	const char	*opaque;
 };
 
@@ -256,6 +256,13 @@ struct	config {
 #define	PERMS_ALL	 (0x04|0x02|0x01)
 };
 
+enum	nonceerr {
+	NONCE_ERR,
+	NONCE_NOTFOUND,
+	NONCE_REPLAY,
+	NONCE_OK
+};
+
 __BEGIN_DECLS
 
 /* Logging functions. */
@@ -291,8 +298,9 @@ void		  caldav_free(struct caldav *);
 void		  ctag_get(const char *, char *);
 int		  ctag_update(const char *);
 
-int		  nonce_verify(const char *, const char *, size_t);
 int		  nonce_new(const char *, char **);
+enum nonceerr	  nonce_update(const char *, const char *, size_t);
+enum nonceerr	  nonce_validate(const char *, const char *, size_t);
 
 int		  config_parse(const char *, struct config **, const struct prncpl *);
 void		  config_free(struct config *);

@@ -29,11 +29,12 @@ int verbose = 1;
 int
 main(int argc, char *argv[])
 {
-	char	 sfn[22];
-	char	 nonce[17];
-	char	*np;
-	size_t	 i;
-	int	 fd, rc;
+	char		 sfn[22];
+	char		 nonce[17];
+	char		*np;
+	size_t		 i;
+	int		 fd;
+	enum nonceerr	 er;
 
 	strlcpy(sfn, "/tmp/nonce.XXXXXXXXXX", sizeof(sfn));
 	if ((fd = mkstemp(sfn)) == -1) {
@@ -45,36 +46,31 @@ main(int argc, char *argv[])
 
 	for (i = 0; i < 100; i++) {
 		snprintf(nonce, sizeof(nonce), "%0.16zu", i);
-		if ((rc = nonce_verify(sfn, nonce, 0)) < 0) {
-			unlink(sfn);
-			return(EXIT_FAILURE);
-		} else if (rc > 0) {
+		if (NONCE_ERR == (er = nonce_update(sfn, nonce, 0)))
+			kerrx("nonce database failure");
+		else if (NONCE_NOTFOUND != er)
 			kerrx("found nonce!?");
-			unlink(sfn);
-			return(EXIT_FAILURE);
-		}
+		else
+			continue;
+		unlink(sfn);
+		return(EXIT_FAILURE);
 	}
 
 	for (i = 0; i < 2000; i++) {
-		if (nonce_new(sfn, &np) < 0) {
-			unlink(sfn);
-			return(EXIT_FAILURE);
-		}
-		if ((rc = nonce_verify(sfn, np, 1)) < 0) {
-			unlink(sfn);
-			return(EXIT_FAILURE);
-		} else if (0 == rc) {
+		if ( ! nonce_new(sfn, &np))
+			kerrx("nonce database failure");
+		else if (NONCE_ERR == (er = nonce_update(sfn, np, 1)))
+			kerrx("nonce database failure");
+		else if (NONCE_NOTFOUND == er)
 			kerrx("didn't find nonce!?");
-			unlink(sfn);
-			return(EXIT_FAILURE);
-		} else if ((rc = nonce_verify(sfn, np, 1)) < 0) {
-			unlink(sfn);
-			return(EXIT_FAILURE);
-		} else if (rc > 0) {
+		else if (NONCE_ERR == (er = nonce_update(sfn, np, 1)))
+			kerrx("nonce database failure");
+		else if (NONCE_REPLAY != er) 
 			kerrx("replay attack!?");
-			unlink(sfn);
-			return(EXIT_FAILURE);
-		}
+		else
+			continue;
+		unlink(sfn);
+		return(EXIT_FAILURE);
 	}
 
 	unlink(sfn);

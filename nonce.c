@@ -20,7 +20,9 @@
 #include <sys/mman.h>
 
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -39,38 +41,96 @@
 #define NONCESZ	 	16
 
 /*
- * Given a 32-byte nonce value "nonce", look in our database of nonces
- * for that nonce and its count.
- * The count that we're given must be greater than what we have.
- * We then set the count to be the new count.
- * Returns -1 on failure, 1 if we found the nonce and the nounce count
- * is ok, or 0 if we didn't find the nonce or it had a bad count.
+ * Like nonce_update(), but doesn't update the existing record's nonce
+ * count: only checks it.
  */
-int
-nonce_verify(const char *fname, const char *nonce, size_t count)
+enum nonceerr
+nonce_validate(const char *fname, const char *nonce, size_t count)
 {
 	struct stat	 st;
 	char		*map;
 	off_t		 pos;
+	uint32_t	 nc;
+	int		 fd;
+
+	assert(NONCESZ == strlen(nonce));
+
+	/* Open nonce file, then mmap() it. */
+	if (-1 == (fd = open_lock_sh(fname, O_RDONLY, 0)))
+		return(ENOENT == errno ? NONCE_NOTFOUND : NONCE_ERR);
+
+	if (-1 == fstat(fd, &st)) {
+		kerr("%s: fstat", fname);
+		close_unlock(fname, fd);
+		return(NONCE_ERR);
+	} else if (st.st_size % RECORDSZ) {
+		kerrx("%s: bad nonce filesize", fname);
+		close_unlock(fname, fd);
+		return(NONCE_ERR);
+	} else if (0 == st.st_size) {
+		close_unlock(fname, fd);
+		return(NONCE_NOTFOUND);
+	}
+
+	map = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+	if (MAP_FAILED == map) {
+		kerr("%s: mmap", fname);
+		close_unlock(fname, fd);
+		return(NONCE_ERR);
+	}
+
+	/* Look for our nonce. */
+	for (pos = 0; pos < st.st_size; pos += RECORDSZ) {
+		if (memcmp(nonce, &map[pos], NONCESZ))
+			continue;
+		/* Check whether the nonce is replayed. */
+		nc = count;
+		if (nc <= *(uint32_t *)&map[pos + NONCESZ]) {
+			close_unlock(fname, fd);
+			return(NONCE_REPLAY);
+		}
+		break;
+	}
+
+	close_unlock(fname, fd);
+	return(pos < st.st_size ? NONCE_OK : NONCE_NOTFOUND);
+}
+
+/*
+ * Given a 32-byte nonce value "nonce", look in our database of nonces
+ * for that nonce and its count.
+ * The count that we're given must be greater than what we have.
+ * We then set the count to be the new count.
+ * This should ONLY be executed for a nonce that has already been
+ * validated in nonce_validate().
+ */
+enum nonceerr
+nonce_update(const char *fname, const char *nonce, size_t count)
+{
+	struct stat	 st;
+	char		*map;
+	off_t		 pos;
+	uint32_t	 nc;
 	int		 fd;
 
 	assert(NONCESZ == strlen(nonce));
 
 	/* Open nonce file, then mmap() it. */
 	if (-1 == (fd = open_lock_ex(fname, O_RDWR|O_CREAT, 0600)))
-		return(-1);
+		return(NONCE_ERR);
 
 	if (-1 == fstat(fd, &st)) {
 		kerr("%s: fstat", fname);
 		close_unlock(fname, fd);
-		return(-1);
+		return(NONCE_ERR);
 	} else if (st.st_size % RECORDSZ) {
 		kerrx("%s: bad nonce filesize", fname);
 		close_unlock(fname, fd);
-		return(-1);
+		return(NONCE_ERR);
 	} else if (0 == st.st_size) {
 		close_unlock(fname, fd);
-		return(0);
+		return(NONCE_NOTFOUND);
 	}
 
 	map = mmap(NULL, st.st_size, 
@@ -79,27 +139,32 @@ nonce_verify(const char *fname, const char *nonce, size_t count)
 	if (MAP_FAILED == map) {
 		kerr("%s: mmap", fname);
 		close_unlock(fname, fd);
-		return(-1);
+		return(NONCE_ERR);
 	}
 
 	/* Look for our nonce. */
 	for (pos = 0; pos < st.st_size; pos += RECORDSZ) {
 		if (memcmp(nonce, &map[pos], NONCESZ))
 			continue;
+		nc = count;
 		/* Check whether the nonce is replayed. */
-		if (count <= *(uint32_t *)&map[pos + NONCESZ]) {
+		if (nc <= *(uint32_t *)&map[pos + NONCESZ]) {
 			close_unlock(fname, fd);
-			return(0);
+			return(NONCE_REPLAY);
 		}
-		count++;
-		memcpy(&map[pos + NONCESZ], &count, 4);
+		memcpy(&map[pos + NONCESZ], &nc, 4);
 		break;
 	}
 
 	close_unlock(fname, fd);
-	return(pos < st.st_size);
+	return(pos < st.st_size ? NONCE_OK : NONCE_NOTFOUND);
 }
 
+/*
+ * Create a new nonce value and store it in the database.
+ * Put a pointer to the static nil-terminated string in "np".
+ * Return zero on failure (system error), non-zero on success.
+ */
 int
 nonce_new(const char *fname, char **np)
 {
