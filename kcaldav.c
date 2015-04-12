@@ -17,6 +17,11 @@
 #include "config.h"
 
 #include <sys/stat.h>
+#ifdef KTRACE
+#include <sys/param.h>
+#include <sys/uio.h>
+#include <sys/ktrace.h>
+#endif
 
 #include <assert.h>
 #include <getopt.h>
@@ -28,6 +33,9 @@
 #include <string.h>
 #ifdef __linux__
 #include <bsd/string.h>
+#endif
+#ifdef KTRACE
+#include <unistd.h>
 #endif
 
 #include <kcgi.h>
@@ -104,6 +112,17 @@ req2path(struct kreq *r, const char *caldir)
 		return(0);
 	}
 
+	/* Create our nonce filename. */
+	sz = strlcpy(st->noncefile, caldir, sizeof(st->noncefile));
+	if ('/' == st->noncefile[sz - 1])
+		st->noncefile[sz - 1] = '\0';
+	sz = strlcat(st->noncefile, 
+		"/kcaldav.nonce.db", sizeof(st->noncefile));
+	if (sz >= sizeof(st->noncefile)) {
+		kerrx("%s: path too long", st->noncefile);
+		return(0);
+	}
+
 	/* Create our file-system mapped pathname. */
 	sz = strlcpy(st->path, caldir, sizeof(st->path));
 	if ('/' == st->path[sz - 1])
@@ -163,7 +182,6 @@ req2path(struct kreq *r, const char *caldir)
 		strlcat(st->temp, 
 			strrchr(st->path, '/') + 1, 
 			sizeof(st->temp));
-		strlcat(st->temp, ".", sizeof(st->temp));
 		sz = strlcat(st->temp, ".XXXXXXXX", sizeof(st->temp));
 		if (sz >= sizeof(st->temp)) {
 			kerrx("%s: path too long", st->temp);
@@ -187,17 +205,6 @@ req2path(struct kreq *r, const char *caldir)
 		"/kcaldav.ctag", sizeof(st->ctagfile));
 	if (sz >= sizeof(st->ctagfile)) {
 		kerrx("%s: path too long", st->ctagfile);
-		return(0);
-	}
-
-	/* Create our nonce filename. */
-	sz = strlcpy(st->noncefile, st->dir, sizeof(st->noncefile));
-	if ('/' == st->noncefile[sz - 1])
-		st->noncefile[sz - 1] = '\0';
-	sz = strlcat(st->noncefile, 
-		"/kcaldav.nonce.db", sizeof(st->noncefile));
-	if (sz >= sizeof(st->noncefile)) {
-		kerrx("%s: path too long", st->noncefile);
 		return(0);
 	}
 
@@ -275,8 +282,44 @@ main(int argc, char *argv[])
 	if ((argc -= optind) > 0)
 		caldir = argv[0];
 
+#ifdef	KTRACE
+	{
+		rc = ktrace("/tmp/kcaldav.trace", KTROP_SET,
+				KTRFAC_SYSCALL |
+				KTRFAC_SYSRET |
+				KTRFAC_NAMEI |
+				KTRFAC_GENIO |
+				KTRFAC_PSIG |
+				KTRFAC_EMUL |
+				KTRFAC_CSW |
+				KTRFAC_STRUCT |
+				KTRFAC_USER |
+				KTRFAC_INHERIT, getpid());
+		if (-1 == rc)
+			kerr("ktrace");
+	}
+#endif
+
 	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
 		return(EXIT_FAILURE);
+
+#ifdef	KTRACE
+	{
+		rc = ktrace("/tmp/kcaldav.trace", KTROP_CLEAR,
+				KTRFAC_SYSCALL |
+				KTRFAC_SYSRET |
+				KTRFAC_NAMEI |
+				KTRFAC_GENIO |
+				KTRFAC_PSIG |
+				KTRFAC_EMUL |
+				KTRFAC_CSW |
+				KTRFAC_STRUCT |
+				KTRFAC_USER |
+				KTRFAC_INHERIT, getpid());
+		if (-1 == rc)
+			kerr("ktrace");
+	}
+#endif
 
 	kdbg("%s: %s", r.fullpath, 
 		KMETHOD__MAX == r.method ? 

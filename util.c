@@ -74,7 +74,7 @@ http_ical_putc(int c, void *arg)
 void
 http_error(struct kreq *r, enum khttp c)
 {
-	char	 nonce[16];
+	char	 nonce[17];
 	size_t	 i;
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[c]);
@@ -93,7 +93,7 @@ http_error(struct kreq *r, enum khttp c)
 		 * sessions, then using the increasing (not necessarily
 		 * linearly, apparently) nonce-count value.
 		 */
-		for (i = 0; i < sizeof(nonce); i++)
+		for (i = 0; i < sizeof(nonce) - 1; i++)
 			snprintf(nonce + i, 2, "%01X", 
 				arc4random_uniform(128));
 		khttp_head(r, kresps[KRESP_WWW_AUTHENTICATE],

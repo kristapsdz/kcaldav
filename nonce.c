@@ -53,7 +53,8 @@ nonce_validate(const char *fname, const char *nonce, size_t count)
 	uint32_t	 nc;
 	int		 fd;
 
-	assert(NONCESZ == strlen(nonce));
+	if (NONCESZ != strlen(nonce))
+		return(NONCE_NOTFOUND);
 
 	/* Open nonce file, then mmap() it. */
 	if (-1 == (fd = open_lock_sh(fname, O_RDONLY, 0)))
