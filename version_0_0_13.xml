@@ -1,0 +1,11 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.0.13</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-04-13">2015-04-13</time>
+	</header>
+	<aside>
+		When accessing the server over HTTP, respond to requets by printing the logged-in user's information.
+		This will later allow for setting passwords over the web.
+	</aside>
+</article>

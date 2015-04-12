@@ -3,8 +3,8 @@
 # You'll absolutely want to change this. 
 # It is the directory prepended to all calendar requests.
 # It should not end in a trailing slash.
-CALDIR		 = /caldav
-CGIPREFIX	 = /var/www/cgi-bin
+CALDIR		 = /Users/kristaps/Sites
+CGIPREFIX	 = /Users/kristaps/Sites
 PREFIX		 = /usr/local
 
 # Add any special dependency directories here.
@@ -13,16 +13,16 @@ PREFIX		 = /usr/local
 # Some web servers provide this; others don't.
 
 #### For OpenBSD:
-LIBS		 = -lexpat -lutil 
-STATIC		 = -static
-CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-BINLDFLAGS	 = -L/usr/local/lib
+#LIBS		 = -lexpat -lutil 
+#STATIC		 = -static
+#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-#LIBS		 = -lexpat 
-#STATIC		 = 
-#CPPFLAGS	+= -I/usr/local/include 
-#BINLDFLAGS	 = -L/usr/local/lib
+LIBS		 = -lexpat 
+STATIC		 = 
+CPPFLAGS	+= -I/usr/local/include 
+BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
@@ -31,7 +31,7 @@ BINLDFLAGS	 = -L/usr/local/lib
 #BINLDFLAGS	 = -L/usr/local/lib
 
 # You probably don't want to change anything after this.
-BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
+BINLIBS		 = -lkcgi -lkcgixml -lkcgihtml -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-caldav \
@@ -80,6 +80,7 @@ ALLSRCS		 = Makefile \
 		   config.h.pre \
 		   ctag.c \
 		   delete.c \
+		   dynamic.c \
 		   err.c \
 		   extern.h \
 		   get.c \
@@ -115,6 +116,7 @@ OBJS		 = buf.o \
 		   quota.o
 BINOBJS		 = collection.o \
 		   delete.o \
+		   dynamic.o \
 		   get.o \
 		   kcaldav.o \
 		   options.o \
@@ -134,7 +136,8 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_9.xml \
 		   version_0_0_10.xml \
 		   version_0_0_11.xml \
-		   version_0_0_12.xml
+		   version_0_0_12.xml \
+		   version_0_0_13.xml
 VERSION		 = 0.0.12
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"

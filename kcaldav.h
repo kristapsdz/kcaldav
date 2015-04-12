@@ -38,7 +38,7 @@ struct	state {
 	char		 configfile[PATH_MAX]; /* config filename */
 	char		 prncplfile[PATH_MAX]; /* passwd filename */
 	char		 rpath[PATH_MAX]; /* full request URI */
-	int		 isdir;
+	int		 isdir; /* request is for a directory */
 };
 
 enum	xml {
@@ -59,6 +59,11 @@ enum	xml {
 	XML_DAV_UNBIND,
 	XML_DAV_WRITE_CONTENT,
 	XML__MAX
+};
+
+enum	page {
+	PAGE_INDEX = 0,
+	PAGE__MAX
 };
 
 __BEGIN_DECLS
@@ -96,6 +101,7 @@ int	 http_ical_putc(int, void *);
 void	 http_error(struct kreq *, enum khttp);
 
 void	 method_delete(struct kreq *);
+void	 method_dynamic(struct kreq *);
 void	 method_get(struct kreq *);
 void	 method_options(struct kreq *);
 void	 method_propfind(struct kreq *);
