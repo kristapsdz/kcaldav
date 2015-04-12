@@ -48,7 +48,8 @@ validate(const char *hash, const char *method,
 			 ha3[MD5_DIGEST_LENGTH];
 	char		 skey1[MD5_DIGEST_LENGTH * 2 + 1],
 			 skey2[MD5_DIGEST_LENGTH * 2 + 1],
-			 skey3[MD5_DIGEST_LENGTH * 2 + 1];
+			 skey3[MD5_DIGEST_LENGTH * 2 + 1],
+			 count[9];
 	size_t		 i;
 
 	/*
@@ -90,12 +91,13 @@ validate(const char *hash, const char *method,
 		snprintf(&skey2[i * 2], 3, "%02x", ha2[i]);
 
 	if (HTTPQOP_AUTH_INT == auth->qop || HTTPQOP_AUTH == auth->qop) {
+		snprintf(count, sizeof(count), "%08lx", auth->count);
 		MD5Init(&ctx);
 		MD5Update(&ctx, skey1, MD5_DIGEST_LENGTH * 2);
 		MD5Update(&ctx, ":", 1);
 		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
 		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, auth->count, strlen(auth->count));
+		MD5Update(&ctx, count, strlen(count));
 		MD5Update(&ctx, ":", 1);
 		MD5Update(&ctx, auth->cnonce, strlen(auth->cnonce));
 		MD5Update(&ctx, ":", 1);
@@ -306,7 +308,7 @@ prncpl_parse(const char *file, const char *m,
 			kerrx("%s:%zu: HTTP authorisation "
 				"failed", file, line);
 			explicit_bzero(cp, len);
-			continue;
+			break;
 		}
 
 		/* Allocate the principal. */

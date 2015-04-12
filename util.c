@@ -74,7 +74,7 @@ http_ical_putc(int c, void *arg)
 void
 http_error(struct kreq *r, enum khttp c)
 {
-	char	 nonce[33];
+	char	 nonce[16];
 	size_t	 i;
 
 	khttp_head(r, kresps[KRESP_STATUS], "%s", khttps[c]);

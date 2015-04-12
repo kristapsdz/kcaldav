@@ -40,7 +40,7 @@
 #error "CALDIR token not defined!"
 #endif
 
-int verbose = 1;
+int verbose = 0;
 
 /*
  * Configure all paths used in our system.
@@ -190,6 +190,17 @@ req2path(struct kreq *r, const char *caldir)
 		return(0);
 	}
 
+	/* Create our nonce filename. */
+	sz = strlcpy(st->noncefile, st->dir, sizeof(st->noncefile));
+	if ('/' == st->noncefile[sz - 1])
+		st->noncefile[sz - 1] = '\0';
+	sz = strlcat(st->noncefile, 
+		"/kcaldav.nonce.db", sizeof(st->noncefile));
+	if (sz >= sizeof(st->noncefile)) {
+		kerrx("%s: path too long", st->noncefile);
+		return(0);
+	}
+
 	/* Create our configuration filename. */
 	sz = strlcpy(st->configfile, st->dir, sizeof(st->configfile));
 	if ('/' == st->configfile[sz - 1])
@@ -249,13 +260,17 @@ main(int argc, char *argv[])
 	int		 rc;
 	size_t		 reqsz;
 	const char	*caldir, *req;
+	char		*np;
+	enum nonceerr	 er;
 
 	setlinebuf(stderr);
 
 	while (-1 != getopt(argc, argv, "")) 
 		/* Spin. */ ;
 
+	st = NULL;
 	caldir = NULL;
+
 	argv += optind;
 	if ((argc -= optind) > 0)
 		caldir = argv[0];
@@ -284,27 +299,50 @@ main(int argc, char *argv[])
 		reqsz = 0;
 	}
 
+	/* 
+	 * Begin by disallowing bogus HTTP methods and processing the
+	 * OPTIONS method as well.
+	 * Not all agents (e.g., Thunderbird's Lightning) are smart
+	 * enough to resend an OPTIONS request with HTTP authorisation,
+	 * so let this happen now.
+	 */
+	if (KMETHOD__MAX == r.method) {
+		http_error(&r, KHTTP_405);
+		goto out;
+	} else if (KMETHOD_OPTIONS == r.method) {
+		method_options(&r);
+		goto out;
+	}
+
+	/* 
+	 * Next, require that our HTTP authentication is in place.
+	 * If it's not, then we're going to put up a bogus nonce value
+	 * so that the client (whomever it is) sends us their login
+	 * credentials and we can do more high-level authentication.
+	 */
+	if (KAUTH_DIGEST != r.rawauth.type) {
+		kerrx("%s: HTTP digest required", r.fullpath);
+		http_error(&r, KHTTP_401);
+		goto out;
+	} else if (0 == r.rawauth.authorised) {
+		kerrx("%s: bad HTTP authorisation tokens", r.fullpath);
+		kerrx("%s: %s", r.fullpath, getenv("HTTP_AUTHORIZATION"));
+		http_error(&r, KHTTP_401);
+		goto out;
+	} 
+
+	/*
+	 * Ok, we have enough information to actually begin processing
+	 * this client request, so allocate our state.
+	 */
 	if (NULL == (r.arg = st = calloc(1, sizeof(struct state)))) {
 		kerr(NULL);
 		http_error(&r, KHTTP_505);
 		goto out;
 	}
 
-	/* Disallow bogus HTTP methods. */
-	if (KMETHOD__MAX == r.method) {
-		http_error(&r, KHTTP_405);
-		goto out;
-	} 
-	
-	/*
-	 * Not all agents (e.g., Thunderbird's Lightning) are smart
-	 * enough to resend an OPTIONS request with HTTP authorisation,
-	 * so let this happen now.
-	 */
-	if (KMETHOD_OPTIONS == r.method) {
-		method_options(&r);
-		goto out;
-	}
+	kdbg("%s: session pre-authorised: %s", 
+		r.fullpath, r.rawauth.d.digest.user);
 
 	/*
 	 * Resolve paths from the HTTP request.
@@ -312,28 +350,10 @@ main(int argc, char *argv[])
 	 * our convenience--and make sure they're secure.
 	 */
 	if ( ! req2path(&r, NULL == caldir ? CALDIR : caldir)) {
-		kerrx("path configuration failure (startup)");
+		kerrx("%s: path configuration failure", r.fullpath);
 		http_error(&r, KHTTP_403);
 		goto out;
 	} 
-
-	if (KAUTH_DIGEST != r.rawauth.type) {
-		kerrx("%s: HTTP digest required", st->path);
-		http_error(&r, KHTTP_401);
-		goto out;
-	} else if (0 == r.rawauth.authorised) {
-		kerrx("%s: bad HTTP authorisation tokens", st->path);
-		http_error(&r, KHTTP_401);
-		goto out;
-	} else if (strcmp(r.rawauth.d.digest.uri, st->rpath)) {
-		kerrx("%s: bad authorisation URI: %s", 
-			st->rpath, r.rawauth.d.digest.uri);
-		http_error(&r, KHTTP_401);
-		goto out;
-	} 
-
-	kdbg("%s: HTTP authorisation: %s", 
-		st->path, r.rawauth.d.digest.user);
 
 	/* Copy HTTP authorisation. */
 	if (r.rawauth.d.digest.alg == KHTTPALG_MD5_SESS)
@@ -346,6 +366,7 @@ main(int argc, char *argv[])
 		st->auth.qop = HTTPQOP_AUTH;
 	else 
 		st->auth.qop = HTTPQOP_AUTH_INT;
+
 	st->auth.user = r.rawauth.d.digest.user;
 	st->auth.uri = r.rawauth.d.digest.uri;
 	st->auth.realm = r.rawauth.d.digest.realm;
@@ -378,9 +399,98 @@ main(int argc, char *argv[])
 			st->prncplfile, st->auth.user);
 		http_error(&r, KHTTP_401);
 		goto out;
+	} else if (strcmp(r.rawauth.d.digest.uri, st->rpath)) {
+		kerrx("%s: bad authorisation URI: %s != %s", 
+			r.fullpath, r.rawauth.d.digest.uri, st->rpath);
+		http_error(&r, KHTTP_401);
+		goto out;
 	}
 
-	kdbg("%s: principal authorisation: %s", st->path, st->auth.user);
+	kdbg("%s: session principal authorisation: %s", 
+		st->path, st->auth.user);
+
+	/*
+	 * Now we see whether our nonce lookup fails.
+	 * This is still occuring over a read-only database, as an
+	 * adversary could be playing us by submitting replay attacks
+	 * (or random nonce values) over and over again in the hopes of
+	 * filling up our nonce database.
+	 */
+	er = nonce_validate(st->noncefile, 
+		st->auth.nonce, st->auth.count);
+
+	if (NONCE_ERR == er) {
+		kerrx("%s: nonce failure", st->noncefile);
+		http_error(&r, KHTTP_505);
+		goto out;
+	} else if (NONCE_NOTFOUND == er) {
+		/*
+		 * We don't have the nonce.
+		 * This means that the client has either used one of our
+		 * bogus initial nonces or is using one from a much
+		 * earlier session.
+		 * Tell them to retry with a new nonce.
+		 */
+		if ( ! nonce_new(st->noncefile, &np)) {
+			kerrx("%s: nonce failure", st->noncefile);
+			http_error(&r, KHTTP_505);
+			goto out;
+		}
+		kdbg("%s: sending new nonce: %s", st->path, np);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_401]);
+		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
+			"Digest realm=\"%s\" algorithm=MD5-sess "
+			"qop=\"auth,auth-int\" nonce=\"%s\" "
+			"stale=true", KREALM, np);
+		khttp_body(&r);
+		goto out;
+	} else if (NONCE_REPLAY == er) {
+		kerrx("%s: REPLAY ATTACK: %s\n",
+			st->noncefile, st->auth.user);
+		http_error(&r, KHTTP_403);
+		goto out;
+	} 
+
+	kdbg("%s: session nonce pre-authorised: %s", 
+		st->path, st->auth.user);
+
+	/*
+	 * Now we actually update our nonce file.
+	 * We only get here if the nonce value exists and is fresh.
+	 */
+	er = nonce_update(st->noncefile,
+		st->auth.nonce, st->auth.count);
+
+	if (NONCE_ERR == er) {
+		kerrx("%s: nonce failure", st->noncefile);
+		http_error(&r, KHTTP_505);
+		goto out;
+	} else if (NONCE_NOTFOUND == er) {
+		kdbg("%s: nonce update not found?", st->noncefile);
+		if ( ! nonce_new(st->noncefile, &np)) {
+			kerrx("%s: nonce failure", st->noncefile);
+			http_error(&r, KHTTP_505);
+			goto out;
+		}
+		kdbg("%s: sending new nonce: %s", st->path, np);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_401]);
+		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
+			"Digest realm=\"%s\" algorithm=MD5-sess "
+			"qop=\"auth,auth-int\" nonce=\"%s\" "
+			"stale=true", KREALM, np);
+		khttp_body(&r);
+		goto out;
+	} else if (NONCE_REPLAY == er) {
+		kerrx("%s: REPLAY ATTACK: %s\n",
+			st->noncefile, st->auth.user);
+		http_error(&r, KHTTP_403);
+		goto out;
+	} 
+
+	kdbg("%s: session nonce authorised: %s", 
+		st->path, st->auth.user);
 
 	/* 
 	 * We require a configuration file in the directory where we've
@@ -436,8 +546,10 @@ main(int argc, char *argv[])
 
 out:
 	khttp_free(&r);
-	config_free(st->cfg);
-	prncpl_free(st->prncpl);
-	free(st);
+	if (NULL != st) {
+		config_free(st->cfg);
+		prncpl_free(st->prncpl);
+		free(st);
+	}
 	return(EXIT_SUCCESS);
 }

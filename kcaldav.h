@@ -34,6 +34,7 @@ struct	state {
 	char		 temp[PATH_MAX]; /* temporary path */
 	char		 dir[PATH_MAX]; /* "path" directory part */
 	char		 ctagfile[PATH_MAX]; /* ctag filename */
+	char		 noncefile[PATH_MAX]; /* nonce db filename */
 	char		 configfile[PATH_MAX]; /* config filename */
 	char		 prncplfile[PATH_MAX]; /* passwd filename */
 	char		 rpath[PATH_MAX]; /* full request URI */
