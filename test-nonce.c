@@ -45,7 +45,7 @@ main(int argc, char *argv[])
 	close(fd);
 
 	for (i = 0; i < 100; i++) {
-		snprintf(nonce, sizeof(nonce), "%0.16zu", i);
+		snprintf(nonce, sizeof(nonce), "%016zu", i);
 		if (NONCE_ERR == (er = nonce_update(sfn, nonce, 0)))
 			kerrx("nonce database failure");
 		else if (NONCE_NOTFOUND != er)
