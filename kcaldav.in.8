@@ -133,31 +133,43 @@ The
 .Nm
 system is fairly complicated, though as simple as it can be.
 It focusses on safety and security throughout.
+In this section, I describe several important topics regarding
+implementation.
 .Ss Locking and Consistency
 Internally,
 .Nm
-maintains file consistency by using file locks and temporary files.
-When new resources are submitted, the new resource is always written
-into a temporary file, which is the existing filename with a leading
-dot.
-(Leading-dot files are thus always ignored when accessing files and
-disallowed for resource submission.)
+maintains iCalendar file
+.Pq Dq resource
+consistency by using file locks and temporary files.
+New resources are written into a unique temporary file, which is the
+existing filename with a leading dot, e.g., resource
+.Pa 64496c38-7123-d242-9eba-e030f77a03f3.ics
+has a temporary file of
+.Pa .64496c38-7123-d242-9eba-e030f77a03f3.ics
+in the same directory.
+All leading-dot files are ignored when accessing files and disallowed
+in the filename of submitted resources.
+.Pp
 By writing into a temporary file,
 .Nm
-can safely check for file-system limits.
+safely checks for file-system limits.
 .Pp
-After writing, the requested file is uniquely opened and exclusively
-locked, replaced with the temporary file, then unlocked.
+After writing the temporary file, the requested resource is opened and
+exclusively locked, replaced with the temporary file, then unlocked.
 .Pp
-If the requested file exists and is meant for overwrite, the existing
-file is opened and exclusively locked, its digest checked for
-consistency, then the new file replaced before unlocking.
+If the requested resource exists and is meant for overwrite, the
+existing resource is opened and exclusively locked, its digest checked
+against the requested digest
+.Pq Dq etag ,
+then the new resource replaced before unlocking.
 .Pp
-Resource read-access is simpler: files are opened with shared locks.
-This allows simultaneous read-access whilst protecting file
+Resource read access is simpler: files are opened with shared advisory
+locks.
+This allows simultaneous read access whilst protecting resource
 modification.
 .Pp
-This behaviour depends upon standards-defined behaviour of
+The locking and consistency behaviour depends upon standards-defined
+behaviour of
 .Xr open 2
 with
 .Dv O_EXCL ,
@@ -171,6 +183,12 @@ and
 .Dv LOCK_SH ;
 and
 .Xr rename 2 .
+.Nm
+provides a compatibility layer for systems not supporting
+.Dv O_SHLOCK
+and
+.Dv O_EXLOCK ,
+such as Linux.
 .Ss File-system Security
 Each collection managed by
 .Nm
@@ -179,10 +197,10 @@ These collections are defined within
 .Xr kcaldav.passwd 5 ,
 relative to the server root.
 Collections cannot contain path components (e.g.,
-.Qq \&.. ) ,
+.Dq \&.. ) ,
 guaranteeing that collections must exist within the root.
 (Symbolic links are allowed for administrative ease.)
-A collection is not considered as such unless it contains a well-formed 
+A collection is not considered as such unless it contains a well-formed
 .Xr kcaldav.conf 5
 file.
 .Pp
@@ -192,7 +210,7 @@ Resources are not allowed to be symbolic links.
 .Ss Authentication
 .Nm
 requires HTTP
-.Qq QOP
+.Dq QOP
 digest authentication.
 A nonce database
 .Pa kcaldav.nonce.db
@@ -204,9 +222,33 @@ file is bound in size, with requests for new nonces evicting the oldest
 request.
 The use of nonces and nonce counts guarantees that principals are not
 subject to replay attacks.
-.Pp
 Nonces are 16-bytes of random data from
 .Xr arc4random_buf 3 .
+.Pp
+To protect against attackers starving the nonce database by endlessly
+requesting nonces (evicting valid nonces),
+.Nm
+uses a series of checks.
+.Pp
+When a client first accesses the system (without authentication), it is
+given a random, unrecorded nonce.
+.Pp
+When the client re-authenticates using the random nonce and principal
+credentials, the system first checks that the user is valid.
+The nonce is then checked in the database.
+If it is not found (the case for principals re-authenticating with the
+random nonce), authentication is requested again with the
+.Dq stale
+directive and a new nonce entry in the database.
+Replay nonces request a full re-authentication.
+This step ensures that the principal is valid, though it could be a
+replay attack from a nonce entry since evicted.
+.Pp
+Finally, the client re-authenticates with the recorded nonce and is able
+to access the system.
+.Pp
+The remaining attack is for an adversary to build up a database of known
+historical responses and replay them all at once.
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
 .\" For sections 2, 3, and 9 function return values only.
@@ -231,6 +273,10 @@ See
 .Pp
 The following files may be created during runtime:
 .Bl -tag -width Ds
+.It Pa /kcaldav.nonce.db
+A binary database of HTTP nonce values, their respective nonce counts,
+and the age of the nonce value.
+This database protects against authentication replay attacks.
 .It Pa /<collection>/kcaldav.ctag
 A cache file for the collection's ctag (entity tag for the collection).
 This is automatically created and updated.
@@ -253,14 +299,14 @@ It also implements the following extensions:
 .Bl -tag -width Ds
 .It RFC 7232
 Conditional HTTP responses (etag,
-.Qq If-Match ,
+.Dq If-Match ,
 etc.).
 .It RFC 2617
-.Qq Digest
+.Dq Digest
 authentication of all users.
 .It caldav-ctag-02
 The
-.Qq ctag
+.Dq ctag
 Calendar Server Extension.
 .It RFC 3744
 ACL queries on the authenticated principal (not ACEs).
