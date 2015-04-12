@@ -13,6 +13,5 @@
 		The methods are described in <a href="kcaldav.8.html">kcaldav(8)</a>.
 		Also, have the gecos field in <a href="kcaldav.passwd.5">kcaldav.passwd(5)</a> contain the user's email address, then remove the
 		email address field from <a href="kcaldav.conf.5">kcaldav.conf(5)</a>.
-		
 	</aside>
 </article>
