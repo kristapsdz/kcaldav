@@ -50,6 +50,10 @@
 
 int verbose = 0;
 
+static	const char *const pages[PAGE__MAX] = {
+	"index",
+};
+
 /*
  * Configure all paths used in our system.
  * We do this here to prevent future mucking around with string copying,
@@ -227,7 +231,6 @@ req2path(struct kreq *r, const char *caldir)
 	kdbg("prncplfile = %s", st->prncplfile);
 	kdbg("rpath = %s", st->rpath);
 	kdbg("isdir = %d", st->isdir);
-
 	return(1);
 }
 
@@ -282,40 +285,39 @@ main(int argc, char *argv[])
 	if ((argc -= optind) > 0)
 		caldir = argv[0];
 
+	/*
+	 * I use this from time to time to debug something going wrong
+	 * in the underlying kcgi instance.
+	 * You really don't want to enable this unless you want it.
+	 */
 #ifdef	KTRACE
 	{
 		rc = ktrace("/tmp/kcaldav.trace", KTROP_SET,
-				KTRFAC_SYSCALL |
-				KTRFAC_SYSRET |
-				KTRFAC_NAMEI |
-				KTRFAC_GENIO |
-				KTRFAC_PSIG |
-				KTRFAC_EMUL |
-				KTRFAC_CSW |
-				KTRFAC_STRUCT |
-				KTRFAC_USER |
-				KTRFAC_INHERIT, getpid());
+				KTRFAC_SYSCALL | KTRFAC_SYSRET |
+				KTRFAC_NAMEI | KTRFAC_GENIO |
+				KTRFAC_PSIG | KTRFAC_EMUL |
+				KTRFAC_CSW | KTRFAC_STRUCT |
+				KTRFAC_USER | KTRFAC_INHERIT, 
+				getpid());
 		if (-1 == rc)
 			kerr("ktrace");
 	}
 #endif
 
-	if (KCGI_OK != khttp_parse(&r, &valid, 1, NULL, 0, 0))
+	if (KCGI_OK != khttp_parse
+		(&r, &valid, 1, 
+		 pages, PAGE__MAX, PAGE_INDEX))
 		return(EXIT_FAILURE);
 
 #ifdef	KTRACE
 	{
 		rc = ktrace("/tmp/kcaldav.trace", KTROP_CLEAR,
-				KTRFAC_SYSCALL |
-				KTRFAC_SYSRET |
-				KTRFAC_NAMEI |
-				KTRFAC_GENIO |
-				KTRFAC_PSIG |
-				KTRFAC_EMUL |
-				KTRFAC_CSW |
-				KTRFAC_STRUCT |
-				KTRFAC_USER |
-				KTRFAC_INHERIT, getpid());
+				KTRFAC_SYSCALL | KTRFAC_SYSRET |
+				KTRFAC_NAMEI | KTRFAC_GENIO |
+				KTRFAC_PSIG | KTRFAC_EMUL |
+				KTRFAC_CSW | KTRFAC_STRUCT |
+				KTRFAC_USER | KTRFAC_INHERIT, 
+				getpid());
 		if (-1 == rc)
 			kerr("ktrace");
 	}
@@ -572,7 +574,10 @@ main(int argc, char *argv[])
 		method_propfind(&r);
 		break;
 	case (KMETHOD_GET):
-		method_get(&r);
+		if (KMIME_TEXT_HTML == r.mime)
+			method_dynamic(&r);
+		else
+			method_get(&r);
 		break;
 	case (KMETHOD_REPORT):
 		method_report(&r);
