@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: April 11 2015 $
+.Dd $Mdocdate: April 12 2015 $
 .Dt KCALDAV 8
 .Os
 .Sh NAME
@@ -42,6 +42,12 @@ This root requires a
 password file and a
 .Xr kcaldav.conf 5
 configuration file for each calendar collection.
+.Po
+If your calendar root is not writable by the CGI process, you'll also
+need to create an empty nonce database
+.Pa kcaldav.nonce.db
+read-writable by the CGI process.
+.Pc
 .Pp
 Once installed, you can point your calendar client to the owned
 collection within the calendar root.
@@ -67,6 +73,7 @@ consisting of
 and some calendars.
 .Bd -unfilled -offset indent
 .Pa /var/www@CALDIR@/kcaldav.passwd
+.Pa /var/www@CALDIR@/kcaldav.nonce.db
 .Pa /var/www@CALDIR@/kristaps
 .Pa /var/www@CALDIR@/kristaps/kcaldav.conf
 .Pa /var/www@CALDIR@/kristaps/vevent-001.ics
@@ -84,7 +91,7 @@ Let
 .Ar caldir
 be mapped to
 .Pa /tmp ,
-which is readable by the web server running as user www.
+which is read-writable by the web server running as user www.
 Let the dummy user kcaldav be the owner of kcaldav files.
 First, initialise
 .Xr kcaldav.passwd 5
