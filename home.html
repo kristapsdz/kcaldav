@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+		<meta charset="utf-8" /> 
+		<title>kcaldav: @@name@@</title>
+		<link rel="stylesheet" href="@@hturi@@/style.css" type="text/css" />
+		<script src="@@hturi@@/md5.js"></script>
+		<script>
+			function updatehash(input) {
+				var e = document.getElementById('password');
+				if (null != e)
+					e.value = md5('@@name@@:@@realm@@:' + input.value);
+			}
+		</script>
+	</head>
+	<body>
+		<p>
+			Welcome, @@name@@.
+		</p>
+		<p>
+			Change your administrative information here.
+		</p>
+		<ul>
+			<li>
+				Your CalDAV address is: <input type="text" value="@@uri@@"/>
+			</li>
+			<li>
+				<form action="@@page-email@@" method="post">
+					Your e-mail address is: 
+					<input value="@@email@@" name="@@valid-email@@" type="email"/>
+					<input value="Change E-mail" type="submit"/>
+				</form>
+			</li>
+			<li>
+				<form action="@@page-pass@@" method="post">
+					Change password: 
+					<input type="text" onkeyup="updatehash(this);" />
+					<input name="@@valid-pass@@" id="password" type="text" readonly="readonly" />
+					<input value="Change Password" type="submit"/>
+				</form>
+			</li>
+		</ul>
+	</body>
+</html>

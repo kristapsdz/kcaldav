@@ -57,7 +57,9 @@ priv(struct config *cfg, const struct prncpl *prncpl,
 	const char *file, size_t line, const char *val)
 {
 	const char	*name;
-	size_t		 namesz;
+	size_t		 i, namesz;
+	unsigned int	 perms;
+	void		*pp;
 
 	if ('\0' == *val) {
 		kerrx("%s:%zu: empty privilege", file, line);
@@ -73,33 +75,28 @@ priv(struct config *cfg, const struct prncpl *prncpl,
 		return(0);
 	}
 
-	if (namesz != strlen(prncpl->name))
-		return(1);
-	else if (strncmp(prncpl->name, name, namesz))
-		return(1);
-
-	cfg->perms = PERMS_NONE;
+	perms = PERMS_NONE;
 
 	while ('\0' != *val) {
 		while (isspace((int)*val))
 			val++;
 		if (0 == strncasecmp(val, "READ", 4)) {
-			cfg->perms |= PERMS_READ;
+			perms |= PERMS_READ;
 			val += 4;
 			continue;
 		} else if (0 == strncasecmp(val, "WRITE", 5)) {
-			cfg->perms |= PERMS_WRITE;
+			perms |= PERMS_WRITE;
 			val += 5;
 			continue;
 		} else if (0 == strncasecmp(val, "NONE", 4)) {
-			cfg->perms = PERMS_NONE;
+			perms = PERMS_NONE;
 			break;
 		} else if (0 == strncasecmp(val, "DELETE", 6)) {
-			cfg->perms |= PERMS_DELETE;
+			perms |= PERMS_DELETE;
 			val += 6;
 			continue;
 		} else if (0 == strncasecmp(val, "ALL", 3)) {
-			cfg->perms = PERMS_ALL;
+			perms = PERMS_ALL;
 			val += 3;
 			continue;
 		} 
@@ -107,7 +104,106 @@ priv(struct config *cfg, const struct prncpl *prncpl,
 		return(0);
 	}
 
+	for (i = 0; i < cfg->privsz; i++) {
+		if (namesz != strlen(cfg->privs[i].prncpl))
+			continue;
+		else if (strncmp(cfg->privs[i].prncpl, name, namesz))
+			continue;
+		kerrx("%s:%zu: duplicate principal", file, line);
+		return(0);
+	}
+
+	pp = reallocarray(cfg->privs, 
+		cfg->privsz + 1, sizeof(struct priv));
+
+	if (NULL == pp) {
+		kerr(NULL);
+		return(0);
+	}
+
+	cfg->privs = pp;
+	cfg->privs[cfg->privsz].prncpl = malloc(namesz + 1);
+	if (NULL == cfg->privs[cfg->privsz].prncpl) {
+		kerr(NULL);
+		return(0);
+	}
+	memcpy(cfg->privs[cfg->privsz].prncpl, name, namesz);
+	cfg->privs[cfg->privsz].prncpl[namesz] = '\0';
+	cfg->privs[cfg->privsz].perms = perms;
+	cfg->privsz++;
+
+	if (namesz != strlen(prncpl->name))
+		return(1);
+	else if (strncmp(prncpl->name, name, namesz))
+		return(1);
+
+	cfg->perms = perms;
 	return(1);
+}
+
+int
+config_replace(const char *file, const struct config *p)
+{
+	int	 	 fd, rc;
+	size_t		 i;
+	FILE		*f;
+
+	if (-1 == (fd = open_lock_ex(file, O_RDWR|O_TRUNC, 0)))
+		return(0);
+	else if (NULL == (f = fdopen_lock(file, fd, "a"))) 
+		return(0);
+	
+	i = 0;
+	rc = fprintf(f, "displayname = \"%s\"\n", p->displayname);
+	if (-1 == rc) {
+		kerr("%s: fprintf", file);
+		goto out;
+	}
+
+	for ( ; i < p->privsz; i++) {
+		rc = fprintf(f, "privilege = %s", p->privs[i].prncpl);
+		if (-1 == rc) {
+			kerr("%s: fprintf", file);
+			break;
+		} else if (PERMS_NONE == p->privs[i].perms) {
+			if (-1 != fprintf(f, " NONE\n")) 
+				continue;
+			kerr("%s: fprintf", file);
+			break;
+		} else if (PERMS_ALL == p->privs[i].perms) {
+			if (-1 != fprintf(f, " ALL\n"))
+				continue;
+			kerr("%s: fprintf", file);
+			break;
+		}
+		if (PERMS_READ & p->privs[i].perms)
+			if (-1 == fprintf(f, " READ")) {
+				kerr("%s: fprintf", file);
+				break;
+			}
+		if (PERMS_WRITE & p->privs[i].perms)
+			if (-1 == fprintf(f, " WRITE")) {
+				kerr("%s: fprintf", file);
+				break;
+			}
+		if (PERMS_DELETE & p->privs[i].perms)
+			if (-1 == fprintf(f, " DELETE")) {
+				kerr("%s: fprintf", file);
+				break;
+			}
+		if (-1 == fprintf(f, "\n")) {
+			kerr("%s: fprintf", file);
+			break;
+		}
+	}
+
+out:
+	fclose_unlock(file, f, fd);
+
+	if (i < p->privsz)
+		kerrx("%s: WARNING: FILE IN "
+			"INCONSISTENT STATE\n", file);
+	return(i == p->privsz);
 }
 
 /*
@@ -227,10 +323,15 @@ config_parse(const char *file,
 void
 config_free(struct config *p)
 {
+	size_t	 i;
 
 	if (NULL == p)
 		return;
 
+	for (i = 0; i < p->privsz; i++) 
+		free(p->privs[i].prncpl);
+
+	free(p->privs);
 	free(p->displayname);
 	free(p);
 }

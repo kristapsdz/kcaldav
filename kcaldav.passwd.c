@@ -108,62 +108,6 @@ gethash(int new, char *digest,
 	return(1);
 }
 
-static void
-pentryfree(struct pentry *p)
-{
-
-	if (NULL != p->hash)
-		explicit_bzero(p->hash, strlen(p->hash));
-
-	free(p->hash);
-	free(p->user);
-	free(p->uid);
-	free(p->gid);
-	free(p->cls);
-	free(p->change);
-	free(p->expire);
-	free(p->gecos);
-	free(p->homedir);
-}
-
-static void
-pentriesfree(struct pentry *p, size_t sz)
-{
-	size_t	 i;
-
-	for (i = 0; i < sz; i++)
-		pentryfree(&p[i]);
-	free(p);
-}
-
-static int
-pentrydup(struct pentry *p, const struct pentry *ep)
-{
-
-	memset(p, 0, sizeof(struct pentry));
-
-	if (NULL == (p->hash = strdup(ep->hash)))
-		return(0);
-	else if (NULL == (p->user = strdup(ep->user)))
-		return(0);
-	else if (NULL == (p->uid = strdup(ep->uid)))
-		return(0);
-	else if (NULL == (p->gid = strdup(ep->gid)))
-		return(0);
-	else if (NULL == (p->cls = strdup(ep->cls)))
-		return(0);
-	else if (NULL == (p->change = strdup(ep->change)))
-		return(0);
-	else if (NULL == (p->expire = strdup(ep->expire)))
-		return(0);
-	else if (NULL == (p->gecos = strdup(ep->gecos)))
-		return(0);
-	else if (NULL == (p->homedir = strdup(ep->homedir)))
-		return(0);
-
-	return(prncpl_pentry(p));
-}
-
 static int
 pentrynew(struct pentry *p, const char *user, 
 	const char *hash, const char *homedir, const char *email)
@@ -223,66 +167,7 @@ pentrynew(struct pentry *p, const char *user,
 	} else if (NULL == (p->gecos = strdup(email)))
 		return(0);
 
-	return(prncpl_pentry(p));
-}
-
-static int
-pentrywordwrite(int fd, const char *file, const char *word)
-{
-	size_t	 len;
-	ssize_t	 ssz;
-
-	len = strlen(word);
-
-	if ((ssz = write(fd, word, len)) < 0)
-		kerr("%s: write", file);
-	else if (len != (size_t)ssz)
-		kerrx("%s: short write", file);
-	else if ('\n' == word[0])
-		return(1);
-	else if ((ssz = write(fd, ":", 1)) < 0)
-		kerr("%s: write", file);
-	else if (1 != (size_t)ssz)
-		kerrx("%s: short write", file);
-	else
-		return(1);
-
-	return(0);
-
-}
-
-/*
- * Make sure we write exactly the correct number of bytes into the
- * password file.
- * Any short writes must result in an immediate error, as the password
- * file is now garbled!
- */
-static int
-pentrywrite(int fd, const char *file, const struct pentry *p)
-{
-
-	if ( ! pentrywordwrite(fd, file, p->user))
-		return(0);
-	if ( ! pentrywordwrite(fd, file, p->hash))
-		return(0);
-	if ( ! pentrywordwrite(fd, file, p->uid))
-		return(0);
-	if ( ! pentrywordwrite(fd, file, p->gid))
-		return(0);
-	if ( ! pentrywordwrite(fd, file, p->cls))
-		return(0);
-	if ( ! pentrywordwrite(fd, file, p->change))
-		return(0);
-	if ( ! pentrywordwrite(fd, file, p->expire))
-		return(0);
-	if ( ! pentrywordwrite(fd, file, p->gecos))
-		return(0);
-	if ( ! pentrywordwrite(fd, file, p->homedir))
-		return(0);
-	if ( ! pentrywordwrite(fd, file, "\n"))
-		return(0);
-
-	return(1);
+	return(prncpl_pentry_check(p));
 }
 
 int
@@ -487,7 +372,7 @@ main(int argc, char *argv[])
 		} 
 		els = pp;
 		elsz++;
-		if ( ! pentrydup(&els[elsz - 1], &eline)) {
+		if ( ! prncpl_pentry_dup(&els[elsz - 1], &eline)) {
 			kerr(NULL);
 			explicit_bzero(cp, len);
 			break;
@@ -555,7 +440,7 @@ main(int argc, char *argv[])
 		} 
 		if (passwd)
 			memcpy(els[i].hash, digestnew, sizeof(digestnew));
-		if ( ! prncpl_pentry(&els[i]))
+		if ( ! prncpl_pentry_check(&els[i]))
 			goto out;
 	} else {
 		fprintf(stderr, "%s: does not "
@@ -566,9 +451,13 @@ main(int argc, char *argv[])
 	/* Zero the existing file and reset our position. */
 	if (-1 == ftruncate(fd, 0)) {
 		kerr("%s: ftruncate", file);
+		fprintf(stderr, "%s: WARNING: FILE IN "
+			"INCONSISTENT STATE\n", file);
 		goto out;
 	} else if (-1 == lseek(fd, 0, SEEK_SET)) {
 		kerr("%s: lseek", file);
+		fprintf(stderr, "%s: WARNING: FILE IN "
+			"INCONSISTENT STATE\n", file);
 		goto out;
 	}
 
@@ -579,14 +468,14 @@ main(int argc, char *argv[])
 	 * something goes wrong.
 	 */
 	for (i = 0; i < elsz; i++)
-		if ( ! pentrywrite(fd, file, &els[i])) {
+		if ( ! prncpl_pentry_write(fd, file, &els[i])) {
 			fprintf(stderr, "%s: WARNING: FILE IN "
 				"INCONSISTENT STATE\n", file);
 			break;
 		}
 out:
 	free(user);
-	pentriesfree(els, elsz);
+	prncpl_pentry_freelist(els, elsz);
 	if (NULL != f)
 		fclose(f);
 	close_unlock(file, fd);

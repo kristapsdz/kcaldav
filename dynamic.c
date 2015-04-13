@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <kcgi.h>
 #include <kcgixml.h>
@@ -29,6 +30,91 @@
 
 #include "extern.h"
 #include "kcaldav.h"
+
+enum	templ {
+	TEMPL_EMAIL,
+	TEMPL_HTURI,
+	TEMPL_NAME,
+	TEMPL_URI,
+	TEMPL_PAGE_EMAIL,
+	TEMPL_PAGE_HOME,
+	TEMPL_PAGE_PASS,
+	TEMPL_REALM,
+	TEMPL_VALID_EMAIL,
+	TEMPL_VALID_PASS,
+	TEMPL__MAX
+};
+
+static	const char *const templs[TEMPL__MAX] = {
+	"email", /* TEMPL_EMAIL */
+	"hturi", /* TEMPL_HTURI */
+	"name", /* TEMPL_NAME */
+	"uri", /* TEMPL_URI */
+	"page-email", /* TEMPL_PAGE_EMAIL */
+	"page-home", /* TEMPL_PAGE_HOME */
+	"page-pass", /* TEMPL_PAGE_PASS */
+	"realm", /* TEMPL_REALM */
+	"valid-email", /* TEMPL_VALID_EMAIL */
+	"valid-pass", /* TEMPL_VALID_PASS */
+};
+
+static int
+dotemplate(size_t key, void *arg)
+{
+	struct kreq	*r = arg;
+	struct state	*st = r->arg;
+
+	switch (key) {
+	case (TEMPL_EMAIL):
+		khttp_puts(r, st->prncpl->email);
+		break;
+	case (TEMPL_HTURI):
+		khttp_puts(r, HTDOCSURI);
+		break;
+	case (TEMPL_NAME):
+		khttp_puts(r, st->prncpl->name);
+		break;
+	case (TEMPL_URI):
+		if (KSCHEME__MAX != r->scheme) {
+			khttp_puts(r, kschemes[r->scheme]);
+			khttp_puts(r, "://");
+		}
+		khttp_puts(r, r->host);
+		khttp_puts(r, r->pname);
+		khttp_puts(r, st->prncpl->homedir);
+		break;
+	case (TEMPL_PAGE_EMAIL):
+		khttp_puts(r, r->pname);
+		khttp_putc(r, '/');
+		khttp_puts(r, pages[PAGE_SETEMAIL]);
+		khttp_puts(r, ".html");
+		break;
+	case (TEMPL_PAGE_HOME):
+		khttp_puts(r, r->pname);
+		khttp_putc(r, '/');
+		khttp_puts(r, pages[PAGE_INDEX]);
+		khttp_puts(r, ".html");
+		break;
+	case (TEMPL_PAGE_PASS):
+		khttp_puts(r, r->pname);
+		khttp_putc(r, '/');
+		khttp_puts(r, pages[PAGE_SETPASS]);
+		break;
+	case (TEMPL_REALM):
+		khttp_puts(r, KREALM);
+		break;
+	case (TEMPL_VALID_EMAIL):
+		khttp_puts(r, valids[VALID_EMAIL]);
+		break;
+	case (TEMPL_VALID_PASS):
+		khttp_puts(r, valids[VALID_PASS]);
+		break;
+	default:
+		abort();
+		break;
+	}
+	return(1);
+}
 
 static void
 dosetpass(struct kreq *r)
@@ -58,15 +144,20 @@ dosetpass(struct kreq *r)
 static void
 dosetemail(struct kreq *r)
 {
-	char	*url;
-	char	 page[PATH_MAX];
+	char		*url;
+	char		 page[PATH_MAX];
+	struct state	*st = r->arg;
+	int		 rc;
 
 	if (NULL != r->fieldmap[VALID_EMAIL] &&
 		 NULL == r->fieldnmap[VALID_EMAIL]) {
+		rc = prncpl_replace(st->prncplfile, 
+			st->prncpl->name,
+			r->fieldmap[VALID_EMAIL]->parsed.s);
 		snprintf(page, sizeof(page), 
-			"%s/%s.%s#setemail-ok", r->pname, 
-			pages[PAGE_INDEX], ksuffixes[r->mime]);
-		/* TODO: set email here. */
+			"%s/%s.%s#%s", r->pname, 
+			pages[PAGE_INDEX], ksuffixes[r->mime],
+			rc ? "setemail-ok" : "error");
 	} else
 		snprintf(page, sizeof(page), 
 			"%s/%s.%s#setemail-error", r->pname, 
@@ -88,92 +179,23 @@ dosetemail(struct kreq *r)
 static void
 doindex(struct kreq *r)
 {
-	struct khtmlreq	 html;
 	struct state	*st = r->arg;
-	char		*link, *url;
+	struct ktemplate t;
 
 	assert(KMIME_TEXT_HTML == r->mime);
 
-	fprintf(stderr, "moop\n");
-
-	if (KSCHEME__MAX != r->scheme)
-		kasprintf(&link, "%s://%s%s%s",
-			kschemes[r->scheme],
-			r->host, r->pname,
-			st->prncpl->homedir);
-	else
-		kasprintf(&link, "%s%s%s",
-			r->host, r->pname,
-			st->prncpl->homedir);
-
-	memset(&html, 0, sizeof(struct khtmlreq));
-	html.req = r;
+	memset(&t, 0, sizeof(struct ktemplate));
+	t.key = templs;
+	t.keysz = TEMPL__MAX;
+	t.arg = r;
+	t.cb = dotemplate;
 
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_200]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_HTML]);
 	khttp_body(r);
-	khtml_elem(&html, KELEM_DOCTYPE);
-	khtml_elem(&html, KELEM_HTML);
-	khtml_elem(&html, KELEM_HEAD);
-	khtml_elem(&html, KELEM_TITLE);
-	khtml_puts(&html, "kcaldav: ");
-	khtml_puts(&html, st->auth.user);
-	khtml_close(&html, 2);
-	khtml_elem(&html, KELEM_BODY);
-	khtml_elem(&html, KELEM_P);
-	khtml_puts(&html, "Welcome, ");
-	khtml_puts(&html, st->auth.user);
-	khtml_puts(&html, ".");
-	khtml_close(&html, 1);
-	khtml_elem(&html, KELEM_P);
-	khtml_puts(&html, "Some helpful info:");
-	khtml_close(&html, 1);
-	khtml_elem(&html, KELEM_UL);
-
-	khtml_elem(&html, KELEM_LI);
-	khtml_puts(&html, "Your CalDAV address is: ");
-	khtml_attr(&html, KELEM_INPUT,
-		KATTR_TYPE, "text",
-		KATTR_DISABLED, "disabled",
-		KATTR_VALUE, link, KATTR__MAX);
-	khtml_close(&html, 1);
-
-	khtml_elem(&html, KELEM_LI);
-	url = kutil_urlpart(r, r->pname, 
-		ksuffixes[r->mime], pages[PAGE_SETEMAIL], NULL);
-	khtml_attr(&html, KELEM_FORM,
-		KATTR_ACTION, url,
-		KATTR_METHOD, "post", KATTR__MAX);
-	free(url);
-	khtml_puts(&html, "Your e-mail address is: ");
-	khtml_attr(&html, KELEM_INPUT,
-		KATTR_VALUE, st->prncpl->email, 
-		KATTR_NAME, valids[VALID_EMAIL],
-		KATTR_TYPE, "email", KATTR__MAX);
-	khtml_attr(&html, KELEM_INPUT,
-		KATTR_VALUE, "Change E-mail", 
-		KATTR_TYPE, "submit", KATTR__MAX);
-	khtml_close(&html, 2);
-
-	khtml_elem(&html, KELEM_LI);
-	url = kutil_urlpart(r, r->pname, 
-		ksuffixes[r->mime], pages[PAGE_SETPASS], NULL);
-	khtml_attr(&html, KELEM_FORM,
-		KATTR_ACTION, url,
-		KATTR_METHOD, "post", KATTR__MAX);
-	free(url);
-	khtml_puts(&html, "Your password is: ");
-	khtml_attr(&html, KELEM_INPUT,
-		KATTR_NAME, valids[VALID_PASS],
-		KATTR_TYPE, "password", KATTR__MAX);
-	khtml_attr(&html, KELEM_INPUT,
-		KATTR_VALUE, "Change Password", 
-		KATTR_TYPE, "submit", KATTR__MAX);
-
-	khtml_close(&html, 0);
-	free(link);
+	khttp_template(r, &t, st->homefile);
 }
 
 /*

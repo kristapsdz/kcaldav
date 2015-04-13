@@ -56,7 +56,7 @@ kverrx(const char *file, size_t line, const char *fmt, ...)
 	buf[0] = '\0';
 #endif
 
-	fprintf(stderr, "%s%s:%zu: ", buf, file, line);
+	fprintf(stderr, "%s%s:%zu: WARNING: ", buf, file, line);
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
@@ -77,11 +77,31 @@ kverr(const char *file, size_t line, const char *fmt, ...)
 	buf[0] = '\0';
 #endif
 
-	fprintf(stderr, "%s%s:%zu: ", buf, file, line);
+	fprintf(stderr, "%s%s:%zu: ERROR: ", buf, file, line);
 	if (NULL != fmt) {
 		va_start(ap, fmt);
 		vfprintf(stderr, fmt, ap);
 		va_end(ap);
 	}
 	fprintf(stderr, ": %s\n", strerror(er));
+}
+
+void
+kvinfo(const char *file, size_t line, const char *fmt, ...)
+{
+	va_list	 ap;
+	char	 buf[32];
+#ifdef LOGTIMESTAMP
+	time_t	 t = time(NULL);
+
+	strftime(buf, sizeof(buf), "[%F %R]:", localtime(&t));
+#else
+	buf[0] = '\0';
+#endif
+
+	fprintf(stderr, "%s%s:%zu: ", buf, file, line);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
 }

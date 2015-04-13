@@ -239,6 +239,16 @@ struct	pentry {
 	char	*homedir; /* principal home */
 };
 
+struct	priv {
+	char		*prncpl;
+	unsigned int	 perms;
+#define	PERMS_NONE	 0x00
+#define	PERMS_READ	 0x01
+#define	PERMS_WRITE	 0x02
+#define	PERMS_DELETE	 0x04
+#define	PERMS_ALL	(0x04|0x02|0x01)
+};
+
 /*
  * A collection configuration.
  * A principal (struct prncpl) is matched against the configuration list
@@ -248,12 +258,9 @@ struct	config {
 	long long	  bytesused;
 	long long	  bytesavail;
 	char		 *displayname;
-	unsigned int	  perms;
-#define	PERMS_NONE	  0x00
-#define	PERMS_READ	  0x01
-#define	PERMS_WRITE	  0x02
-#define	PERMS_DELETE	  0x04
-#define	PERMS_ALL	 (0x04|0x02|0x01)
+	unsigned int	  perms; /* current principal perms */
+	struct priv	 *privs;
+	size_t		  privsz;
 };
 
 enum	nonceerr {
@@ -268,6 +275,8 @@ __BEGIN_DECLS
 /* Logging functions. */
 void		  kvdbg(const char *, size_t, const char *, ...)
 			__attribute__((format(printf, 3, 4)));
+void		  kvinfo(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
 void		  kverr(const char *, size_t, const char *, ...)
 			__attribute__((format(printf, 3, 4)));
 void		  kverrx(const char *, size_t, const char *, ...)
@@ -276,6 +285,8 @@ void		  kverrx(const char *, size_t, const char *, ...)
 		  kverr(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 #define	 	  kdbg(fmt, ...) \
 		  kvdbg(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define	 	  kinfo(fmt, ...) \
+		  kvinfo(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 #define	 	  kerrx(fmt, ...) \
 		  kverrx(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
@@ -305,6 +316,7 @@ enum nonceerr	  nonce_update(const char *, const char *, size_t);
 enum nonceerr	  nonce_validate(const char *, const char *, size_t);
 
 int		  config_parse(const char *, struct config **, const struct prncpl *);
+int		  config_replace(const char *, const struct config *);
 void		  config_free(struct config *);
 
 FILE		 *fdopen_lock(const char *, int, const char *);
@@ -314,13 +326,18 @@ int		  open_lock_sh(const char *, int, mode_t);
 int		  close_unlock(const char *, int);
 int		  quota(const char *, int, long long *, long long *);
 
+int		  prncpl_replace(const char *, const char *, const char *);
 int		  prncpl_parse(const char *, const char *,
 		        const struct httpauth *, struct prncpl **,
 			const char *, size_t);
 void		  prncpl_free(struct prncpl *);
 int		  prncpl_line(char *, size_t, 
 			const char *, size_t, struct pentry *);
-int		  prncpl_pentry(const struct pentry *p);
+int		  prncpl_pentry_check(const struct pentry *);
+int		  prncpl_pentry_dup(struct pentry *, const struct pentry *);
+void		  prncpl_pentry_free(struct pentry *);
+void		  prncpl_pentry_freelist(struct pentry *, size_t);
+int		  prncpl_pentry_write(int, const char *, const struct pentry *);
 
 extern const enum proptype calprops[CALELEM__MAX];
 extern const enum calelem calpropelems[PROP__MAX];

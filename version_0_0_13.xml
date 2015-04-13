@@ -5,7 +5,9 @@
 		<time datetime="2015-04-13">2015-04-13</time>
 	</header>
 	<aside>
-		When accessing the server over HTTP, respond to requets by printing the logged-in user's information.
-		This will later allow for setting passwords over the web.
+		When accessing the server from a web browser (i.e., for HTML content), respond by printing the logged-in user's information and
+		allow for changing of passwords or e-mail if the principal database has the correct permissions.
+		This allows new users to access <code>https://server/cgi-bin/kcaldav/</code>, log in with their credentials, then perform simple
+		administrative tasks without needing to log into the underlying UNIX server.
 	</aside>
 </article>
