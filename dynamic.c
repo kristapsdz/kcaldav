@@ -32,6 +32,9 @@
 #include "kcaldav.h"
 
 enum	templ {
+	TEMPL_CLASS_INSECURE,
+	TEMPL_CLASS_READONLY,
+	TEMPL_CLASS_WRITABLE,
 	TEMPL_EMAIL,
 	TEMPL_HTURI,
 	TEMPL_NAME,
@@ -46,6 +49,9 @@ enum	templ {
 };
 
 static	const char *const templs[TEMPL__MAX] = {
+	"class-insecure", /* TEMPL_CLASS_INSECURE */
+	"class-readonly", /* TEMPL_CLASS_READONLY */
+	"class-writable", /* TEMPL_CLASS_WRITABLE */
 	"email", /* TEMPL_EMAIL */
 	"hturi", /* TEMPL_HTURI */
 	"name", /* TEMPL_NAME */
@@ -65,6 +71,18 @@ dotemplate(size_t key, void *arg)
 	struct state	*st = r->arg;
 
 	switch (key) {
+	case (TEMPL_CLASS_INSECURE):
+		if (KSCHEME_HTTPS == r->scheme)
+			khttp_puts(r, "noshow");
+		break;
+	case (TEMPL_CLASS_READONLY):
+		if (st->prncpl->writable)
+			khttp_puts(r, "noshow");
+		break;
+	case (TEMPL_CLASS_WRITABLE):
+		if ( ! st->prncpl->writable)
+			khttp_puts(r, "noshow");
+		break;
 	case (TEMPL_EMAIL):
 		khttp_puts(r, st->prncpl->email);
 		break;

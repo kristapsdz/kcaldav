@@ -218,9 +218,10 @@ struct	httpauth {
  * of principals when the password file is read.
  */
 struct	prncpl {
-	char		*name;
-	char		*homedir;
-	char		*email;
+	int		 writable; /* can write to principal file */
+	char		*name; /* username */
+	char		*homedir; /* within calendar root */
+	char		*email; /* email address */
 };
 
 /*
