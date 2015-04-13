@@ -26,6 +26,14 @@
 			<p>
 				Welcome, @@name@@.
 				This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> installation.
+				<span class="@@class-readonly@@">
+					The database is <strong>read-only</strong>, so you won't be able to change anything.
+				</span>
+				<span class="@@class-writable@@">
+					<span class="@@class-insecure@@">
+						This connection is <strong>not secure</strong>, so consider that your password hash is being sent in the clear!
+					</span>
+				</span>
 			</p>
 			<div class="error" id="error">
 				Something strange and unknown has gone wrong.
@@ -49,14 +57,17 @@
 				<div class="error" id="setemail-ok">
 					Your e-mail address has been reset.
 				</div>
-				<form action="@@page-email@@" method="post">
+				<form action="@@page-email@@" method="post" class="@@class-writable@@">
 					<div class="input double">
 						<input value="@@email@@" name="@@valid-email@@" type="email"/>
 						<input value="Change E-mail" type="submit"/>
 					</div>
 				</form>
+				<div class="input single @@class-readonly@@">
+					<input value="@@email@@" disabled="disabled" type="email"/>
+				</div>
 			</section>
-			<section>
+			<section class="@@class-writable@@">
 				<h2>
 					Your Password
 				</h2>
@@ -69,10 +80,10 @@
 						<kbd>@@name@@:@@realm@@:<i>password</i></kbd>.
 					</noscript>
 					<script>
-						document.write('Your password will be hashed into the input box below.');
+						document.write('...will be hashed into the input box below.');
 					</script>
 					No passwords are stored on <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> servers.
-					You'll then be logged out.
+					You'll be logged out if you change your password.
 				</div>
 				<div class="error" id="setpass-error">
 					If you call that a password, I've a bridge to sell you.

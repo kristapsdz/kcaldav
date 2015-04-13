@@ -586,6 +586,9 @@ prncpl_parse(const char *file, const char *m,
 		else
 			rc = 1;
 
+		if (NULL != *pp)
+			(*pp)->writable = -1 != access(file, W_OK);
+
 		explicit_bzero(cp, len);
 		break;
 	}
