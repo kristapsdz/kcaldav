@@ -388,8 +388,8 @@ prncpl_line(char *string, size_t sz,
 }
 
 int
-prncpl_replace(const char *file, 
-	const char *name, const char *email)
+prncpl_replace(const char *file, const char *name, 
+	const char *hash, const char *email)
 {
 	size_t	 	 len, line, psz, i;
 	struct pentry	 entry;
@@ -441,6 +441,14 @@ prncpl_replace(const char *file,
 		 */
 		if (strcmp(name, ps[psz - 1].user)) 
 			continue;
+		if (NULL != hash) {
+			free(ps[psz - 1].hash);
+			ps[psz - 1].hash = strdup(hash);
+			if (NULL == ps[psz - 1].hash) {
+				kerr(NULL);
+				goto err;
+			}
+		}
 		if (NULL != email) {
 			free(ps[psz - 1].gecos);
 			ps[psz - 1].gecos = strdup(email);
@@ -555,10 +563,13 @@ prncpl_parse(const char *file, const char *m,
 		if (strcmp(entry.user, auth->user)) {
 			explicit_bzero(cp, len);
 			continue;
-		} else if ( ! validate(entry.hash, m, auth, r, rsz)) {
+		} 
+		
+		if ( ! validate(entry.hash, m, auth, r, rsz)) {
 			kerrx("%s:%zu: HTTP authorisation "
 				"failed", file, line);
 			explicit_bzero(cp, len);
+			rc = 1;
 			break;
 		}
 

@@ -326,7 +326,8 @@ int		  open_lock_sh(const char *, int, mode_t);
 int		  close_unlock(const char *, int);
 int		  quota(const char *, int, long long *, long long *);
 
-int		  prncpl_replace(const char *, const char *, const char *);
+int		  prncpl_replace(const char *, const char *,
+			const char *, const char *);
 int		  prncpl_parse(const char *, const char *,
 		        const struct httpauth *, struct prncpl **,
 			const char *, size_t);
