@@ -119,18 +119,32 @@ dotemplate(size_t key, void *arg)
 static void
 dosetpass(struct kreq *r)
 {
-	char	*url;
-	char	 page[PATH_MAX];
+	char		*url;
+	char		 page[PATH_MAX];
+	int		 rc;
+	struct state	*st = r->arg;
 
-	if (NULL != r->fieldmap[VALID_PASS] &&
-		 NULL == r->fieldnmap[VALID_PASS]) {
+	if (NULL != r->fieldmap[VALID_PASS]) {
+		rc = prncpl_replace
+			(st->prncplfile, 
+			 st->prncpl->name,
+			 r->fieldmap[VALID_PASS]->parsed.s, 
+			 NULL);
 		snprintf(page, sizeof(page), 
-			"%s/%s.%s#setpass-ok", r->pname, 
+			"%s/%s.%s#%s", r->pname, 
+			pages[PAGE_INDEX], ksuffixes[r->mime],
+			rc ? "setpass-ok" : "error");
+	} else if (NULL == r->fieldnmap[VALID_PASS]) {
+		snprintf(page, sizeof(page), 
+			"%s/%s.%s", r->pname, 
 			pages[PAGE_INDEX], ksuffixes[r->mime]);
-		/* TODO: set password here. */
-	} else
+	} else if (r->fieldnmap[VALID_PASS]->valsz) {
 		snprintf(page, sizeof(page), 
 			"%s/%s.%s#setpass-error", r->pname, 
+			pages[PAGE_INDEX], ksuffixes[r->mime]);
+	} else
+		snprintf(page, sizeof(page), 
+			"%s/%s.%s", r->pname, 
 			pages[PAGE_INDEX], ksuffixes[r->mime]);
 
 	url = kutil_urlabs(r->scheme, r->host, r->port, page);
@@ -149,18 +163,27 @@ dosetemail(struct kreq *r)
 	struct state	*st = r->arg;
 	int		 rc;
 
-	if (NULL != r->fieldmap[VALID_EMAIL] &&
-		 NULL == r->fieldnmap[VALID_EMAIL]) {
-		rc = prncpl_replace(st->prncplfile, 
-			st->prncpl->name,
-			r->fieldmap[VALID_EMAIL]->parsed.s);
+	if (NULL != r->fieldmap[VALID_EMAIL]) {
+		rc = prncpl_replace
+			(st->prncplfile, 
+			 st->prncpl->name,
+			 NULL,
+			 r->fieldmap[VALID_EMAIL]->parsed.s);
 		snprintf(page, sizeof(page), 
 			"%s/%s.%s#%s", r->pname, 
 			pages[PAGE_INDEX], ksuffixes[r->mime],
 			rc ? "setemail-ok" : "error");
-	} else
+	} else if (NULL == r->fieldnmap[VALID_EMAIL]) {
+		snprintf(page, sizeof(page), 
+			"%s/%s.%s", r->pname, 
+			pages[PAGE_INDEX], ksuffixes[r->mime]);
+	} else if (r->fieldnmap[VALID_EMAIL]->valsz) {
 		snprintf(page, sizeof(page), 
 			"%s/%s.%s#setemail-error", r->pname, 
+			pages[PAGE_INDEX], ksuffixes[r->mime]);
+	} else 
+		snprintf(page, sizeof(page), 
+			"%s/%s.%s", r->pname, 
 			pages[PAGE_INDEX], ksuffixes[r->mime]);
 
 	url = kutil_urlabs(r->scheme, r->host, r->port, page);

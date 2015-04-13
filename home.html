@@ -9,37 +9,88 @@
 		<script>
 			function updatehash(input) {
 				var e = document.getElementById('password');
-				if (null != e)
+				if ('' == input.value)
+					e.value = '';
+				else 
 					e.value = md5('@@name@@:@@realm@@:' + input.value);
 			}
 		</script>
 	</head>
 	<body>
-		<p>
-			Welcome, @@name@@.
-		</p>
-		<p>
-			Change your administrative information here.
-		</p>
-		<ul>
-			<li>
-				Your CalDAV address is: <input type="text" value="@@uri@@"/>
-			</li>
-			<li>
+		<header>
+			<h1>
+				<a href="@@page-home@@">CalDAV</a> Management
+			</h1>
+		</header>
+		<article>
+			<p>
+				Welcome, @@name@@.
+				This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> installation.
+			</p>
+			<div class="error" id="error">
+				Something strange and unknown has gone wrong.
+				Contact your administrator.
+			</div>
+			<section>
+				<h2>
+					Your CalDAV Address
+				</h2>
+				<div class="input single">
+					<input disabled="disabled" type="text" value="@@uri@@"/>
+				</div>
+			</section>
+			<section>
+				<h2>
+					Your E-mail Address
+				</h2>
+				<div class="error" id="setemail-error">
+					Do e-mail addresses look like that where you come from?
+				</div>
+				<div class="error" id="setemail-ok">
+					Your e-mail address has been reset.
+				</div>
 				<form action="@@page-email@@" method="post">
-					Your e-mail address is: 
-					<input value="@@email@@" name="@@valid-email@@" type="email"/>
-					<input value="Change E-mail" type="submit"/>
+					<div class="input double">
+						<input value="@@email@@" name="@@valid-email@@" type="email"/>
+						<input value="Change E-mail" type="submit"/>
+					</div>
 				</form>
-			</li>
-			<li>
+			</section>
+			<section>
+				<h2>
+					Your Password
+				</h2>
+				<div class="input single">
+					<input placeholder="Enter Password" type="password" onkeyup="updatehash(this);" />
+				</div>
+				<div>
+					<noscript>
+						You don't have JavaScript enabled, so you'll need to manually MD5 hash the string
+						<kbd>@@name@@:@@realm@@:<i>password</i></kbd>.
+					</noscript>
+					<script>
+						document.write('Your password will be hashed into the input box below.');
+					</script>
+					No passwords are stored on <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> servers.
+					You'll then be logged out.
+				</div>
+				<div class="error" id="setpass-error">
+					If you call that a password, I've a bridge to sell you.
+					Try again.
+				</div>
+				<div class="error" id="setpass-ok">
+					Your password has been reset.
+				</div>
 				<form action="@@page-pass@@" method="post">
-					Change password: 
-					<input type="text" onkeyup="updatehash(this);" />
-					<input name="@@valid-pass@@" id="password" type="text" readonly="readonly" />
-					<input value="Change Password" type="submit"/>
+					<div class="input double">
+						<input name="@@valid-pass@@" id="password" type="text" />
+						<input value="Change Password" type="submit"/>
+					</div>
 				</form>
-			</li>
-		</ul>
+			</section>
+		</article>
+		<footer>
+			&copy; 2015 <a href="http://kristaps.bsd.lv">Kristaps Dzonsons</a>
+		</footer>
 	</body>
 </html>
