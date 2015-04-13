@@ -48,7 +48,7 @@
 #error "CALDIR token not defined!"
 #endif
 
-int verbose = 1;
+int verbose = 0;
 
 const char *const pages[PAGE__MAX] = {
 	"index", /* PAGE_INDEX */
@@ -121,6 +121,16 @@ req2path(struct kreq *r, const char *caldir)
 		"/kcaldav.passwd", sizeof(st->prncplfile));
 	if (sz > sizeof(st->prncplfile)) {
 		kerrx("%s: path too long", st->prncplfile);
+		return(0);
+	}
+
+	/* Create our principal filename. */
+	sz = strlcpy(st->homefile, caldir, sizeof(st->homefile));
+	if ('/' == st->homefile[sz - 1])
+		st->homefile[sz - 1] = '\0';
+	sz = strlcat(st->homefile, "/home.html", sizeof(st->homefile));
+	if (sz > sizeof(st->homefile)) {
+		kerrx("%s: path too long", st->homefile);
 		return(0);
 	}
 
@@ -375,12 +385,10 @@ main(int argc, char *argv[])
 	 * credentials and we can do more high-level authentication.
 	 */
 	if (KAUTH_DIGEST != r.rawauth.type) {
-		kerrx("%s: HTTP digest required", r.fullpath);
 		http_error(&r, KHTTP_401);
 		goto out;
 	} else if (0 == r.rawauth.authorised) {
 		kerrx("%s: bad HTTP authorisation tokens", r.fullpath);
-		kerrx("%s: %s", r.fullpath, getenv("HTTP_AUTHORIZATION"));
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 

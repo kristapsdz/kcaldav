@@ -33,6 +33,7 @@ struct	state {
 	char		 path[PATH_MAX]; /* filesystem path */
 	char		 temp[PATH_MAX]; /* temporary path */
 	char		 dir[PATH_MAX]; /* "path" directory part */
+	char		 homefile[PATH_MAX]; 
 	char		 ctagfile[PATH_MAX]; /* ctag filename */
 	char		 noncefile[PATH_MAX]; /* nonce db filename */
 	char		 configfile[PATH_MAX]; /* config filename */

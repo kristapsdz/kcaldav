@@ -200,6 +200,9 @@ int
 fclose_unlock(const char *file, FILE *f, int fd)
 {
 
+	if (NULL == f)
+		return(1);
+
 	if (-1 == fclose(f)) {
 		kerr("%s: fclose", file);
 		close_unlock(file, fd);
