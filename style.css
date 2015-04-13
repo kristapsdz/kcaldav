@@ -1,6 +1,77 @@
-body		{ font-family: Times New Roman, serif; 
-		  font-size: 14pt; 
-		  padding-left: 10%;
-		  padding-right: 10%;
-		  color: #fed;
-		  background-color: #336699; }
+body, html				{ margin: 0; }
+body					{ font-family: Times New Roman, serif; 
+					  font-size: 14pt; 
+					  color: #eee;
+					  background-color: #555; }
+header					{ padding: 4ex 10%;
+					  border-bottom: thin solid #666;
+					  background-color: #d9411e; }
+footer					{ padding: 4ex 10%; 
+					  font-size: 12pt;
+					  color: #aaa; }
+a					{ text-decoration: none; 
+					  color: #fff; }
+footer a				{ color: #ddd; }
+article					{ width: 80%;
+					  margin-left: auto;
+					  margin-right: auto; }
+section div				{ margin-bottom: 1ex; }
+h1					{ font-size: 32pt; 
+					  font-weight: normal;
+				 	  color: #eee;
+					  text-shadow: 0px 0px 1px #dc944e; 
+				 	  margin: 0; }
+h1 a					{ color: #333; 
+					  text-shadow: 0px 0px 1px #111; }
+h2					{ font-size: 18pt; 
+					  margin-top: 1em; 
+					  margin-bottom: 0.25em; 
+					  font-weight: normal; }
+input					{ -webkit-appearance: none;
+					  margin: 0;
+					  background-color: #fff;
+					  border: none;
+					  padding: 6pt;
+					  height: 32pt;
+					  vertical-align: middle;
+					  font-size: 13pt;
+					  font-family: inherit;
+					  -moz-box-sizing: border-box;
+					  -webkit-box-sizing: border-box;
+					  box-sizing: border-box; }
+input[disabled]				{ background-color: #ccc; 
+					  color: #666; }
+div.input				{ width: 100%; }
+div.single input			{ width: 100%; 
+					  border-radius: 6pt; }
+div.double				{ display: flex;
+					  flex-flow: row wrap;
+					  white-space: nowrap;
+					  font-size: 0; }
+div.double input:first-child		{ border-bottom-left-radius: 6pt; 
+					  background-color: #ccc;
+					  flex: 1;
+					  color: #233;
+					  border-top-left-radius: 6pt;  }
+div.double input:last-child		{ width: 18ex;
+					  background-color: #e05151; 
+					  color: #222;
+					  border-bottom-right-radius: 6pt; 
+					  border-top-right-radius: 6pt;  }
+div.double input:last-child:active 	{ background-color: #fff; }
+kbd					{ font-size: 13pt; }
+.error					{ display: none; 
+					  font-weight: bold; 
+					  color: #ffd452; }
+.error:target				{ display: block; }
+@media only screen and (max-width: 768px), only screen and (max-device-width: 768px) {
+h1					{ font-size: 22pt; 
+					  text-align: center; }
+h2					{ font-size: 14pt; }
+body					{ font-size: 13pt; }
+input					{ font-size: 12pt; }
+header					{ padding: 2ex 2%; }
+footer					{ padding: 2ex 2%; 
+					  text-align: center; }
+article					{ width: 96%; }
+}

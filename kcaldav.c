@@ -24,6 +24,7 @@
 #endif
 
 #include <assert.h>
+#include <ctype.h>
 #include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
@@ -48,7 +49,7 @@
 #error "CALDIR token not defined!"
 #endif
 
-int verbose = 0;
+int verbose = 1;
 
 const char *const pages[PAGE__MAX] = {
 	"index", /* PAGE_INDEX */
@@ -252,6 +253,25 @@ req2path(struct kreq *r, const char *caldir)
 	return(1);
 }
 
+static int
+kvalid_hash(struct kpair *kp)
+{
+	size_t	 i;
+
+	if ( ! kvalid_stringne(kp))
+		return(0);
+	if (32 != kp->valsz)
+		return(0);
+	for (i = 0; i < kp->valsz; i++) {
+		if (isdigit((int)kp->val[i]))
+			continue;
+		if (isalpha((int)kp->val[i]) && islower((int)kp->val[i]))
+			continue;
+		return(0);
+	}
+	return(1);
+}
+
 /* 
  * Validator for iCalendar OR CalDav object.
  * This checks the initial string of the object: if it equals the
@@ -259,7 +279,7 @@ req2path(struct kreq *r, const char *caldir)
  * Otherwise, we try a CalDav parse.
  */
 static int
-kvalid(struct kpair *kp)
+kvalid_body(struct kpair *kp)
 {
 	struct ical	*ical;
 	struct caldav	*dav;
@@ -283,9 +303,9 @@ main(int argc, char *argv[])
 {
 	struct kreq	 r;
 	struct kvalid	 valid[VALID__MAX] = {
-		{ kvalid, valids[VALID_BODY] },
+		{ kvalid_body, valids[VALID_BODY] },
 		{ kvalid_email, valids[VALID_EMAIL] },
-		{ kvalid_stringne, valids[VALID_PASS] } }; 
+		{ kvalid_hash, valids[VALID_PASS] } }; 
 	struct state	*st;
 	int		 rc;
 	size_t		 reqsz;
@@ -385,6 +405,7 @@ main(int argc, char *argv[])
 	 * credentials and we can do more high-level authentication.
 	 */
 	if (KAUTH_DIGEST != r.rawauth.type) {
+		kerrx("%s: not HTTP authorised", r.fullpath);
 		http_error(&r, KHTTP_401);
 		goto out;
 	} else if (0 == r.rawauth.authorised) {
@@ -485,8 +506,10 @@ main(int argc, char *argv[])
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_401]);
 		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
-			"Digest realm=\"%s\" algorithm=MD5-sess "
-			"qop=\"auth,auth-int\" nonce=\"%s\" "
+			"Digest realm=\"%s\", "
+			"algorithm=\"MD5-sess\", "
+			"qop=\"auth,auth-int\", "
+			"nonce=\"%s\", "
 			"stale=true", KREALM, np);
 		khttp_body(&r);
 		goto out;
