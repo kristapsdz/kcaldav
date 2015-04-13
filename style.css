@@ -49,7 +49,6 @@ div.double				{ display: flex;
 					  white-space: nowrap;
 					  font-size: 0; }
 div.double input:first-child		{ border-bottom-left-radius: 6pt; 
-					  background-color: #ccc;
 					  flex: 1;
 					  color: #233;
 					  border-top-left-radius: 6pt;  }
@@ -64,6 +63,7 @@ kbd					{ font-size: 13pt; }
 					  font-weight: bold; 
 					  color: #ffd452; }
 .error:target				{ display: block; }
+.noshow					{ display: none; }
 @media only screen and (max-width: 768px), only screen and (max-device-width: 768px) {
 h1					{ font-size: 22pt; 
 					  text-align: center; }

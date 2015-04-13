@@ -49,7 +49,7 @@
 #error "CALDIR token not defined!"
 #endif
 
-int verbose = 1;
+int verbose = 0;
 
 const char *const pages[PAGE__MAX] = {
 	"index", /* PAGE_INDEX */
