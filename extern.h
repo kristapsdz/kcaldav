@@ -298,6 +298,8 @@ void		  caldav_free(struct caldav *);
 void		  ctag_get(const char *, char *);
 int		  ctag_update(const char *);
 
+int		  httpauth_nonce(const char *, const struct httpauth *, char **);
+
 int		  nonce_new(const char *, char **);
 enum nonceerr	  nonce_update(const char *, const char *, size_t);
 enum nonceerr	  nonce_validate(const char *, const char *, size_t);

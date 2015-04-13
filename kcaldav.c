@@ -48,10 +48,18 @@
 #error "CALDIR token not defined!"
 #endif
 
-int verbose = 0;
+int verbose = 1;
 
-static	const char *const pages[PAGE__MAX] = {
-	"index",
+const char *const pages[PAGE__MAX] = {
+	"index", /* PAGE_INDEX */
+	"setemail", /* PAGE_SETEMAIL */
+	"setpass", /* PAGE_SETPASS */
+};
+
+const char *const valids[VALID__MAX] = {
+	"", /* VALID_BODY */
+	"email", /* VALID_EMAIL */
+	"pass", /* VALID_PASS */
 };
 
 /*
@@ -243,35 +251,36 @@ req2path(struct kreq *r, const char *caldir)
 static int
 kvalid(struct kpair *kp)
 {
-	size_t	 	 sz;
-	const char	*tok = "BEGIN:VCALENDAR";
 	struct ical	*ical;
 	struct caldav	*dav;
 
-	if ( ! kvalid_stringne(kp))
-		return(0);
-	sz = strlen(tok);
-	if (0 == strncmp(kp->val, tok, sz)) {
+	switch (kp->ctypepos) {
+	case (KMIME_TEXT_CALENDAR):
 		ical = ical_parse(NULL, kp->val, kp->valsz);
 		ical_free(ical);
 		return(NULL != ical);
+	case (KMIME_TEXT_XML):
+		dav = caldav_parse(kp->val, kp->valsz);
+		caldav_free(dav);
+		return(NULL != dav);
+	default:
+		return(0);
 	}
-	dav = caldav_parse(kp->val, kp->valsz);
-	caldav_free(dav);
-	return(NULL != dav);
 }
 
 int
 main(int argc, char *argv[])
 {
 	struct kreq	 r;
-	struct kvalid	 valid = { kvalid, "" };
+	struct kvalid	 valid[VALID__MAX] = {
+		{ kvalid, valids[VALID_BODY] },
+		{ kvalid_email, valids[VALID_EMAIL] },
+		{ kvalid_stringne, valids[VALID_PASS] } }; 
 	struct state	*st;
 	int		 rc;
 	size_t		 reqsz;
 	const char	*caldir, *req;
 	char		*np;
-	enum nonceerr	 er;
 
 	setlinebuf(stderr);
 
@@ -305,7 +314,7 @@ main(int argc, char *argv[])
 #endif
 
 	if (KCGI_OK != khttp_parse
-		(&r, &valid, 1, 
+		(&r, valid, VALID__MAX, 
 		 pages, PAGE__MAX, PAGE_INDEX))
 		return(EXIT_FAILURE);
 
@@ -333,12 +342,12 @@ main(int argc, char *argv[])
 	 * This will be stored in the fieldmap (or fieldnmap) because we
 	 * pass the opaque request body into the kvalid function above.
 	 */
-	if (NULL != r.fieldmap && NULL != r.fieldmap[0]) {
-		req = r.fieldmap[0]->val;
-		reqsz = r.fieldmap[0]->valsz;
-	} else if (NULL != r.fieldnmap && NULL != r.fieldnmap[0]) {
-		req = r.fieldnmap[0]->val;
-		reqsz = r.fieldnmap[0]->valsz;
+	if (NULL != r.fieldmap && NULL != r.fieldmap[VALID_BODY]) {
+		req = r.fieldmap[VALID_BODY]->val;
+		reqsz = r.fieldmap[VALID_BODY]->valsz;
+	} else if (NULL != r.fieldnmap && NULL != r.fieldnmap[VALID_BODY]) {
+		req = r.fieldnmap[VALID_BODY]->val;
+		reqsz = r.fieldnmap[VALID_BODY]->valsz;
 	} else {
 		req = "";
 		reqsz = 0;
@@ -455,33 +464,16 @@ main(int argc, char *argv[])
 		st->path, st->auth.user);
 
 	/*
-	 * Now we see whether our nonce lookup fails.
-	 * This is still occuring over a read-only database, as an
-	 * adversary could be playing us by submitting replay attacks
-	 * (or random nonce values) over and over again in the hopes of
-	 * filling up our nonce database.
+	 * Invoice the steps required for checking the nonce database
+	 * without allowing an attacker to overwrite the database.
 	 */
-	er = nonce_validate(st->noncefile, 
-		st->auth.nonce, st->auth.count);
-
-	if (NONCE_ERR == er) {
-		kerrx("%s: nonce failure", st->noncefile);
+	if ((rc = httpauth_nonce(st->noncefile, &st->auth, &np)) < -1) {
 		http_error(&r, KHTTP_505);
 		goto out;
-	} else if (NONCE_NOTFOUND == er) {
-		/*
-		 * We don't have the nonce.
-		 * This means that the client has either used one of our
-		 * bogus initial nonces or is using one from a much
-		 * earlier session.
-		 * Tell them to retry with a new nonce.
-		 */
-		if ( ! nonce_new(st->noncefile, &np)) {
-			kerrx("%s: nonce failure", st->noncefile);
-			http_error(&r, KHTTP_505);
-			goto out;
-		}
-		kdbg("%s: sending new nonce: %s", st->path, np);
+	} else if (rc < 0) {
+		http_error(&r, KHTTP_403);
+		goto out;
+	} else if (0 == rc) {
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_401]);
 		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
@@ -490,49 +482,7 @@ main(int argc, char *argv[])
 			"stale=true", KREALM, np);
 		khttp_body(&r);
 		goto out;
-	} else if (NONCE_REPLAY == er) {
-		kerrx("%s: REPLAY ATTACK: %s\n",
-			st->noncefile, st->auth.user);
-		http_error(&r, KHTTP_403);
-		goto out;
-	} 
-
-	kdbg("%s: session nonce pre-authorised: %s", 
-		st->path, st->auth.user);
-
-	/*
-	 * Now we actually update our nonce file.
-	 * We only get here if the nonce value exists and is fresh.
-	 */
-	er = nonce_update(st->noncefile,
-		st->auth.nonce, st->auth.count);
-
-	if (NONCE_ERR == er) {
-		kerrx("%s: nonce failure", st->noncefile);
-		http_error(&r, KHTTP_505);
-		goto out;
-	} else if (NONCE_NOTFOUND == er) {
-		kdbg("%s: nonce update not found?", st->noncefile);
-		if ( ! nonce_new(st->noncefile, &np)) {
-			kerrx("%s: nonce failure", st->noncefile);
-			http_error(&r, KHTTP_505);
-			goto out;
-		}
-		kdbg("%s: sending new nonce: %s", st->path, np);
-		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_401]);
-		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
-			"Digest realm=\"%s\" algorithm=MD5-sess "
-			"qop=\"auth,auth-int\" nonce=\"%s\" "
-			"stale=true", KREALM, np);
-		khttp_body(&r);
-		goto out;
-	} else if (NONCE_REPLAY == er) {
-		kerrx("%s: REPLAY ATTACK: %s\n",
-			st->noncefile, st->auth.user);
-		http_error(&r, KHTTP_403);
-		goto out;
-	} 
+	}
 
 	kdbg("%s: session nonce authorised: %s", 
 		st->path, st->auth.user);
@@ -575,7 +525,7 @@ main(int argc, char *argv[])
 		break;
 	case (KMETHOD_GET):
 		if (KMIME_TEXT_HTML == r.mime)
-			method_dynamic(&r);
+			method_dynamic_get(&r);
 		else
 			method_get(&r);
 		break;
@@ -585,6 +535,12 @@ main(int argc, char *argv[])
 	case (KMETHOD_DELETE):
 		method_delete(&r);
 		break;
+	case (KMETHOD_POST):
+		if (KMIME_TEXT_HTML == r.mime) {
+			method_dynamic_post(&r);
+			break;
+		}
+		/* FALLTHROUGH */
 	default:
 		kerrx("%s: ignoring method %s",
 			st->path, kmethods[r.method]);

@@ -40,16 +40,22 @@ req2ical(struct kreq *r)
 {
 	struct state	*st = r->arg;
 
-	if (NULL == r->fieldmap[0]) {
+	if (NULL == r->fieldmap[VALID_BODY]) {
 		kerrx("%s: failed parse iCalendar "
 			"in client request", st->path);
 		http_error(r, KHTTP_400);
 		return(NULL);
 	} 
+	
+	if (KMIME_TEXT_CALENDAR != r->fieldmap[VALID_BODY]->ctypepos) {
+		kerrx("%s: not iCalendar MIME", st->path);
+		http_error(r, KHTTP_415);
+		return(NULL);
+	}
 
 	return(ical_parse(NULL, 
-		r->fieldmap[0]->val, 
-		r->fieldmap[0]->valsz));
+		r->fieldmap[VALID_BODY]->val, 
+		r->fieldmap[VALID_BODY]->valsz));
 }
 
 /*

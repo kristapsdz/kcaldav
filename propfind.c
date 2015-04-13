@@ -47,16 +47,22 @@ req2caldav(struct kreq *r)
 {
 	struct state	*st = r->arg;
 
-	if (NULL == r->fieldmap[0]) {
+	if (NULL == r->fieldmap[VALID_BODY]) {
 		kerrx("%s: failed parse CalDAV XML "
 			"in client request", st->path);
 		http_error(r, KHTTP_400);
 		return(NULL);
 	} 
 
+	if (KMIME_TEXT_XML != r->fieldmap[VALID_BODY]->ctypepos) {
+		kerrx("%s: not CalDAV MIME", st->path);
+		http_error(r, KHTTP_415);
+		return(NULL);
+	}
+
 	return(caldav_parse
-		(r->fieldmap[0]->val, 
-		 r->fieldmap[0]->valsz));
+		(r->fieldmap[VALID_BODY]->val, 
+		 r->fieldmap[VALID_BODY]->valsz));
 }
 
 /*
