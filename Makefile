@@ -84,6 +84,7 @@ ALLSRCS		 = Makefile \
 		   err.c \
 		   extern.h \
 		   get.c \
+		   httpauth.c \
 		   ical.c \
 		   kcaldav.c \
 		   kcaldav.h \
@@ -108,6 +109,7 @@ OBJS		 = buf.o \
 		   config.o \
 		   ctag.o \
 		   err.o \
+		   httpauth.o \
 		   ical.o \
 		   md5.o \
 		   nonce.o \
