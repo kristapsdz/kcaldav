@@ -63,7 +63,16 @@ enum	xml {
 
 enum	page {
 	PAGE_INDEX = 0,
+	PAGE_SETEMAIL,
+	PAGE_SETPASS,
 	PAGE__MAX
+};
+
+enum	valid {
+	VALID_BODY = 0,
+	VALID_EMAIL,
+	VALID_PASS,
+	VALID__MAX
 };
 
 __BEGIN_DECLS
@@ -101,14 +110,17 @@ int	 http_ical_putc(int, void *);
 void	 http_error(struct kreq *, enum khttp);
 
 void	 method_delete(struct kreq *);
-void	 method_dynamic(struct kreq *);
+void	 method_dynamic_get(struct kreq *);
+void	 method_dynamic_post(struct kreq *);
 void	 method_get(struct kreq *);
 void	 method_options(struct kreq *);
 void	 method_propfind(struct kreq *);
 void	 method_put(struct kreq *);
 void	 method_report(struct kreq *);
 
-const char *const *xmls;
+extern const char *const pages[PAGE__MAX];
+extern const char *const xmls[XML__MAX];
+extern const char *const valids[VALID__MAX];
 
 __END_DECLS
 

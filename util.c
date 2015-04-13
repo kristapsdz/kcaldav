@@ -32,7 +32,7 @@
 #include "extern.h"
 #include "kcaldav.h"
 
-static	const char *const __xmls[XML__MAX] = {
+const char *const xmls[XML__MAX] = {
 	"C:calendar", /* XML_CALDAV_CALENDAR */
 	"C:comp", /* XML_CALDAV_COMP */
 	"C:opaque", /* XML_CALDAV_OPAQUE */
@@ -50,8 +50,6 @@ static	const char *const __xmls[XML__MAX] = {
 	"D:unbind", /* XML_DAV_UNBIND */
 	"D:write-content", /* XML_DAV_WRITE_CONTENT */
 };
-
-const char *const *xmls = __xmls;
 
 int
 xml_ical_putc(int c, void *arg)
