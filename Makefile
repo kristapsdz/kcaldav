@@ -1,11 +1,16 @@
 .SUFFIXES: .5 .8 .5.html .8.html .1 .1.html
 
-# You'll absolutely want to change this. 
-# It is the directory prepended to all calendar requests.
-# It should not end in a trailing slash.
+# This is the directory prepended to all calendar requests.
+# It is relative to the CGI process's file-system root.
 CALDIR		 = /Users/kristaps/Sites
+# This is the install directory of the CGI script.
 CGIPREFIX	 = /Users/kristaps/Sites
+# This is the install directory of static (HTML, CSS, JS) files.
+HTDOCSPREFIX	 = /Users/kristaps/Sites
+# This is the install root for system programs and manpages.
 PREFIX		 = /usr/local
+# This is the URI of the static (HTML, CSS, JS) files.
+HTDOCSURI	 = /~kristaps
 
 # Add any special dependency directories here.
 # The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
@@ -30,7 +35,8 @@ BINLDFLAGS	 = -L/usr/local/lib
 #CPPFLAGS	+= -I/usr/local/include 
 #BINLDFLAGS	 = -L/usr/local/lib
 
-# You probably don't want to change anything after this.
+# You probably don't want to change anything after this point.
+
 BINLIBS		 = -lkcgi -lkcgixml -lkcgihtml -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
@@ -143,6 +149,7 @@ VERSIONS	 = version_0_0_4.xml \
 VERSION		 = 0.0.12
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
+CFLAGS		+= -DHTDOCSURI=\"$(HTDOCSURI)\"
 
 all: $(BINS) kcaldav.8 kcaldav.passwd.1
 
@@ -159,8 +166,10 @@ config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 
 installcgi: all
 	mkdir -p $(CGIPREFIX)
+	mkdir -p $(HTDOCSPREFIX)
 	install -m 0555 kcaldav $(CGIPREFIX)
 	install -m 0555 kcaldav $(CGIPREFIX)/kcaldav.cgi
+	install -m 0444 md5.js home.html style.css $(HTDOCSPREFIX)
 
 install: all
 	mkdir -p $(PREFIX)/bin
