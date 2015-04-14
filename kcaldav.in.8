@@ -43,8 +43,8 @@ password file and a
 .Xr kcaldav.conf 5
 configuration file for each calendar collection.
 .Po
-If your calendar root is not writable by the CGI process, you'll also
-need to create an empty nonce database
+If your calendar root directory is not writable by the CGI process,
+you'll also need to create an empty nonce database
 .Pa kcaldav.nonce.db
 read-writable by the CGI process.
 .Pc
@@ -80,7 +80,7 @@ and some calendars.
 .Pa /var/www@CALDIR@/kristaps/vevent-002.ics
 .Ed
 .Pp
-You can then point your browser to the following:
+You can then point your CalDAV client to the following:
 .Pp
 .D1 http://localhost/cgi-bin/kcaldav/kristaps/
 .Pp
@@ -135,6 +135,20 @@ Then, create and modify principals as follows:
 .Dl % kcaldav.passwd -C -u <user> -f /tmp
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
+.Ss Web Calendar Administration
+.Nm
+has built-in support for web-based administration by logged-in
+principals.
+The functionality depends on the CGI process's access to the
+.Xr kcaldav.passwd 5
+database.
+Principals can access the server root,
+.Pp
+.D1 http://localhost/cgi-bin/kcaldav/
+.Pp
+in our above example, to see their configuration.
+If the database is writable by the web server process, principals can
+change their password hashes and other information.
 .Sh IMPLEMENTATION NOTES
 The
 .Nm

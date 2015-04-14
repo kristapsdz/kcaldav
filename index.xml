@@ -48,8 +48,11 @@
 					<li>compile with <code>make</code>;</li>
 					<li><code>make install</code> the manpages and <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>,
 						setting <code>PREFIX=/usr/local</code> to the root; and</li>
-					<li><code>make installcgi</code> the CGI script, setting <code>CGIPREFIX=/var/www/cgi-bin</code> to the
-						CGI script target.</li>
+					<li><code>make installcgi</code> the CGI script and other files, setting
+						<code>CALDIR</code> to the absolute calendar root within the CGI script's file-system,
+						<code>CGIPREFIX</code> to the CGI script install target,
+						<code>HTDOCSPREFIX</code> to the web server's static files install target, and
+						<code>HTDOCSURI</code> to the static files' online directory.</li>
 				</ol>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
