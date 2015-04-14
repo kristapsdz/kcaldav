@@ -21,6 +21,7 @@
 #include <sys/param.h>
 
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
@@ -40,6 +41,46 @@
 #include "md5.h"
 
 int verbose = 0;
+
+/* Code taken directly from mkdir(1).
+
+ * mkpath -- create directories.
+ *	path     - path
+ */
+static int
+mkpath(char *path, mode_t mode)
+{
+	struct stat sb;
+	char *slash;
+	int done = 0;
+
+	slash = path;
+
+	while (!done) {
+		slash += strspn(slash, "/");
+		slash += strcspn(slash, "/");
+
+		done = (*slash == '\0');
+		*slash = '\0';
+
+		if (stat(path, &sb)) {
+			if (errno != ENOENT || (mkdir(path, mode) &&
+			    errno != EEXIST)) {
+				kerr("%s: stat", path);
+				return (-1);
+			}
+		} else if (!S_ISDIR(sb.st_mode)) {
+			errno = ENOTDIR;
+			kerr("%s: mkpath", path);
+			return (-1);
+		}
+
+		*slash = '/';
+	}
+
+	return (0);
+}
+
 
 /*
  * Get a new password from the operator.
@@ -173,8 +214,8 @@ pentrynew(struct pentry *p, const char *user,
 int
 main(int argc, char *argv[])
 {
-	int	 	 c, fd, create, rc, passwd;
-	char	 	 file[PATH_MAX], 
+	int	 	 c, fd, create, rc, passwd, mkdir;
+	char	 	 file[PATH_MAX], udir[PATH_MAX],
 			 digestnew[MD5_DIGEST_LENGTH * 2 + 1],
 			 digestrep[MD5_DIGEST_LENGTH * 2 + 1],
 			 digestold[MD5_DIGEST_LENGTH * 2 + 1];
@@ -219,11 +260,13 @@ main(int argc, char *argv[])
 		kerrx("%s: default path too long", file);
 		return(EXIT_FAILURE);
 	} 
+	strlcpy(udir, CALDIR, sizeof(udir));
 	
 	f = NULL;
 	realm = KREALM;
 	create = 0;
 	passwd = 1;
+	mkdir = 0;
 	user = NULL;
 	els = NULL;
 	elsz = 0;
@@ -233,7 +276,7 @@ main(int argc, char *argv[])
 	verbose = 0;
 	altuser = NULL;
 
-	while (-1 != (c = getopt(argc, argv, "Cd:e:f:nu:v"))) 
+	while (-1 != (c = getopt(argc, argv, "Cd:e:f:mnu:v"))) 
 		switch (c) {
 		case ('C'):
 			create = passwd = 1;
@@ -245,11 +288,15 @@ main(int argc, char *argv[])
 			email = optarg;
 			break;
 		case ('f'):
+			strlcpy(udir, optarg, sizeof(udir));
 			sz = strlcpy(file, optarg, sizeof(file));
 			if (sz < sizeof(file))
 				break;
 			fprintf(stderr, "%s: path too long\n", file);
 			goto usage;
+		case ('m'):
+			mkdir = 1;
+			break;
 		case ('n'):
 			passwd = 0;
 			break;
@@ -269,8 +316,12 @@ main(int argc, char *argv[])
 	if ('\0' == file[0]) {
 		fprintf(stderr, "empty path!?\n");
 		goto out;
-	} else if ('/' == file[sz - 1])
+	} 
+	if ('/' == file[sz - 1])
 		file[sz - 1] = '\0';
+	if ('/' == udir[sz - 1])
+		udir[sz - 1] = '\0';
+
 	sz = strlcat(file, "/kcaldav.passwd", sizeof(file));
 	if (sz >= sizeof(file)) {
 		kerrx("%s: path too long", file);
@@ -471,8 +522,62 @@ main(int argc, char *argv[])
 		if ( ! prncpl_pentry_write(fd, file, &els[i])) {
 			fprintf(stderr, "%s: WARNING: FILE IN "
 				"INCONSISTENT STATE\n", file);
-			break;
+			goto out;
 		}
+
+	/*
+	 * If we're going to create the new collection directory, do so
+	 * now, inheriting the mode of the parent.
+	 */
+	if (create && mkdir) {
+		if (-1 == stat(udir, &st)) {
+			kerr("%s: stat", udir);
+			goto out;
+		} else if (NULL == homedir) {
+			strlcat(udir, "/", sizeof(udir));
+			strlcat(udir, user, sizeof(udir));
+			sz = strlcat(udir, "/", sizeof(udir));
+		} else
+			sz = strlcat(udir, homedir, sizeof(udir));
+
+		/* New directory inherits mode from calendar root. */
+
+		if (sz >= sizeof(udir)) {
+			kerrx("%s: path too long", udir);
+			goto out;
+		} else if (NULL == (cp = strdup(udir))) {
+			kerr(NULL);
+			goto out;
+		} else if (-1 == mkpath(cp, st.st_mode)) {
+			kerr("%s: chmod", cp);
+			free(cp);
+			goto out;
+		} else if (-1 == chmod(udir, st.st_mode)) {
+			kerr("%s: chmod", cp);
+			free(cp);
+			goto out;
+		}
+		free(cp);
+
+		/* 
+		 * Create a simple kcaldav.conf(5) file in the new
+		 * collection directory.
+		 * We already have the trailing slash in the name.
+		 */
+		sz = strlcat(udir, "kcaldav.conf", sizeof(udir));
+		if (sz >= sizeof(udir)) {
+			kerrx("%s: path too long", udir);
+			goto out;
+		} else if (NULL == (f = fopen(udir, "w"))) {
+			kerr("%s: fopen", udir);
+			goto out;
+		}
+		fprintf(f, "displayname = %s's calendar\n", user);
+		fprintf(f, "privilege = %s ALL\n", user);
+		fclose(f);
+	}
+
+	rc = 1;
 out:
 	free(user);
 	prncpl_pentry_freelist(els, elsz);
@@ -482,7 +587,7 @@ out:
 	return(rc ? EXIT_SUCCESS : EXIT_FAILURE);
 usage:
 	fprintf(stderr, "usage: %s "
-		"[-Cn] "
+		"[-Cmn] "
 		"[-d homedir] "
 		"[-e email] "
 		"[-f file] "
