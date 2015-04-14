@@ -333,6 +333,8 @@ prncpl_pentry_check(const struct pentry *p)
 		kerrx("bad MD5 hex string");
 	else if ('/' != p->homedir[0])
 		kerrx("homedir not absolute");
+	else if ('/' != p->homedir[strlen(p->homedir) - 1])
+		kerrx("homedir without trailing slash");
 	else if (strstr(p->homedir, "../") || strstr(p->homedir, "/.."))
 		kerrx("path traversed in homedir");
 	else
