@@ -19,12 +19,12 @@
 
 # Use this for installing into a single directory.
 # I use this on my Mac OS X laptop (no chroot(2)).
-CALDIR		 = /Users/kristaps/Sites
-HTDOCS	 	 = /~kristaps
-CALPREFIX	 = /Users/kristaps/Sites
-CGIPREFIX	 = /Users/kristaps/Sites
-HTDOCSPREFIX	 = /Users/kristaps/Sites
-PREFIX		 = /usr/local
+#CALDIR		 = /Users/kristaps/Sites
+#HTDOCS	 	 = /~kristaps
+#CALPREFIX	 = /Users/kristaps/Sites
+#CGIPREFIX	 = /Users/kristaps/Sites
+#HTDOCSPREFIX	 = /Users/kristaps/Sites
+#PREFIX		 = /usr/local
 
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
@@ -41,16 +41,16 @@ PREFIX		 = /usr/local
 # Most web servers provide this; others (e.g., OpenBSD httpd(8)) don't.
 
 #### For OpenBSD:
-#LIBS		 = -lexpat -lutil 
-#STATIC		 = -static
-#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-#BINLDFLAGS	 = -L/usr/local/lib
+LIBS		 = -lexpat -lutil 
+STATIC		 = -static
+CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
+BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-LIBS		 = -lexpat 
-STATIC		 = 
-CPPFLAGS	+= -I/usr/local/include 
-BINLDFLAGS	 = -L/usr/local/lib
+#LIBS		 = -lexpat 
+#STATIC		 = 
+#CPPFLAGS	+= -I/usr/local/include 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
@@ -169,7 +169,7 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_11.xml \
 		   version_0_0_12.xml \
 		   version_0_0_13.xml
-VERSION		 = 0.0.12
+VERSION		 = 0.0.13
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
