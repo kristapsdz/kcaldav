@@ -47,8 +47,9 @@
 						<code>CALDIR</code> to the calendar root within CGI script's file-system,
 						<code>LIBS</code> and <code>STATIC</code> (per-system defaults are noted),
 						<code>CGIPREFIX</code> to the CGI script install target,
+						<code>CALPREFIX</code> to the CGI's data file install target,
 						<code>HTDOCSPREFIX</code> to the web server's static files install target, and
-						<code>HTDOCSURI</code> to the static files' URI.
+						<code>HTDOCS</code> to the static files' URI.
 						All of these are documented and given sample values.
 					</li>
 					<li>

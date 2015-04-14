@@ -316,6 +316,12 @@ main(int argc, char *argv[])
 	const char	*caldir, *req;
 	char		*np;
 
+	/* 
+	 * This prevents spurrious line breaks from occuring in our
+	 * debug or error log output.
+	 */
+	setlinebuf(stderr);
+
 	st = NULL;
 	caldir = NULL;
 
@@ -538,10 +544,6 @@ main(int argc, char *argv[])
 			method_dynamic_post(&r);
 			goto out;
 		}
-		kerrx("%s: ignoring method %s",
-			st->path, kmethods[r.method]);
-		http_error(&r, KHTTP_405);
-		goto out;
 	}
 
 	/* 
