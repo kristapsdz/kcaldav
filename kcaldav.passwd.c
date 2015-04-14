@@ -283,6 +283,14 @@ main(int argc, char *argv[])
 			break;
 		case ('d'):
 			homedir = optarg;
+			if (0 == (sz = strlen(homedir))) {
+				fprintf(stderr, "empty homedir\n");
+				goto usage;
+			} else if ('/' != homedir[sz - 1]) {
+				fprintf(stderr, "homedir without "
+					"trailing slash\n");
+				goto usage;
+			}
 			break;
 		case ('e'):
 			email = optarg;
