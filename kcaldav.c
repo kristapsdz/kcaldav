@@ -518,6 +518,20 @@ main(int argc, char *argv[])
 	kdbg("%s: session nonce authorised: %s", 
 		st->path, st->auth.user);
 
+	/*
+	 * If we're looking for HTML pages, then no need to load the
+	 * configuration file, as we won't use it.
+	 */
+	if (KMIME_TEXT_HTML == r.mime) {
+		if (KMETHOD_GET == r.method) {
+			method_dynamic_get(&r);
+			goto out;
+		} else if (KMETHOD_POST == r.method) {
+			method_dynamic_post(&r);
+			goto out;
+		}
+	}
+
 	/* 
 	 * We require a configuration file in the directory where we've
 	 * been requested to introspect.
@@ -555,10 +569,7 @@ main(int argc, char *argv[])
 		method_propfind(&r);
 		break;
 	case (KMETHOD_GET):
-		if (KMIME_TEXT_HTML == r.mime)
-			method_dynamic_get(&r);
-		else
-			method_get(&r);
+		method_get(&r);
 		break;
 	case (KMETHOD_REPORT):
 		method_report(&r);
@@ -566,12 +577,6 @@ main(int argc, char *argv[])
 	case (KMETHOD_DELETE):
 		method_delete(&r);
 		break;
-	case (KMETHOD_POST):
-		if (KMIME_TEXT_HTML == r.mime) {
-			method_dynamic_post(&r);
-			break;
-		}
-		/* FALLTHROUGH */
 	default:
 		kerrx("%s: ignoring method %s",
 			st->path, kmethods[r.method]);

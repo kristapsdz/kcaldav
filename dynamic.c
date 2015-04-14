@@ -87,16 +87,14 @@ dotemplate(size_t key, void *arg)
 		khttp_puts(r, st->prncpl->email);
 		break;
 	case (TEMPL_HTURI):
-		khttp_puts(r, HTDOCSURI);
+		khttp_puts(r, HTDOCS);
 		break;
 	case (TEMPL_NAME):
 		khttp_puts(r, st->prncpl->name);
 		break;
 	case (TEMPL_URI):
-		if (KSCHEME__MAX != r->scheme) {
-			khttp_puts(r, kschemes[r->scheme]);
-			khttp_puts(r, "://");
-		}
+		khttp_puts(r, kschemes[r->scheme]);
+		khttp_puts(r, "://");
 		khttp_puts(r, r->host);
 		khttp_puts(r, r->pname);
 		khttp_puts(r, st->prncpl->homedir);
@@ -165,7 +163,8 @@ dosetpass(struct kreq *r)
 			"%s/%s.%s", r->pname, 
 			pages[PAGE_INDEX], ksuffixes[r->mime]);
 
-	url = kutil_urlabs(r->scheme, r->host, r->port, page);
+	kasprintf(&url, "%s://%s%s", 
+		kschemes[r->scheme], r->host, page);
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_303]);
 	khttp_head(r, kresps[KRESP_LOCATION], "%s", url);
@@ -204,10 +203,12 @@ dosetemail(struct kreq *r)
 			"%s/%s.%s", r->pname, 
 			pages[PAGE_INDEX], ksuffixes[r->mime]);
 
-	url = kutil_urlabs(r->scheme, r->host, r->port, page);
+	kasprintf(&url, "%s://%s%s", 
+		kschemes[r->scheme], r->host, page);
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_303]);
 	khttp_head(r, kresps[KRESP_LOCATION], "%s", url);
+	kinfo("redirect to -> %s", url);
 	khttp_body(r);
 	free(url);
 }
