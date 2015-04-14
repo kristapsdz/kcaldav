@@ -20,51 +20,56 @@
 		<article>
 			<section>
 				<p>
-					<span class="nm">kcaldav</span> is a simple and safe CalDav server depending only on <a
-						href="http://kristaps.bsd.lv/kcgi">kcgi</a> and <a
-						href="http://expat.sourceforge.net/">libexpat</a>.
-					It implements the minimal subset of a large number of standards, including <a
-						href="https://tools.ietf.org/html/rfc5545">iCalendar</a> (RFC 5545), <a
-						href="https://tools.ietf.org/html/rfc3744">CalDav</a> (3744), <a
-						href="https://tools.ietf.org/html/rfc2616">HTTP</a> (2616), and numerous extensions as detailed in <a
-						href="kcaldav.8.html">kcaldav(8)</a>.
+					<span class="nm">kcaldav</span> is a simple and safe (and minimal!) CalDav server depending only on <a
+						href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a> and <a
+						href="http://expat.sourceforge.net/">expat(3)</a>.
 					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
-					It's known to work over <strong>simple</strong> (no <code>REPORT</code> filtering yet!) setups with <a
-						href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>,
-					Mac OS X iCal, and iOS7 (iPhone4) clients.
+					It's known to work for <strong>simple</strong> setups with <a
+						href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>, Mac OS X iCal,
+					and iOS7 (iPhone4) clients.
 					It compiles and runs on <a href="http://www.openbsd.org">OpenBSD</a>, Linux, and Mac OS X.
-					It is <strong>not</strong> production ready, so use at your own risk:
+					Setting up <span class="nm">kcaldav</span> is necessarily difficult because each system will have
+					different requirements (user directories, full-system, virtual hosts, etc.).
+					The <span class="file">Makefile</span> contains a number of examples.
+					To begin within, download the <a href="snapshots/kcaldav.tgz">sources</a> and verify the <a
+						href="snapshots/kcaldav.tgz.sha512">fingerprint</a>.
 				</p>
 				<ol>
-					<li>install dependencies <a href="http://kristaps.bsd.lv/kcgi">kcgi</a>, <a
-							href="http://expat.sourceforge.net">expat</a> (usually part of the operating system),
-						and <a href="http://libbsd.freedesktop.org/wiki/">libbsd</a> if using
-						Linux;</li>
-					<li>download <a href="snapshots/kcaldav.tgz">sources</a>, unpack, and <a
-							href="snapshots/kcaldav.tgz.sha512">verify</a>;</li>
-					<li>optionally adjust the <span class="file">Makefile</span>'s <code>CALDIR</code> (the default calendar
-						directory), <code>LIBS</code>, or <code>STATIC</code> (reasonable operating system defaults are
-						noted);</li>
-					<li>compile with <code>make</code>;</li>
-					<li><code>make install</code> the manpages and <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>,
-						setting <code>PREFIX=/usr/local</code> to the root; and</li>
-					<li><code>make installcgi</code> the CGI script and other files, setting
-						<code>CALDIR</code> to the absolute calendar root within the CGI script's file-system,
+					<li>
+						Install dependencies <a href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a>, <a
+							href="http://expat.sourceforge.net">expat(3)</a> (usually part of the operating system),
+						and <a href="http://libbsd.freedesktop.org/wiki/">bsd(3)</a> if using Linux.
+						<span class="nm">kcaldav</span> and <a href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a> are often
+						developed in tandem, so make sure you're up to date with both.
+					</li>
+					<li>
+						Configure for your installation by editing the <span class="file">Makefile</span>:
+						<code>CALDIR</code> to the calendar root within CGI script's file-system,
+						<code>LIBS</code> and <code>STATIC</code> (per-system defaults are noted),
 						<code>CGIPREFIX</code> to the CGI script install target,
 						<code>HTDOCSPREFIX</code> to the web server's static files install target, and
-						<code>HTDOCSURI</code> to the static files' online directory.</li>
+						<code>HTDOCSURI</code> to the static files' URI.
+						All of these are documented and given sample values.
+					</li>
+					<li>
+						Compile with <code>make</code>, install manpages and administration tools with
+						<code>make install</code>, then install the CGI script and its data files with
+						<code>make installcgi</code>.
+					</li>
 				</ol>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
 					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a>, <a
 						href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>, and <a
 						href="kcaldav.passwd.5.html">kcaldav.passwd(5)</a>.
-					If it lacks information or clarity, that's a bug.
+					If these manpages lack information or clarity, that's a bug.
+					For bug-reports and comments on usage (please let me know!), contact <a
+						href="http://kristaps.bsd.lv">Kristaps</a>.
 				</p>
 			</section>
 			<section>
-				<h2>Release History</h2>
-				<nav data-sblg-nav="1" data-sblg-navsz="5" data-sblg-navcontent="1">
+				<h2>Recent Release History</h2>
+				<nav data-sblg-nav="1" data-sblg-navsz="3" data-sblg-navcontent="1">
 					<time datetime="${sblg-date}">${sblg-date}</time>
 					(version <span class="version">${sblg-title}</span>):
 					${sblg-aside}

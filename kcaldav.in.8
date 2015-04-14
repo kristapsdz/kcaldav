@@ -86,12 +86,45 @@ You can then point your CalDAV client to the following:
 .Pp
 Note the trailing slash, otherwise the request is interpreted as for a
 resource (file), not a collection (directory).
+.Pp
+A simpler setup might occur all in one directory, such as fully
+installing into the user directory,
+.Pa public_html ,
+of a given user.
+Here I assume that the directory has CGI-execute permissions set and the
+CGI script
+.Pa kcaldav.cgi
+and its data files installed into the
+.Ar caldir ,
+.Pa /home/foo/public_html .
+Note that the nonce file still must be manually created.
+.Bd -unfilled -offset indent
+.Pa /home/foo/public_html/kcaldav.cgi
+.Pa /home/foo/public_html/kcaldav.passwd
+.Pa /home/foo/public_html/kcaldav.nonce.db
+.Pa /home/foo/public_html/kcaldav.conf
+.Pa /home/foo/public_html/vevent-001.ics
+.Pa /home/foo/public_html/vevent-002.ics
+.Ed
+.Pp
+The user can then access her calenders on
+.Pp
+.D1 http://localhost/~foo/kcaldav.cgi/
+.Pp
+In either case, please use HTTPS!
+Although
+.Nm
+uses HTTP authentication to the fullest, that still doesn't protect you
+from snooping.
 .Ss System-Wide Calendar Administration
 Let
 .Ar caldir
-be mapped to
-.Pa /tmp ,
-which is read-writable by the web server running as user www.
+be
+.Pa /caldav ,
+a directory within the CGI script's
+.Xr chroot 2
+file-system,
+which is read-writable by the CGI script running as user www.
 Let the dummy user kcaldav be the owner of kcaldav files.
 First, initialise
 .Xr kcaldav.passwd 5
@@ -99,40 +132,40 @@ to the appropriate permissions, then make
 .Xr kcaldav.passwd 1
 set-user-ID for modifying the file.
 .Bd -literal -offset indent
-# install -m 0640 -o kcaldav -g www /dev/null /tmp/kcaldav.passwd
+# install -m 0640 -o kcaldav -g www /dev/null /caldav/kcaldav.passwd
 # chown kcaldav @PREFIX@/bin/kcaldav.passwd
 # chmod u+s @PREFIX@/bin/kcaldav.passwd
 .Ed
 .Pp
 Create user principals as follows:
 .Bd -literal -offset indent
-# kcaldav.passwd -f /tmp -C -u <user1>
-# kcaldav.passwd -f /tmp -C -u <user2>
+# kcaldav.passwd -f /caldav -C -u <user1>
+# kcaldav.passwd -f /caldav -C -u <user2>
 # ...
 .Ed
 .Pp
 Now any local user can modify her principal's password without
 administrator intervention.
 .Pp
-.Dl user1% kcaldav.passwd -f /tmp
+.Dl user1% kcaldav.passwd -f /caldav
 .Ss Local Calendar Administration
 Let
 .Ar caldir
-be mapped to
-.Pa /tmp ,
-which is readable by the web server running as user www
-and can read-writable by the logged-in user.
+be
+.Pa /home/foo/caldav ,
+which is readable by the web server running as user www and
+read-writable by the logged-in user.
 First, create the
 .Xr kcaldav.passwd 5
 as any user, then add principals as necessary.
 .Bd -literal -offset indent
-% install -m 640 /dev/null /tmp/kcaldav.passwd
-# chgrp www /tmp/kcaldav.passwd
+% install -m 640 /dev/null /home/foo/caldav/kcaldav.passwd
+# chgrp www /home/foo/caldav/kcaldav.passwd
 .Ed
 .Pp
 Then, create and modify principals as follows:
 .Pp
-.Dl % kcaldav.passwd -C -u <user> -f /tmp
+.Dl % kcaldav.passwd -C -u <user> -f /home/foo/caldav
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .Ss Web Calendar Administration
@@ -141,14 +174,14 @@ has built-in support for web-based administration by logged-in
 principals.
 The functionality depends on the CGI process's access to the
 .Xr kcaldav.passwd 5
-database.
+database: if the database is writable, principals can change their
+e-mail addresses and passwords.
+Otherwise, they can only view some limited information.
 Principals can access the server root,
 .Pp
 .D1 http://localhost/cgi-bin/kcaldav/
 .Pp
 in our above example, to see their configuration.
-If the database is writable by the web server process, principals can
-change their password hashes and other information.
 .Sh IMPLEMENTATION NOTES
 The
 .Nm

@@ -2,34 +2,55 @@
 
 # This is the directory prepended to all calendar requests.
 # It is relative to the CGI process's file-system root.
-CALDIR		 = /caldav
-# This is the URI of the static (HTML, CSS, JS) files.
-HTDOCS	 	 = /kcaldav
+# It contains top-level processing information (like the principal
+# password file) and miscellaneous data files to be served.
+# An example follows:
+#CALDIR		 = /caldav
+# This is the URI of the static (CSS, JS) files.
+#HTDOCS	 	 = /
 # This is the file-system directory of CALDIR.
-CALPREFIX	 = /var/www/caldav
-# This is the install directory of the CGI script.
-CGIPREFIX	 = /var/www/cgi-bin
+#CALPREFIX	 = /var/www/caldav
+# This is the file-system directory of the CGI script.
+#CGIPREFIX	 = /var/www/cgi-bin/caldav
 # This is the file-system directory of HTDOCS.
-HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
-# This is the install root for system programs and manpages.
+#HTDOCSPREFIX	 = /var/www/htdocs
+# This is the file-system root for system programs and manpages.
+#PREFIX		 = /usr/local
+
+# Use this for installing into a single directory.
+# I use this on my Mac OS X laptop (no chroot(2)).
+CALDIR		 = /Users/kristaps/Sites
+HTDOCS	 	 = /~kristaps
+CALPREFIX	 = /Users/kristaps/Sites
+CGIPREFIX	 = /Users/kristaps/Sites
+HTDOCSPREFIX	 = /Users/kristaps/Sites
 PREFIX		 = /usr/local
 
-# Add any special dependency directories here.
+# ...and this for deployment on BSD.lv, which has its static files in a
+# virtual host and runs within a chroot(2).
+CALDIR		 = /caldav
+HTDOCS	 	 = /kcaldav
+CALPREFIX	 = /var/www/caldav
+CGIPREFIX	 = /var/www/cgi-bin
+HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
+PREFIX		 = /usr/local
+
+# Add any special dependency directives here.
 # The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
 # next to the date.
-# Some web servers provide this; others don't.
+# Most web servers provide this; others (e.g., OpenBSD httpd(8)) don't.
 
 #### For OpenBSD:
-LIBS		 = -lexpat -lutil 
-STATIC		 = -static
-CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-BINLDFLAGS	 = -L/usr/local/lib
+#LIBS		 = -lexpat -lutil 
+#STATIC		 = -static
+#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-#LIBS		 = -lexpat 
-#STATIC		 = 
-#CPPFLAGS	+= -I/usr/local/include 
-#BINLDFLAGS	 = -L/usr/local/lib
+LIBS		 = -lexpat 
+STATIC		 = 
+CPPFLAGS	+= -I/usr/local/include 
+BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lutil -lbsd

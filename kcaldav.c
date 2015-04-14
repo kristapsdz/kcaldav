@@ -253,6 +253,10 @@ req2path(struct kreq *r, const char *caldir)
 	return(1);
 }
 
+/*
+ * Validate a password MD5 hash.
+ * These are fixed length and with fixed characteristics.
+ */
 static int
 kvalid_hash(struct kpair *kp)
 {
@@ -265,7 +269,8 @@ kvalid_hash(struct kpair *kp)
 	for (i = 0; i < kp->valsz; i++) {
 		if (isdigit((int)kp->val[i]))
 			continue;
-		if (isalpha((int)kp->val[i]) && islower((int)kp->val[i]))
+		if (isalpha((int)kp->val[i]) && 
+			 islower((int)kp->val[i]))
 			continue;
 		return(0);
 	}
@@ -273,10 +278,9 @@ kvalid_hash(struct kpair *kp)
 }
 
 /* 
- * Validator for iCalendar OR CalDav object.
- * This checks the initial string of the object: if it equals the
- * prologue to an iCalendar, we attempt an iCalendar parse.
- * Otherwise, we try a CalDav parse.
+ * Validate iCalendar OR CalDav object.
+ * Use the content-type as parsed by kcgi(3) to clue us in to the actual
+ * type to validate.
  */
 static int
 kvalid_body(struct kpair *kp)
@@ -312,21 +316,23 @@ main(int argc, char *argv[])
 	const char	*caldir, *req;
 	char		*np;
 
-	setlinebuf(stderr);
+	st = NULL;
+	caldir = NULL;
 
 	while (-1 != getopt(argc, argv, "")) 
 		/* Spin. */ ;
 
-	st = NULL;
-	caldir = NULL;
-
 	argv += optind;
-	if ((argc -= optind) > 0)
+	argc -= optind;
+
+	/* Optionally set the caldir. */
+	if (argc > 0)
 		caldir = argv[0];
 
 	/*
 	 * I use this from time to time to debug something going wrong
-	 * in the underlying kcgi instance.
+	 * in the underlying kcgi instance bailing out in the sandbox.
+	 * You can see this when the parser is SIGKILL'd.
 	 * You really don't want to enable this unless you want it.
 	 */
 #ifdef	KTRACE
@@ -342,12 +348,10 @@ main(int argc, char *argv[])
 			kerr("ktrace");
 	}
 #endif
-
 	if (KCGI_OK != khttp_parse
 		(&r, valid, VALID__MAX, 
 		 pages, PAGE__MAX, PAGE_INDEX))
 		return(EXIT_FAILURE);
-
 #ifdef	KTRACE
 	{
 		rc = ktrace("/tmp/kcaldav.trace", KTROP_CLEAR,
@@ -361,27 +365,9 @@ main(int argc, char *argv[])
 			kerr("ktrace");
 	}
 #endif
-
 	kdbg("%s: %s", r.fullpath, 
 		KMETHOD__MAX == r.method ? 
 		"(unknown)" : kmethods[r.method]);
-
-	/* 
-	 * Get the full body of the request, if any.
-	 * We'll use this when we're validating the HTTP authorisation.
-	 * This will be stored in the fieldmap (or fieldnmap) because we
-	 * pass the opaque request body into the kvalid function above.
-	 */
-	if (NULL != r.fieldmap && NULL != r.fieldmap[VALID_BODY]) {
-		req = r.fieldmap[VALID_BODY]->val;
-		reqsz = r.fieldmap[VALID_BODY]->valsz;
-	} else if (NULL != r.fieldnmap && NULL != r.fieldnmap[VALID_BODY]) {
-		req = r.fieldnmap[VALID_BODY]->val;
-		reqsz = r.fieldnmap[VALID_BODY]->valsz;
-	} else {
-		req = "";
-		reqsz = 0;
-	}
 
 	/* 
 	 * Begin by disallowing bogus HTTP methods and processing the
@@ -405,7 +391,6 @@ main(int argc, char *argv[])
 	 * credentials and we can do more high-level authentication.
 	 */
 	if (KAUTH_DIGEST != r.rawauth.type) {
-		kerrx("%s: not HTTP authorised", r.fullpath);
 		http_error(&r, KHTTP_401);
 		goto out;
 	} else if (0 == r.rawauth.authorised) {
@@ -416,7 +401,8 @@ main(int argc, char *argv[])
 
 	/*
 	 * Ok, we have enough information to actually begin processing
-	 * this client request, so allocate our state.
+	 * this client request (i.e., we have some sort of username and
+	 * hashed password), so allocate our state.
 	 */
 	if (NULL == (r.arg = st = calloc(1, sizeof(struct state)))) {
 		kerr(NULL);
@@ -438,7 +424,11 @@ main(int argc, char *argv[])
 		goto out;
 	} 
 
-	/* Copy HTTP authorisation. */
+	/* 
+	 * Copy HTTP authorisation. 
+	 * This is just a hack to prevent kcgi(3) from being pulled into
+	 * the supporting libraries for this system.
+	 */
 	if (r.rawauth.d.digest.alg == KHTTPALG_MD5_SESS)
 		st->auth.alg = HTTPALG_MD5_SESS;
 	else
@@ -459,12 +449,27 @@ main(int argc, char *argv[])
 	st->auth.count = r.rawauth.d.digest.count;
 	st->auth.opaque = r.rawauth.d.digest.opaque;
 
+	/* 
+	 * Get the full body of the request, if any.
+	 * We use this when we're validating the HTTP authorisation and
+	 * auth-int has been specified as the QOP.
+	 */
+	if (NULL != r.fieldmap && NULL != r.fieldmap[VALID_BODY]) {
+		req = r.fieldmap[VALID_BODY]->val;
+		reqsz = r.fieldmap[VALID_BODY]->valsz;
+	} else if (NULL != r.fieldnmap && NULL != r.fieldnmap[VALID_BODY]) {
+		req = r.fieldnmap[VALID_BODY]->val;
+		reqsz = r.fieldnmap[VALID_BODY]->valsz;
+	} else {
+		req = "";
+		reqsz = 0;
+	}
+
 	/*
-	 * Next, parse the our passwd file and look up the given HTTP
-	 * authorisation name within the database.
-	 * This will return -1 on allocation failure or 0 if the password
-	 * file doesn't exist or is malformed.
-	 * It might set the principal to NULL if not found.
+	 * Next, parse the our kcaldav.passwd(5) file and look up the
+	 * given HTTP authorisation name within the database.
+	 * This will set the principal (the system user matching the
+	 * HTTP credentials) if found.
 	 */
 	rc = prncpl_parse(st->prncplfile, kmethods[r.method], 
 		&st->auth, &st->prncpl, req, reqsz);
@@ -489,12 +494,13 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	kdbg("%s: session principal authorisation: %s", 
-		st->path, st->auth.user);
+	kdbg("%s: principal authorised: %s", st->path, st->auth.user);
 
 	/*
-	 * Invoice the steps required for checking the nonce database
+	 * Perform the steps required to check the nonce database
 	 * without allowing an attacker to overwrite the database.
+	 * If this clears, that means that the principal is real and not
+	 * replaying prior HTTP authentications.
 	 */
 	if ((rc = httpauth_nonce(st->noncefile, &st->auth, &np)) < -1) {
 		http_error(&r, KHTTP_505);
@@ -515,12 +521,14 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	kdbg("%s: session nonce authorised: %s", 
-		st->path, st->auth.user);
+	kdbg("%s: session authorised: %s", st->path, st->auth.user);
 
 	/*
 	 * If we're looking for HTML pages, then no need to load the
 	 * configuration file, as we won't use it.
+	 * Prior sections will require that a calendar configuration
+	 * file exists for the requested URI.
+	 * For HTML access (the browser), we don't care.
 	 */
 	if (KMIME_TEXT_HTML == r.mime) {
 		if (KMETHOD_GET == r.method) {
@@ -530,12 +538,17 @@ main(int argc, char *argv[])
 			method_dynamic_post(&r);
 			goto out;
 		}
+		kerrx("%s: ignoring method %s",
+			st->path, kmethods[r.method]);
+		http_error(&r, KHTTP_405);
+		goto out;
 	}
 
 	/* 
-	 * We require a configuration file in the directory where we've
-	 * been requested to introspect.
-	 * It's ok if "path" is a directory.
+	 * This is for CalDAV (i.e., iCalendar or XML request type), so
+	 * we require a kcaldav.conf(5) configuration file in the
+	 * directory where we've been requested to introspect, whether
+	 * in searching for resources (files) or collections themselves.
 	 */
 	rc = config_parse(st->configfile, &st->cfg, st->prncpl);
 
@@ -556,11 +569,6 @@ main(int argc, char *argv[])
 
 	kdbg("%s: configuration parsed", st->path);
 
-	/* 
-	 * We're ready to go!
-	 * (We still may fail privileges for individual resources, but
-	 * beyond that, the only failure is on the request URI.)
-	 */
 	switch (r.method) {
 	case (KMETHOD_PUT):
 		method_put(&r);
