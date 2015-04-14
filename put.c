@@ -204,6 +204,8 @@ method_put(struct kreq *r)
 		ical_parsefile_close(st->path, fd);
 		ical_free(p);
 		ical_free(cur);
+		kinfo("%s: resource modified: %s",
+			st->path, st->auth.user);
 		return;
 	}
 
@@ -249,5 +251,7 @@ method_put(struct kreq *r)
 	close_unlock(st->path, fd);
 	ical_free(p);
 	ctag_update(st->ctagfile);
+	kinfo("%s: resource created: %s",
+		st->path, st->auth.user);
 }
 
