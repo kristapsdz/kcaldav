@@ -26,7 +26,6 @@
 
 #include <kcgi.h>
 #include <kcgixml.h>
-#include <kcgihtml.h>
 
 #include "extern.h"
 #include "kcaldav.h"
@@ -208,7 +207,6 @@ dosetemail(struct kreq *r)
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_303]);
 	khttp_head(r, kresps[KRESP_LOCATION], "%s", url);
-	kinfo("redirect to -> %s", url);
 	khttp_body(r);
 	free(url);
 }
@@ -223,8 +221,6 @@ doindex(struct kreq *r)
 {
 	struct state	*st = r->arg;
 	struct ktemplate t;
-
-	assert(KMIME_TEXT_HTML == r->mime);
 
 	memset(&t, 0, sizeof(struct ktemplate));
 	t.key = templs;
@@ -249,34 +245,47 @@ void
 method_dynamic_get(struct kreq *r)
 {
 
+	assert(KMIME_TEXT_HTML == r->mime);
+
 	switch (r->page) {
 	case (PAGE_INDEX):
 		doindex(r);
-		return;
+		break;
 	default:
+		http_error(r, KHTTP_404);
 		break;
 	}
-	http_error(r, KHTTP_404);
 }
 
 /*
  * If we're here, then a dynamic HTML page (method_dynamic_get()) is
  * submitted a form.
  * Process it here, but always redirect back to GET.
+ * Don't let us do anything if our principal isn't writable.
  */
 void
 method_dynamic_post(struct kreq *r)
 {
+	struct state	*st = r->arg;
+
+	assert(KMIME_TEXT_HTML == r->mime);
+
+	if ( ! st->prncpl->writable) {
+		kerrx("%s: POST on readonly principal "
+			"file: %s", st->path, st->auth.user);
+		http_error(r, KHTTP_403);
+		return;
+	}
 
 	switch (r->page) {
 	case (PAGE_SETPASS):
 		dosetpass(r);
-		return;
+		break;
 	case (PAGE_SETEMAIL):
 		dosetemail(r);
-		return;
+		break;
 	default:
+		http_error(r, KHTTP_404);
 		break;
 	}
-	http_error(r, KHTTP_404);
 }

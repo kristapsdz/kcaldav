@@ -83,6 +83,8 @@ method_delete(struct kreq *r)
 		}
 		ical_parsefile_close(st->path, fd);
 		ical_free(cur);
+		kinfo("%s: resource deleted: %s",
+			st->path, st->auth.user);
 		return;
 	} else if ( ! st->isdir) {
 		kerrx("%s: WARNING: unsafe delete", st->path);
@@ -93,6 +95,8 @@ method_delete(struct kreq *r)
 			kerr("%s: unlink", st->path);
 			http_error(r, KHTTP_505);
 		}
+		kinfo("%s: resource deleted: %s",
+			st->path, st->auth.user);
 		return;
 	} 
 
@@ -127,6 +131,8 @@ method_delete(struct kreq *r)
 			kerr("%s: unlink", buf);
 			errs = 1;
 		} 
+		kinfo("%s: resource (in collection) "
+			"deleted: %s", buf, st->auth.user);
 	}
 	if (-1 == closedir(dirp))
 		kerr("%s: closedir", st->path);
@@ -137,4 +143,5 @@ method_delete(struct kreq *r)
 		http_error(r, KHTTP_204);
 
 	ctag_update(st->ctagfile);
+	kinfo("%s: collection deleted: %s", st->path, st->auth.user);
 }

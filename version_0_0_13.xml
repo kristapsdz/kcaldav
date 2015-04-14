@@ -7,7 +7,7 @@
 	<aside>
 		When accessing the server from a web browser (i.e., for HTML content), respond by printing the logged-in user's information and
 		allow for changing of passwords or e-mail if the principal database has the correct permissions.
-		This allows new users to access <code>https://server/cgi-bin/kcaldav/</code>, log in with their credentials, then perform simple
-		administrative tasks without needing to log into the underlying UNIX server.
+		This allows new users to perform simple administrative tasks without needing to log into the underlying UNIX server.
+		See <a href="kcaldav.8.html">kcaldav(8)</a> for details.
 	</aside>
 </article>
