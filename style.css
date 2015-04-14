@@ -32,6 +32,7 @@ input					{ -webkit-appearance: none;
 					  background-color: #fff;
 					  border: none;
 					  padding: 6pt;
+					  border-radius: 0;
 					  height: 32pt;
 					  vertical-align: middle;
 					  font-size: 13pt;
@@ -39,8 +40,10 @@ input					{ -webkit-appearance: none;
 					  -moz-box-sizing: border-box;
 					  -webkit-box-sizing: border-box;
 					  box-sizing: border-box; }
-input[disabled]				{ background-color: #ccc; 
-					  color: #666; }
+input[disabled]				{ background-color: #aaa; 
+					  -webkit-text-fill-color: #000; /* for Safari */
+					  opacity: 1.0; /* for Safari */
+					  color: #000; }
 div.input				{ width: 100%; }
 div.single input			{ width: 100%; 
 					  border-radius: 6pt; }
