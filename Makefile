@@ -2,15 +2,17 @@
 
 # This is the directory prepended to all calendar requests.
 # It is relative to the CGI process's file-system root.
-CALDIR		 = /Users/kristaps/Sites
+CALDIR		 = /caldav
+# This is the URI of the static (HTML, CSS, JS) files.
+HTDOCS	 	 = /kcaldav
+# This is the file-system directory of CALDIR.
+CALPREFIX	 = /var/www/caldav
 # This is the install directory of the CGI script.
-CGIPREFIX	 = /Users/kristaps/Sites
-# This is the install directory of static (HTML, CSS, JS) files.
-HTDOCSPREFIX	 = /Users/kristaps/Sites
+CGIPREFIX	 = /var/www/cgi-bin
+# This is the file-system directory of HTDOCS.
+HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
 # This is the install root for system programs and manpages.
 PREFIX		 = /usr/local
-# This is the URI of the static (HTML, CSS, JS) files.
-HTDOCSURI	 = /~kristaps
 
 # Add any special dependency directories here.
 # The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
@@ -18,16 +20,16 @@ HTDOCSURI	 = /~kristaps
 # Some web servers provide this; others don't.
 
 #### For OpenBSD:
-#LIBS		 = -lexpat -lutil 
-#STATIC		 = -static
-#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-#BINLDFLAGS	 = -L/usr/local/lib
+LIBS		 = -lexpat -lutil 
+STATIC		 = -static
+CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
+BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-LIBS		 = -lexpat 
-STATIC		 = 
-CPPFLAGS	+= -I/usr/local/include 
-BINLDFLAGS	 = -L/usr/local/lib
+#LIBS		 = -lexpat 
+#STATIC		 = 
+#CPPFLAGS	+= -I/usr/local/include 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
@@ -37,7 +39,7 @@ BINLDFLAGS	 = -L/usr/local/lib
 
 # You probably don't want to change anything after this point.
 
-BINLIBS		 = -lkcgi -lkcgixml -lkcgihtml -lz $(LIBS) 
+BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-caldav \
@@ -149,7 +151,7 @@ VERSIONS	 = version_0_0_4.xml \
 VERSION		 = 0.0.12
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
-CFLAGS		+= -DHTDOCSURI=\"$(HTDOCSURI)\"
+CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
 
 all: $(BINS) kcaldav.8 kcaldav.passwd.1
 
@@ -167,9 +169,11 @@ config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 installcgi: all
 	mkdir -p $(CGIPREFIX)
 	mkdir -p $(HTDOCSPREFIX)
+	mkdir -p $(CALPREFIX)
 	install -m 0555 kcaldav $(CGIPREFIX)
 	install -m 0555 kcaldav $(CGIPREFIX)/kcaldav.cgi
-	install -m 0444 md5.js home.html style.css $(HTDOCSPREFIX)
+	install -m 0444 md5.js style.css $(HTDOCSPREFIX)
+	install -m 0444 home.html $(CALPREFIX)
 
 install: all
 	mkdir -p $(PREFIX)/bin
