@@ -25,7 +25,7 @@
 .\" Not used in OpenBSD.
 .Sh SYNOPSIS
 .Nm kcaldav.passwd
-.Op Fl Cn
+.Op Fl Cmn
 .Op Fl d Ar homedir
 .Op Fl e Ar email
 .Op Fl f Ar passdir
@@ -50,6 +50,13 @@ The current real user (via
 must match the password file owner to use this option, or the real user
 must be root.
 Does nothing if a user by that name already exists.
+.It Fl m
+If
+.Fl C
+has been specified, create the user directory (inheriting the mode from
+the calendar collection directory) and populate it with a simple
+.Xr kcaldav.conf 5
+file.
 .It Fl n
 Do not change the user password, but only the user attributes (e.g.,
 .Fl d ) .
