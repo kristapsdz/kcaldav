@@ -50,6 +50,10 @@ method_get(struct kreq *r)
 			st->path, st->prncpl->name);
 		http_error(r, KHTTP_403);
 		return;
+	} else if (st->isdir) {
+		kerrx("%s: GET for collection", st->path);
+		http_error(r, KHTTP_404);
+		return;
 	} else if (NULL == (p = ical_parsefile(st->path))) {
 		kerrx("%s: fail parse CalDAV XML "
 			"in client request", st->path);

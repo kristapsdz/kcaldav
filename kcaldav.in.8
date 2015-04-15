@@ -182,6 +182,39 @@ Principals can access the server root,
 .D1 http://localhost/cgi-bin/kcaldav/
 .Pp
 in our above example, to see their configuration.
+.\" .Sh HTTP METHODS
+.\" In this section, I describe each HTTP method supported.
+.\" .Ss HTTP GET
+.\" The HTTP GET method is supported for calendar resources.
+.\" HTML requests or GET requests for non-calendar resources are routed into
+.\" a management framework.
+.\" Principals must have
+.\" .Dv READ
+.\" access to GET resources.
+.\" .Pp
+.\" The
+.\" .Dq If-None-Match
+.\" header is processed and checks the file etag (MD5 sum).
+.\" .Ss HTTP POST
+.\" The POST method is supported only for text/html requests for specific
+.\" management resources.
+.\" .Ss HTTP PROPFIND
+.\" This is the more...
+.\" .Ss HTTP PUT
+.\" The PUT method is supported for calendar resources where the principal
+.\" has
+.\" .Dv WRITE
+.\" access to the collection.
+.\" .Pp
+.\" The
+.\" .Dq If-Match
+.\" and
+.\" .Dq If
+.\" headers are both accepted to check against etags (MD5 sums) and
+.\" conditionally replace resources.
+.\" .Ss HTTP REPORT
+.\" The REPORT method is handled similarly to
+.\" .Sx HTTP PROPFIND .
 .Sh IMPLEMENTATION NOTES
 The
 .Nm

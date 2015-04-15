@@ -52,6 +52,7 @@ icalnode_free(struct icalnode *p, int first)
 	np = p->next;
 	icalnode_free(p->first, 0);
 	free(p->name);
+	free(p->param);
 	free(p->val);
 	free(p);
 	if (0 == first)
@@ -245,7 +246,7 @@ ical_parse(const char *file, const char *cp, size_t sz)
 {
 	struct ical	*p;
 	struct icalnode	*cur, *np;
-	char		*name, *val;
+	char		*name, *val, *param;
 	struct buf	 buf;
 	MD5_CTX		 ctx;
 	size_t		 i, pos, line;
@@ -293,6 +294,9 @@ ical_parse(const char *file, const char *cp, size_t sz)
 			break;
 		}
 
+		if (NULL != (param = strchr(name, ';'))) 
+			*param++ = '\0';
+
 		/* Allocate the line record. */
 		if (NULL == (np = calloc(1, sizeof(struct icalnode)))) {
 			kerr(NULL);
@@ -302,6 +306,10 @@ ical_parse(const char *file, const char *cp, size_t sz)
 			icalnode_free(np, 0);
 			break;
 		} else if (val && NULL == (np->val = strdup(val))) {
+			kerr(NULL);
+			icalnode_free(np, 0);
+			break;
+		} else if (param && NULL == (np->param = strdup(param))) {
 			kerr(NULL);
 			icalnode_free(np, 0);
 			break;
@@ -318,22 +326,6 @@ ical_parse(const char *file, const char *cp, size_t sz)
 				icalnode_free(np, 0);
 				break;
 			}
-		}
-
-		/*
-		 * Here we set specific component properties such as the
-		 * UID or DTSTART.
-		 */
-		if (NULL != val && NULL != np->parent &&
-			 ICALTYPE__MAX != np->parent->type) {
-			type = np->parent->type;
-			assert(NULL != comps[type]);
-			if (0 != strcasecmp(np->name, "uid"))
-				comps[type]->uid = np->val;
-			else if (0 != strcasecmp(np->name, "dtstart"))
-				comps[type]->start = np->val;
-			else if (0 != strcasecmp(np->name, "dtend"))
-				comps[type]->end = np->val;
 		}
 
 		/* Handle the first entry and bad nesting. */
@@ -354,23 +346,38 @@ ical_parse(const char *file, const char *cp, size_t sz)
 				np->parent = cur->parent;
 				cur->next = np;
 				cur = np;
-				continue;
+			} else {
+				cur->first = np;
+				np->parent = cur;
+				cur = np;
 			}
-			cur->first = np;
-			np->parent = cur;
+		} else {
+			if (0 == strcmp("END", np->name))
+				if (NULL == (cur = cur->parent)) {
+					kerrx("%s:%zu: bad nest", fp, sz);
+					break;
+				}
+			np->parent = cur->parent;
+			cur->next = np;
 			cur = np;
-			continue;
-		} 
-		
-		if (0 == strcmp("END", np->name))
-			if (NULL == (cur = cur->parent)) {
-				kerrx("%s:%zu: bad nest", fp, sz);
-				break;
-			}
+		}
 
-		np->parent = cur->parent;
-		cur->next = np;
-		cur = np;
+		/*
+		 * Here we set specific component properties such as the
+		 * UID or DTSTART.
+		 */
+		if (NULL != val && NULL != np->parent &&
+			 ICALTYPE__MAX != np->parent->type) {
+			type = np->parent->type;
+			assert(NULL != comps[type]);
+			if (0 == strcasecmp(np->name, "uid"))
+				comps[type]->uid = np;
+			else if (0 == strcasecmp(np->name, "dtstart"))
+				comps[type]->start = np;
+			else if (0 == strcasecmp(np->name, "dtend"))
+				comps[type]->end = np;
+		}
+
 	}
 
 	free(buf.buf);

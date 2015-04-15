@@ -114,6 +114,7 @@ enum	icaltype {
  */
 struct	icalnode {
 	char		*name;
+	char		*param; /* might be NULL */
 	char		*val; /* might be NULL */
 	enum icaltype	 type; /* if found, else ICALTYPE__MAX */
 	struct icalnode	*parent;
@@ -129,9 +130,9 @@ struct	icalnode {
 struct	icalcomp {
 	struct icalcomp	*next;
 	enum icaltype	 type;
-	const char	*uid; /* UID of component */
-	const char	*start; /* DTSTART of component */
-	const char	*end; /* DTEND of component */
+	struct icalnode	*uid; /* UID of component */
+	struct icalnode	*start; /* DTSTART of component */
+	struct icalnode	*end; /* DTEND of component */
 };
 
 /*
