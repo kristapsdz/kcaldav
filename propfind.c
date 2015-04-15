@@ -106,6 +106,8 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 		collection_schedule_calendar_transp;
 	accepted[PROP_SUPPORTED_CALENDAR_COMPONENT_SET] = 
 		collection_supported_calendar_component_set;
+	accepted[PROP_SUPPORTED_CALENDAR_DATA] = 
+		collection_supported_calendar_data;
 
 	/*
 	 * As defined by RFC 4918, we can ignore these.
@@ -210,6 +212,7 @@ propfind_resource(struct kxmlreq *xml,
 	ignore[PROP_GETCTAG] = 1;
 	ignore[PROP_SCHEDULE_CALENDAR_TRANSP] = 1;
 	ignore[PROP_SUPPORTED_CALENDAR_COMPONENT_SET] = 1;
+	ignore[PROP_SUPPORTED_CALENDAR_DATA] = 1;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);

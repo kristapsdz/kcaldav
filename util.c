@@ -34,6 +34,7 @@
 
 const char *const xmls[XML__MAX] = {
 	"C:calendar", /* XML_CALDAV_CALENDAR */
+	"C:calendar-data", /* XML_CALDAV_CALENDAR_DATA */
 	"C:comp", /* XML_CALDAV_COMP */
 	"C:opaque", /* XML_CALDAV_OPAQUE */
 	"D:bind", /* XML_DAV_BIND */
