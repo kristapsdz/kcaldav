@@ -177,3 +177,12 @@ collection_supported_calendar_component_set(struct kxmlreq *xml)
 		kxml_pushnullattrs(xml, XML_CALDAV_COMP,
 			"name", icaltypes[i], NULL);
 }
+
+void
+collection_supported_calendar_data(struct kxmlreq *xml)
+{
+
+	kxml_pushnullattrs(xml, XML_CALDAV_CALENDAR_DATA, 
+		"content-type", kmimetypes[KMIME_TEXT_CALENDAR], 
+		"version", "2.0", NULL);
+}
