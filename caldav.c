@@ -66,6 +66,7 @@ const enum proptype calprops[CALELEM__MAX] = {
 	PROP_RESOURCETYPE, /* CALELEM_RESOURCETYPE */
 	PROP_SCHEDULE_CALENDAR_TRANSP, /* CALELEM_SCHEDULE_CALENDA... */
 	PROP_SUPPORTED_CALENDAR_COMPONENT_SET, /* CALELEM_SUPPORTE... */
+	PROP_SUPPORTED_CALENDAR_DATA, /* CALELEM_SUPPORTED_CALENDA... */
 };
 
 const enum calelem calpropelems[PROP__MAX] = {
@@ -85,6 +86,7 @@ const enum calelem calpropelems[PROP__MAX] = {
 	CALELEM_RESOURCETYPE,/* PROP_RESOURCETYPE */
 	CALELEM_SCHEDULE_CALENDAR_TRANSP,/* PROP_SCHEDULE_CALENDAR... */
 	CALELEM_SUPPORTED_CALENDAR_COMPONENT_SET,/* PROP_SUPPORTED... */
+	CALELEM_SUPPORTED_CALENDAR_DATA,/* PROP_SUPPORTED_CALENDAR... */
 };
 
 const char *const calelems[CALELEM__MAX] = {
@@ -110,6 +112,7 @@ const char *const calelems[CALELEM__MAX] = {
 	DAVNS "resourcetype", /* CALELEM_RESOURCETYPE */
 	CALDAVNS "schedule-calendar-transp", /* CALELEM_SCHEDULE_CALENDAR_T... */
 	CALDAVNS "supported-calendar-component-set", /* CALELEM_SUPPORTED_C... */
+	CALDAVNS "supported-calendar-data", /* CALELEM_SUPPORTED_CALENDAR_D... */
 };
 
 static void	parseclose(void *, const XML_Char *);

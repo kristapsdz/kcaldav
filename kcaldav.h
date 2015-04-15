@@ -44,6 +44,7 @@ struct	state {
 
 enum	xml {
 	XML_CALDAV_CALENDAR,
+	XML_CALDAV_CALENDAR_DATA,
 	XML_CALDAV_COMP,
 	XML_CALDAV_OPAQUE,
 	XML_DAV_BIND,
@@ -94,6 +95,7 @@ void	 collection_quota_used_bytes(struct kxmlreq *);
 void	 collection_resourcetype(struct kxmlreq *);
 void	 collection_schedule_calendar_transp(struct kxmlreq *);
 void	 collection_supported_calendar_component_set(struct kxmlreq *);
+void	 collection_supported_calendar_data(struct kxmlreq *);
 
 void	 resource_calendar_data(struct kxmlreq *, const struct ical *);
 void	 resource_current_user_principal(struct kxmlreq *, const struct ical *);
