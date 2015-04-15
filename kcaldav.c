@@ -536,7 +536,7 @@ main(int argc, char *argv[])
 	 * file exists for the requested URI.
 	 * For HTML access (the browser), we don't care.
 	 */
-	if (KMIME_TEXT_HTML == r.mime) {
+	if (KMIME_TEXT_HTML == r.mime && PAGE__MAX != r.page) {
 		if (KMETHOD_GET == r.method) {
 			method_dynamic_get(&r);
 			goto out;
