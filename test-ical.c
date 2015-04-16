@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "extern.h"
@@ -44,7 +45,7 @@ ical_printcomp(const struct icalcomp *c)
 		printf("comp UID = %s\n", 
 			NULL == c->uid->val ? "(none)" :
 			c->uid->val);
-	if (NULL != c->start)
+	if (NULL != c->start) 
 		printf("comp START[%s] = %s\n", 
 			NULL == c->start->param ? "(none)" : 
 			c->start->param, 
@@ -56,6 +57,16 @@ ical_printcomp(const struct icalcomp *c)
 			c->end->param, 
 			NULL == c->end->val ? "(none)" :
 			c->end->val);
+	if (0 != c->created)
+		printf("comp CREATED = %s", ctime(&c->created));
+	if (0 != c->lastmod)
+		printf("comp LASTMODIFIED = %s", ctime(&c->lastmod));
+	if (0 != c->dtstamp)
+		printf("comp DTSTAMP = %s", ctime(&c->dtstamp));
+	if (0 != c->tzfrom)
+		printf("comp TZOFFSETFROM = %04d", c->tzfrom);
+	if (0 != c->tzto)
+		printf("comp TZOFFSETTO = %04d", c->tzto);
 
 	if (NULL != c->next)
 		ical_printcomp(c->next);
@@ -100,6 +111,8 @@ main(int argc, char *argv[])
 			ical_printcomp(p->comps[ICALTYPE_VCALENDAR]);
 		if (ICAL_VEVENT & p->bits)
 			ical_printcomp(p->comps[ICALTYPE_VEVENT]);
+		if (ICAL_VTIMEZONE & p->bits)
+			ical_printcomp(p->comps[ICALTYPE_VTIMEZONE]);
 #if 0
 		if (ICAL_VTODO & p->bits)
 			printf(" VTODO");

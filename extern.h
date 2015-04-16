@@ -130,6 +130,11 @@ struct	icalnode {
 struct	icalcomp {
 	struct icalcomp	*next;
 	enum icaltype	 type;
+	int		 tzfrom; /* TZOFFSETFROM (or zero) */
+	int		 tzto; /* TZOFFSETTO (or zero) */
+	time_t		 created; /* CREATED (or zero) */
+	time_t		 lastmod; /* LASTMODIFIED (or zero) */
+	time_t		 dtstamp; /* DTSTAMP (or zero) */
 	struct icalnode	*uid; /* UID of component */
 	struct icalnode	*start; /* DTSTART of component */
 	struct icalnode	*end; /* DTEND of component */
@@ -306,6 +311,7 @@ int		  ical_parsefile_close(const char *, int);
 void		  ical_free(struct ical *);
 int		  ical_print(const struct ical *, ical_putchar, void *);
 int		  ical_printfile(int, const struct ical *);
+int		  ical_parsedatetime(time_t *, const struct icalnode *);
 
 struct caldav 	 *caldav_parse(const char *, size_t);
 void		  caldav_free(struct caldav *);
