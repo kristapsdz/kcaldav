@@ -18,8 +18,10 @@
 
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -78,6 +80,236 @@ ical_free(struct ical *p)
 	icalnode_free(p->first, 0);
 	free(p);
 }
+
+/*
+ * Try to parse the numeric date and time (assumed UTC) into the "tm"
+ * value, seconds since epoch.
+ * Return zero on failure, non-zero on success.
+ */
+static int
+ical_datetime(time_t *tm, const char *cp)
+{
+	size_t		 sz, i;
+	unsigned 	 year, mon, mday, hour, min, sec, day;
+	int		 ly;
+	unsigned	 mdaysa[12] = {  0,  31,  59,  90, 
+				       120, 151, 181, 212, 
+				       243, 273, 304, 334 };
+	unsigned	 mdayss[12] = { 31,  28,  31,  30, 
+				        31,  30,  31,  31,
+					30,  31,  30,  31 };
+
+	year = mon = mday = hour = min = sec = 0;
+
+	/* Sanity-check the date component length and ctype. */
+	if ((sz = strlen(cp)) < 8) {
+		kerrx("invalid date string length");
+		return(0);
+	} 
+	for (i = 0; i < 8; i++)
+		if ( ! isdigit(cp[i])) {
+			kerrx("non-digits in date string");
+			return(0);
+		}
+
+	/* Sanitise the year. */
+	year += 1000 * (cp[0] - 48);
+	year += 100 * (cp[1] - 48);
+	year += 10 * (cp[2] - 48);
+	year += 1 * (cp[3] - 48);
+	if (year < 1970) {
+		kerrx("invalid year: %u", year);
+		return(0);
+	}
+
+	/* 
+	 * Compute whether we're in a leap year.
+	 * If we are, adjust our monthly entry for February.
+	 */
+	ly = ((year & 3) == 0 && 
+		((year % 25) != 0 || (year & 15) == 0));
+
+	if (ly) {
+		mdayss[1] = 29;
+		mdaysa[2] = 60;
+	}
+
+	/* Sanitise the month. */
+	mon += 10 * (cp[4] - 48);
+	mon += 1 * (cp[5] - 48);
+	if (0 == mon || mon > 12) {
+		kerrx("invalid month: %u", mon);
+		return(0);
+	}
+
+	/* Sanitise the day of month. */
+	mday += 10 * (cp[6] - 48);
+	mday += 1 * (cp[7] - 48);
+	if (0 == mday || mday > mdayss[mday - 1]) {
+		kerrx("invalid day: %u", mday);
+		return(0);
+	}
+
+	/*
+	 * If the 'T' follows the date, then we also have a time string,
+	 * so try to parse that as well.
+	 * (Otherwise, the time component is just zero.)
+	 */
+	if ('T' == cp[8]) {
+		/* Sanitise the length and ctype. */
+		if (sz < 8 + 1 + 6) {
+			kerrx("invalid time string length");
+			return(0);
+		}
+		for (i = 0; i < 6; i++)
+			if ( ! isdigit(cp[9 + i])) {
+				kerrx("non-digits in time string");
+				return(0);
+			}
+
+		/* Sanitise the hour. */
+		hour += 10 * (cp[9] - 48);
+		hour += 1 * (cp[10] - 48);
+		if (hour > 24) {
+			kerrx("invalid hour: %u", hour);
+			return(0);
+		}
+
+		/* Sanitise the minute. */
+		min += 10 * (cp[11] - 48);
+		min += 1 * (cp[12] - 48);
+		if (min > 60) {
+			kerrx("invalid minute: %u", min);
+			return(0);
+		}
+
+		/* Sanitise the second. */
+		sec += 10 * (cp[13] - 48);
+		sec += 1 * (cp[14] - 48);
+		if (sec > 60) {
+			kerrx("invalid second: %u", sec);
+			return(0);
+		}
+	}
+
+	/* The year for "struct tm" is from 1900. */
+	year -= 1900;
+
+	/* 
+	 * Compute the day in the year.
+	 * Note that the month and day in month both begin at one, as
+	 * they were parsed that way.
+	 */
+	day = mdaysa[mon - 1] + (mday - 1);
+
+	/*
+	 * Now use the formula from the The Open Group, "Single Unix
+	 * Specification", Base definitions (4: General concepts), part
+	 * 15: Seconds since epoch.
+	 */
+	*tm = sec + min * 60 + hour * 3600 + 
+		day * 86400 + (year - 70) * 31536000 + 
+		((year - 69) / 4) * 86400 -
+		((year - 1) / 100) * 86400 + 
+		((year + 299) / 400) * 86400;
+	return(1);
+}
+
+static int
+ical_utc(time_t *v, const char *cp)
+{
+	size_t	 sz;
+
+	*v = 0;
+
+	if (NULL == cp || 0 == (sz = strlen(cp))) {
+		kerrx("zero-length UTC");
+		return(0);
+	} else if (16 != sz) {
+		kerrx("invalid UTC size, have %zu, want 16", sz);
+		return(0);
+	} else if ('Z' != cp[sz - 1]) {
+		kerrx("no UTC signature");
+		return(0);
+	}
+	return(ical_datetime(v, cp));
+}
+
+static int
+ical_utc_offs(int *v, const char *cp)
+{
+	size_t	 i, sz;
+	int	 min, hour, sec;
+
+	min = hour = sec = 0;
+
+	*v = 0;
+	/* Must be (+-)HHMM[SS]. */
+	if (5 != (sz = strlen(cp)) || 7 != sz) {
+		kerrx("bad UTC offset length");
+		return(0);
+	}
+	for (i = 1; i < sz; i++)
+		if ( ! isdigit((int)cp[i])) {
+			kerrx("non-digit UTC character");
+			return(0);
+		}
+
+	/* Check sign extension. */
+	if ('-' != cp[0] && '+' != cp[0]) {
+		kerrx("non-signed UTC");
+		return(0);
+	}
+
+	/* Sanitise hour. */
+	hour += 10 * (cp[1] - 48);
+	hour += 1 * (cp[2] - 48);
+	if (hour >= 24) {
+		kerrx("invalid hour: %d", hour);
+		return(0);
+	}
+
+	/* Sanitise minute. */
+	min += 10 * (cp[3] - 48);
+	min += 1 * (cp[4] - 48);
+	if (min >= 60) {
+		kerrx("invalid minute: %d", min);
+		return(0);
+	}
+
+	/* See if we should have a second component. */
+	if ('\0' != cp[5]) {
+		/* Sanitise second. */
+		sec += 10 * (cp[5] - 48);
+		sec += 1 * (cp[6] - 48);
+		if (sec >= 60) {
+			kerrx("invalid second: %d", sec);
+			return(0);
+		}
+	}
+
+	*v = sec + min * 60 + hour * 3600;
+	/* Sign-extend. */
+	if ('-' == cp[0])
+		*v *= -1;
+
+	return(1);
+}
+
+static int
+ical_string(struct icalnode **v, struct icalnode *n)
+{
+
+	*v = NULL;
+
+	if (NULL == n->val || '\0' == *n->val) {
+		kerrx("zero-length string");
+		return(0);
+	}
+	*v = n;
+	return(1);
+}
+
 
 /*
  * Parse a CRLF-terminated line out of it the iCalendar file.
@@ -147,6 +379,7 @@ icalcomp_alloc(struct icalcomp **comps,
 		} else if (NULL == p->comps[i])
 			p->comps[i] = comps[i];
 
+		comps[i]->type = i;
 		break;
 	}
 
@@ -254,6 +487,7 @@ ical_parse(const char *file, const char *cp, size_t sz)
 	const char	*fp;
 	struct icalcomp	*comps[ICALTYPE__MAX];
 	enum icaltype	 type;
+	int		 rc;
 
 	memset(&buf, 0, sizeof(struct buf));
 	memset(comps, 0, sizeof(comps));
@@ -365,19 +599,41 @@ ical_parse(const char *file, const char *cp, size_t sz)
 		/*
 		 * Here we set specific component properties such as the
 		 * UID or DTSTART.
+		 * First make sure that we can do so.
 		 */
-		if (NULL != val && NULL != np->parent &&
-			 ICALTYPE__MAX != np->parent->type) {
-			type = np->parent->type;
-			assert(NULL != comps[type]);
-			if (0 == strcasecmp(np->name, "uid"))
-				comps[type]->uid = np;
-			else if (0 == strcasecmp(np->name, "dtstart"))
-				comps[type]->start = np;
-			else if (0 == strcasecmp(np->name, "dtend"))
-				comps[type]->end = np;
-		}
+		if (NULL == val)
+			continue;
+		if (NULL == np->parent)
+			continue;
+		if (ICALTYPE__MAX == np->parent->type)
+			continue;
 
+		type = np->parent->type;
+		assert(NULL != comps[type]);
+
+		if (0 == strcasecmp(np->name, "uid"))
+			rc = ical_string(&comps[type]->uid, np);
+		else if (0 == strcasecmp(np->name, "created"))
+			rc = ical_utc(&comps[type]->created, np->val);
+		else if (0 == strcasecmp(np->name, "last-modified"))
+			rc = ical_utc(&comps[type]->lastmod, np->val);
+		else if (0 == strcasecmp(np->name, "dtstamp"))
+			rc = ical_utc(&comps[type]->dtstamp, np->val);
+		else if (0 == strcasecmp(np->name, "dtstart"))
+			rc = ical_string(&comps[type]->start, np);
+		else if (0 == strcasecmp(np->name, "dtend"))
+			rc = ical_string(&comps[type]->end, np);
+		else if (0 == strcasecmp(np->name, "tzoffsetfrom"))
+			rc = ical_utc_offs(&comps[type]->tzfrom, np->val);
+		else if (0 == strcasecmp(np->name, "tzoffsetto"))
+			rc = ical_utc_offs(&comps[type]->tzto, np->val);
+		else
+			rc = 1;
+
+		if ( ! rc) {
+			kerrx("%s:%zu: bad parse", fp, sz);
+			break;
+		}
 	}
 
 	free(buf.buf);
@@ -479,3 +735,37 @@ ical_printfile(int fd, const struct ical *p)
 
 	return(icalnode_print(p->first, icalnode_putc, &fd));
 }
+
+#if 0
+int
+ical_parsedatetime(time_t *tp, const struct icalnode *n)
+{
+	struct tm	 tm;
+
+	assert(NULL != n);
+	if (NULL == n->val || ! ical_parsedatenumeric(&tm, n->val))
+		return(0);
+
+	/* Accept all-day as being the start of the day GMT. */
+	if (NULL != n->param && strcasecmp(n->param, "VALUE=DATE"))  {
+		*tp = timegm(&tm);
+		return(1);
+	}
+
+	/* Try to convert into UTC.  Ignores any TZID. */
+	if ('Z' == n->val[strlen(n->val) - 1]) {
+		*tp = timegm(&tm);
+		return(1);
+	} else if (NULL == n->param) {
+		*tp = mktime(&tm);
+		return(1);
+	} else {
+		setenv("TZ", n->param, 1);
+		*tp = mktime(&tm);
+		unsetenv("TZ");
+		return(1);
+	}
+
+	return(0);
+}
+#endif
