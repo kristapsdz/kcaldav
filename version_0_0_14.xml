@@ -1,0 +1,12 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.0.14</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-04-14">2015-04-14</time>
+	</header>
+	<aside>
+		Add a flag to <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a> to create new principal's home directories and populate them
+		with a simple <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> file.
+		Completely re-write the internal iCalendar parser to get ready for handling iCalendar dates.
+	</aside>
+</article>
