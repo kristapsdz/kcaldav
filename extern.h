@@ -111,33 +111,51 @@ enum	icaltype {
 /*
  * A node in an iCalendar parse tree.
  * Nodes don't necessarily correspond to component types.
+ * Use "struct icalcomp" for any real work.
  */
 struct	icalnode {
 	char		*name;
 	char		*param; /* might be NULL */
 	char		*val; /* might be NULL */
-	enum icaltype	 type; /* if found, else ICALTYPE__MAX */
-	struct icalnode	*parent;
-	struct icalnode	*first;
 	struct icalnode	*next;
+};
+
+enum	icaltztype {
+	ICALTZ_DAYLIGHT,
+	ICALTZ_STANDARD,
+	ICALTZ__MAX
+};
+
+/*
+ * This is either a daylight or standard-time time-zone block.
+ * Each iCalendar timezone has at least one of these.
+ */
+struct	icaltz {
+	enum icaltztype	 type;
+	int		 tzfrom;
+	int		 tzto;
+	const char	*rrule;
+	const char	*tzid;
+	time_t		 dtstart;
 };
 
 /*
  * An iCalendar component.
  * Each of these may be associated with component properties such as the
  * UID or DTSTART, which are referenced here.
+ * Some of these components are type-specific (such as anything related
+ * to the timezones), but we put them all here anyway.
  */
 struct	icalcomp {
 	struct icalcomp	*next;
 	enum icaltype	 type;
-	int		 tzfrom; /* TZOFFSETFROM (or zero) */
-	int		 tzto; /* TZOFFSETTO (or zero) */
 	time_t		 created; /* CREATED (or zero) */
 	time_t		 lastmod; /* LASTMODIFIED (or zero) */
 	time_t		 dtstamp; /* DTSTAMP (or zero) */
-	struct icalnode	*uid; /* UID of component */
-	struct icalnode	*start; /* DTSTART of component */
-	struct icalnode	*end; /* DTEND of component */
+	struct icaltz	*tzs; /* timezone rules (or NULL) */
+	size_t		 tzsz; /* size of tzs */
+	const char	*uid; /* UID of component */
+	const char	*tzid; /* TZID of component */
 };
 
 /*
@@ -354,6 +372,7 @@ extern const enum proptype calprops[CALELEM__MAX];
 extern const enum calelem calpropelems[PROP__MAX];
 extern const char *const calelems[CALELEM__MAX];
 extern const char *const icaltypes[ICALTYPE__MAX];
+extern const char *const icaltztypes[ICALTZ__MAX];
 extern int verbose;
 
 __END_DECLS
