@@ -44,6 +44,32 @@ const char *const icaltypes[ICALTYPE__MAX] = {
 	"VALARM", /* ICALTYPE_VALARM */
 };
 
+const char *const icaltztypes[ICALTZ__MAX] = {
+	"DAYLIGHT", /* ICALTZ_DAYLIGHT */
+	"STANDARD", /* ICALTZ_STANDARD */
+};
+
+/*
+ * This structure manages the parse sequence, either from a real file or
+ * just an anonymous input buffer.
+ * The (binary) buffer itself is in "cp", of length "sz".
+ */
+struct	icalparse {
+	const char	*file; /* the filename or <buffer> */
+	size_t		 sz; /* length of input */
+	const char	*cp; /* CRLF input itself */
+	struct buf	 buf; /* current parse buffer */
+	size_t		 pos; /* position in "cp" */
+	size_t		 line; /* line in "file" */
+	struct ical	*ical; /* result structure */
+	struct icalnode	*cur; /* current node parse */
+	struct icalcomp	*comps[ICALTYPE__MAX]; /* current comps */
+};
+
+/*
+ * Free the icalnode "p" and, if "first" is zero, all of its siblings in
+ * the chain of nodes.
+ */
 static void
 icalnode_free(struct icalnode *p, int first)
 {
@@ -51,16 +77,20 @@ icalnode_free(struct icalnode *p, int first)
 
 	if (NULL == p)
 		return;
+
 	np = p->next;
-	icalnode_free(p->first, 0);
 	free(p->name);
 	free(p->param);
 	free(p->val);
 	free(p);
+
 	if (0 == first)
 		icalnode_free(np, 0);
 }
 
+/*
+ * Free the entire iCalendar parsed structure.
+ */
 void
 ical_free(struct ical *p)
 {
@@ -73,6 +103,7 @@ ical_free(struct ical *p)
 	for (i = 0; i < ICALTYPE__MAX; i++) {
 		while (NULL != (c = p->comps[i])) {
 			p->comps[i] = c->next;
+			free(c->tzs);
 			free(c);
 		}
 	}
@@ -87,7 +118,7 @@ ical_free(struct ical *p)
  * Return zero on failure, non-zero on success.
  */
 static int
-ical_datetime(time_t *tm, const char *cp)
+ical_datetime(struct icalparse *p, time_t *tm, const char *cp)
 {
 	size_t		 sz, i;
 	unsigned 	 year, mon, mday, hour, min, sec, day;
@@ -103,12 +134,13 @@ ical_datetime(time_t *tm, const char *cp)
 
 	/* Sanity-check the date component length and ctype. */
 	if ((sz = strlen(cp)) < 8) {
-		kerrx("invalid date string length");
+		kerrx("%s:%zu: invalid date size", p->file, p->line);
 		return(0);
 	} 
 	for (i = 0; i < 8; i++)
 		if ( ! isdigit(cp[i])) {
-			kerrx("non-digits in date string");
+			kerrx("%s:%zu: non-digits in date "
+				"string", p->file, p->line);
 			return(0);
 		}
 
@@ -118,7 +150,8 @@ ical_datetime(time_t *tm, const char *cp)
 	year += 10 * (cp[2] - 48);
 	year += 1 * (cp[3] - 48);
 	if (year < 1970) {
-		kerrx("invalid year: %u", year);
+		kerrx("%s:%zu: bad year: %u", 
+			p->file, p->line, year);
 		return(0);
 	}
 
@@ -138,15 +171,17 @@ ical_datetime(time_t *tm, const char *cp)
 	mon += 10 * (cp[4] - 48);
 	mon += 1 * (cp[5] - 48);
 	if (0 == mon || mon > 12) {
-		kerrx("invalid month: %u", mon);
+		kerrx("%s:%zu: bad month: %u", 
+			p->file, p->line, mon);
 		return(0);
 	}
 
 	/* Sanitise the day of month. */
 	mday += 10 * (cp[6] - 48);
 	mday += 1 * (cp[7] - 48);
-	if (0 == mday || mday > mdayss[mday - 1]) {
-		kerrx("invalid day: %u", mday);
+	if (0 == mday || mday > mdayss[mon - 1]) {
+		kerrx("%s:%zu: bad day: %u", 
+			p->file, p->line, mday);
 		return(0);
 	}
 
@@ -158,12 +193,14 @@ ical_datetime(time_t *tm, const char *cp)
 	if ('T' == cp[8]) {
 		/* Sanitise the length and ctype. */
 		if (sz < 8 + 1 + 6) {
-			kerrx("invalid time string length");
+			kerrx("%s:%zu: bad time size", 
+				p->file, p->line);
 			return(0);
 		}
 		for (i = 0; i < 6; i++)
 			if ( ! isdigit(cp[9 + i])) {
-				kerrx("non-digits in time string");
+				kerrx("%s:%zu: non-digits in time "
+					"string", p->file, p->line);
 				return(0);
 			}
 
@@ -171,7 +208,8 @@ ical_datetime(time_t *tm, const char *cp)
 		hour += 10 * (cp[9] - 48);
 		hour += 1 * (cp[10] - 48);
 		if (hour > 24) {
-			kerrx("invalid hour: %u", hour);
+			kerrx("%s:%zu: bad hour: %u", 
+				p->file, p->line, hour);
 			return(0);
 		}
 
@@ -179,7 +217,8 @@ ical_datetime(time_t *tm, const char *cp)
 		min += 10 * (cp[11] - 48);
 		min += 1 * (cp[12] - 48);
 		if (min > 60) {
-			kerrx("invalid minute: %u", min);
+			kerrx("%s:%zu: bad minute: %u", 
+				p->file, p->line, min);
 			return(0);
 		}
 
@@ -187,7 +226,8 @@ ical_datetime(time_t *tm, const char *cp)
 		sec += 10 * (cp[13] - 48);
 		sec += 1 * (cp[14] - 48);
 		if (sec > 60) {
-			kerrx("invalid second: %u", sec);
+			kerrx("%s:%zu: bad second: %u", 
+				p->file, p->line, sec);
 			return(0);
 		}
 	}
@@ -215,28 +255,36 @@ ical_datetime(time_t *tm, const char *cp)
 	return(1);
 }
 
+/*
+ * Convert the string in "cp" into an epoch value.
+ * Return zero on failure, non-zero on success.
+ */
 static int
-ical_utc(time_t *v, const char *cp)
+ical_utc(struct icalparse *p, time_t *v, const char *cp)
 {
 	size_t	 sz;
 
 	*v = 0;
 
 	if (NULL == cp || 0 == (sz = strlen(cp))) {
-		kerrx("zero-length UTC");
+		kerrx("%s:%zu: zero-length UTC", p->file, p->line);
 		return(0);
 	} else if (16 != sz) {
-		kerrx("invalid UTC size, have %zu, want 16", sz);
+		kerrx("%s:%zu: bad UTC size", p->file, p->line);
 		return(0);
 	} else if ('Z' != cp[sz - 1]) {
-		kerrx("no UTC signature");
+		kerrx("%s:%zu: no UTC signature", p->file, p->line);
 		return(0);
 	}
-	return(ical_datetime(v, cp));
+	return(ical_datetime(p, v, cp));
 }
 
+/*
+ * Try to convert "cp" into a UTC-offset string.
+ * Return zero on failure, non-zero on success.
+ */
 static int
-ical_utc_offs(int *v, const char *cp)
+ical_utc_offs(const struct icalparse *p, int *v, const char *cp)
 {
 	size_t	 i, sz;
 	int	 min, hour, sec;
@@ -245,19 +293,22 @@ ical_utc_offs(int *v, const char *cp)
 
 	*v = 0;
 	/* Must be (+-)HHMM[SS]. */
-	if (5 != (sz = strlen(cp)) || 7 != sz) {
-		kerrx("bad UTC offset length");
+	if (5 != (sz = strlen(cp)) && 7 != sz) {
+		kerrx("%s:%zu: bad UTC-offset size", p->file, p->line);
 		return(0);
 	}
+
 	for (i = 1; i < sz; i++)
 		if ( ! isdigit((int)cp[i])) {
-			kerrx("non-digit UTC character");
+			kerrx("%s:%zu: non-digit UTC-offset "
+				"character", p->file, p->line);
 			return(0);
 		}
 
 	/* Check sign extension. */
 	if ('-' != cp[0] && '+' != cp[0]) {
-		kerrx("non-signed UTC");
+		kerrx("%s:%zu: bad UTC-offset sign "
+			"extension", p->file, p->line);
 		return(0);
 	}
 
@@ -265,7 +316,8 @@ ical_utc_offs(int *v, const char *cp)
 	hour += 10 * (cp[1] - 48);
 	hour += 1 * (cp[2] - 48);
 	if (hour >= 24) {
-		kerrx("invalid hour: %d", hour);
+		kerrx("%s:%zu: bad hour: %d", 
+			p->file, p->line, hour);
 		return(0);
 	}
 
@@ -273,7 +325,8 @@ ical_utc_offs(int *v, const char *cp)
 	min += 10 * (cp[3] - 48);
 	min += 1 * (cp[4] - 48);
 	if (min >= 60) {
-		kerrx("invalid minute: %d", min);
+		kerrx("%s:%zu: bad minute: %d", 
+			p->file, p->line, min);
 		return(0);
 	}
 
@@ -283,7 +336,8 @@ ical_utc_offs(int *v, const char *cp)
 		sec += 10 * (cp[5] - 48);
 		sec += 1 * (cp[6] - 48);
 		if (sec >= 60) {
-			kerrx("invalid second: %d", sec);
+			kerrx("%s:%zu: bad second: %d", 
+				p->file, p->line, sec);
 			return(0);
 		}
 	}
@@ -297,93 +351,110 @@ ical_utc_offs(int *v, const char *cp)
 }
 
 static int
-ical_string(struct icalnode **v, struct icalnode *n)
+ical_string(const struct icalparse *p, 
+	const char **v, const char *cp)
 {
 
 	*v = NULL;
-
-	if (NULL == n->val || '\0' == *n->val) {
-		kerrx("zero-length string");
+	if (NULL == cp || '\0' == *cp) {
+		kerrx("%s:%zu: zero-length string", p->file, p->line);
 		return(0);
 	}
-	*v = n;
+	*v = cp;
 	return(1);
 }
-
 
 /*
  * Parse a CRLF-terminated line out of it the iCalendar file.
  * We ignore the last line, so non-CRLF-terminated EOFs are bad.
- * Returns 0 when no CRLF is left, 1 on more lines.
+ * Returns 0 when no lines left, -1 on failure, 1 on success.
  */
 static int
-ical_line(const char *cp, struct buf *buf, size_t *pos, size_t sz)
+ical_line(struct icalparse *p, 
+	char **name, char **param, char **value)
 {
 	const char	*end;
 	size_t		 len;
 
-	buf->sz = 0;
-	while (*pos < sz) {
-		end = memmem(&cp[*pos], sz - *pos, "\r\n", 2);
-		if (NULL == end)
-			return(0);
-		len = end - &cp[*pos];
-		bufappend(buf, &cp[*pos], len);
+	p->buf.sz = 0;
+	while (p->pos < p->sz) {
+		end = memmem(&p->cp[p->pos], 
+			p->sz - p->pos, "\r\n", 2);
+		if (NULL == end) {
+			kerrx("%s:%zu: no CRLF", p->file, p->line);
+			return(-1);
+		}
+
+		p->line++;
+		len = end - &p->cp[p->pos];
+
+		bufappend(&p->buf, &p->cp[p->pos], len);
+
 		if (' ' != end[2] && '\t' != end[2]) 
 			break;
-		*pos += len + 2;
-		while (' ' == cp[*pos] || '\t' == cp[*pos])
-			(*pos)++;
+		p->pos += len + 2;
+		while (' ' == p->cp[p->pos] || '\t' == p->cp[p->pos])
+			p->pos++;
 	}
 
-	if (*pos < sz)
-		*pos += len + 2;
-	assert(*pos <= sz);
-	return(1);
+	/* Trailing \r\n. */
+	if (p->pos < p->sz)
+		p->pos += len + 2;
+
+	assert(p->pos <= p->sz);
+
+	if (NULL == (*name = p->buf.buf)) {
+		kerrx("%s:%zu: empty line", p->file, p->line);
+		return(-1);
+	} else if (NULL == (*value = strchr(*name, ':'))) { 
+		kerrx("%s:%zu: no value", p->file, p->line);
+		return(-1);
+	} else
+		*(*value)++ = '\0';
+
+	if (NULL != (*param = strchr(*name, ';'))) 
+		*(*param)++ = '\0';
+
+	return(p->pos < p->sz);
 }
 
 /*
- * We're at a BEGIN statement.
- * See if this statement matchines one of our known components, e.g.,
- * VEVENT.
- * Then set that the iCalendar contains a VEVENT (bit-wise) and also
- * append to a linked list of known VEVENTs.
- * While here, mark that the node is a given type, too.
+ * Allocate a node onto the queue of currently-allocated nodes for this
+ * parse.
+ * Return the newly-created node or NULL on allocation failure.
  */
-static int
-icalcomp_alloc(struct icalcomp **comps, 
-	struct ical *p, struct icalnode *np)
+static struct icalnode *
+icalnode_alloc(struct icalparse *p,
+	const char *name, const char *val, const char *param)
 {
-	size_t	 i;
+	struct icalnode	*np;
 
-	np->type = ICALTYPE__MAX;
-	for (i = 0; i < ICALTYPE__MAX; i++) {
-		if (strcmp(icaltypes[i], np->val))
-			continue;
-		p->bits |= 1u << i;
-		np->type = i;
-		if (NULL != comps[i]) {
-			assert(NULL != p->comps[i]);
-			comps[i]->next = calloc
-				(1, sizeof(struct icalcomp));
-			comps[i] = comps[i]->next;
+	assert(NULL != name);
+	assert(NULL != val);
+
+	if (NULL == (np = calloc(1, sizeof(struct icalnode))))
+		kerr(NULL);
+	else if (NULL == (np->name = strdup(name)))
+		kerr(NULL);
+	else if (NULL == (np->val = strdup(val)))
+		kerr(NULL);
+	else if (param && NULL == (np->param = strdup(param)))
+		kerr(NULL);
+	else {
+		/* Enqueue the iCalendar node. */
+		if (NULL == p->cur) {
+			assert(NULL == p->ical->first);
+			p->cur = p->ical->first = np;
 		} else {
-			assert(NULL == p->comps[i]);
-			comps[i] = calloc
-				(1, sizeof(struct icalcomp));
+			assert(NULL != p->ical->first);
+			p->cur->next = np;
+			p->cur = np;
 		}
-
-		if (NULL == comps[i]) {
-			kerr(NULL);
-			return(0);
-		} else if (NULL == p->comps[i])
-			p->comps[i] = comps[i];
-
-		comps[i]->type = i;
-		break;
+		return(np);
 	}
 
-	return(1);
+	icalnode_free(np, 0);
+	return(NULL);
 }
 
 /*
@@ -393,7 +464,6 @@ icalcomp_alloc(struct icalcomp **comps,
 struct ical *
 ical_parsefile(const char *file)
 {
-
 
 	return(ical_parsefile_open(file, NULL));
 }
@@ -411,7 +481,6 @@ ical_parsefile_close(const char *file, int fd)
 
 	if (-1 == fd)
 		return(1);
-
 	return(close_unlock(file, fd) >= 0);
 }
 
@@ -467,190 +536,234 @@ ical_parsefile_open(const char *file, int *keep)
 }
 
 /*
- * This function is very straightforward.
- * Given a buffer "cp" (not necessarily nil-terminated, but CRLF
- * terminated in the way of iCalendar) of size "sz", parse the contained
- * iCalendar and return it.
- * Returns NULL on parse failure or memory exhaustion.
- * Returns the well-formed iCalendar structure otherwise.
+ * Fully parse a DAYLIGHT or STANDARD time component as specified by the
+ * input "type" into the current calendar.
+ * This requires that a timezone be set!
+ */
+static int
+ical_parsetz(struct icalparse *p, enum icaltztype type)
+{
+	struct icaltz	*c;
+	char		*name, *val, *param;
+	int		 rc;
+	struct icalnode	*np;
+	void		*pp;
+
+	if (NULL == p->comps[ICALTYPE_VTIMEZONE]) {
+		kerrx("%s:%zu: unexpected timezone?", p->file, p->line);
+		return(0);
+	}
+
+	assert(NULL != p->ical->comps[ICALTYPE_VTIMEZONE]);
+
+	/*
+	 * Re-allocate the per-timezone list of daytime and standard
+	 * time objects (not really components).
+	 */
+	pp = reallocarray
+		(p->comps[ICALTYPE_VTIMEZONE]->tzs,
+		 p->comps[ICALTYPE_VTIMEZONE]->tzsz + 1,
+		 sizeof(struct icaltz));
+	if (NULL == pp) {
+		kerr(NULL);
+		return(0);
+	}
+	p->comps[ICALTYPE_VTIMEZONE]->tzs = pp;
+	c = &p->comps[ICALTYPE_VTIMEZONE]->tzs
+		[p->comps[ICALTYPE_VTIMEZONE]->tzsz];
+	p->comps[ICALTYPE_VTIMEZONE]->tzsz++;
+	memset(c, 0, sizeof(struct icaltz));
+	c->type = type;
+
+	while (p->pos < p->sz) {
+		/* Try to parse the current line. */
+		if ((rc = ical_line(p, &name, &param, &val)) < 0)
+			return(0);
+		if (NULL == (np = icalnode_alloc(p, name, val, param)))
+			return(0);
+
+		if (0 == strcasecmp("END", name)) {
+			if (0 == strcasecmp(icaltztypes[type], val))
+				break;
+			continue;
+		}
+
+		if (0 == strcasecmp(name, "dtstart"))
+			rc = ical_datetime(p, &c->dtstart, np->val);
+		else if (0 == strcasecmp(name, "tzoffsetfrom"))
+			rc = ical_utc_offs(p, &c->tzfrom, np->val);
+		else if (0 == strcasecmp(name, "tzoffsetto"))
+			rc = ical_utc_offs(p, &c->tzto, np->val);
+		else if (0 == strcasecmp(name, "rrule"))
+			rc = ical_string(p, &c->rrule, np->val);
+		else
+			rc = 1;
+
+		if ( ! rc)
+			return(0);
+	}
+
+	return(1);
+}
+
+/*
+ * Fully parse an individual component, such as a VCALENDAR, VEVENT,
+ * or VTIMEZONE, and any components it may contain.
+ * Return when all of the component parts have been consumed.
+ */
+static int
+ical_parsecomp(struct icalparse *p, enum icaltype type)
+{
+	struct icalcomp	*c;
+	char		*name, *val, *param;
+	int		 rc;
+	struct icalnode	*np;
+	enum icaltype	 tt;
+	enum icaltztype	 tz;
+	size_t		 line;
+
+	if (NULL == (c = calloc(1, sizeof(struct icalcomp)))) {
+		kerr(NULL);
+		return(0);
+	}
+	c->type = type;
+
+	if (NULL == p->comps[type]) {
+		assert(NULL == p->ical->comps[type]);
+		p->comps[type] = p->ical->comps[type] = c;
+	} else {
+		assert(NULL != p->ical->comps[type]);
+		p->comps[type]->next = c;
+		p->comps[type] = c;
+	}
+
+	p->ical->bits |= 1u << (unsigned int)type;
+
+	line = p->line;
+	while (p->pos < p->sz) {
+		/* Try to parse the current line. */
+		if ((rc = ical_line(p, &name, &param, &val)) < 0)
+			return(0);
+		if (NULL == (np = icalnode_alloc(p, name, val, param)))
+			return(0);
+
+		if (0 == strcasecmp("BEGIN", name)) {
+			/* Look up in other nested component. */
+			for (tt = 0; tt < ICALTYPE__MAX; tt++) 
+				if (0 == strcasecmp(icaltypes[tt], val))
+					break;
+			if (tt < ICALTYPE__MAX && ! ical_parsecomp(p, tt))
+				return(0);
+			else if (tt < ICALTYPE__MAX)
+				continue;
+			/* Look up in time-zone components. */
+			for (tz = 0; tz < ICALTZ__MAX; tz++) 
+				if (0 == strcasecmp(icaltztypes[tz], val))
+					break;
+			if (tz < ICALTZ__MAX && ! ical_parsetz(p, tz))
+				return(0);
+			continue;
+		} else if (0 == strcasecmp("END", name)) {
+			if (0 == strcasecmp(icaltypes[type], val))
+				break;
+			continue;
+		}
+
+		if (0 == strcasecmp(name, "uid"))
+			rc = ical_string(p, &c->uid, np->val);
+		else if (0 == strcasecmp(name, "created"))
+			rc = ical_utc(p, &c->created, np->val);
+		else if (0 == strcasecmp(name, "last-modified"))
+			rc = ical_utc(p, &c->lastmod, np->val);
+		else if (0 == strcasecmp(name, "dtstamp"))
+			rc = ical_utc(p, &c->dtstamp, np->val);
+		else if (0 == strcasecmp(name, "tzid"))
+			rc = ical_string(p, &c->tzid, np->val);
+		else
+			rc = 1;
+
+		if ( ! rc)
+			return(0);
+	}
+
+	/*
+	 * We can now run some post-processing queries.
+	 */
+	switch (c->type) {
+	case (ICALTYPE_VEVENT):
+		if (NULL == c->uid) {
+			kerrx("%s:%zu: missing UID", p->file, line);
+			return(0);
+		}
+		break;
+	case (ICALTYPE_VTIMEZONE):
+		if (NULL == c->tzid) {
+			kerrx("%s:%zu: missing TZID", p->file, line);
+			return(0);
+		}
+		break;
+	default:
+		break;
+	}
+
+	return(1);
+}
+
+/*
+ * Parse a binary buffer "cp" of size "sz" from a file (which may be
+ * NULL if there's no file--it's for reporting purposes only) into a
+ * well-formed iCalendar structure.
+ * Returns NULL if the parse failed in any way.
  */
 struct ical *
 ical_parse(const char *file, const char *cp, size_t sz)
 {
-	struct ical	*p;
-	struct icalnode	*cur, *np;
+	struct icalparse pp;
+	unsigned char	 digest[MD5_DIGEST_LENGTH];
 	char		*name, *val, *param;
-	struct buf	 buf;
-	MD5_CTX		 ctx;
-	size_t		 i, pos, line;
-	unsigned char	 digest[16];
-	const char	*fp;
-	struct icalcomp	*comps[ICALTYPE__MAX];
-	enum icaltype	 type;
 	int		 rc;
+	MD5_CTX		 ctx;
+	struct ical	*p;
+	size_t		 i;
 
-	memset(&buf, 0, sizeof(struct buf));
-	memset(comps, 0, sizeof(comps));
+	memset(&pp, 0, sizeof(struct icalparse));
+	pp.file = NULL == file ? "<buffer>" : file;
+	pp.cp = cp;
+	pp.sz = sz;
 
-	if (NULL == (p = calloc(1, sizeof(struct ical)))) {
+	if (NULL == (pp.ical = p = calloc(1, sizeof(struct ical)))) {
 		kerr(NULL);
 		return(NULL);
 	}
 
-	/* Take an MD5 digest of the whole buffer. */
 	MD5Init(&ctx);
 	MD5Update(&ctx, cp, sz);
 	MD5Final(digest, &ctx);
 	for (i = 0; i < sizeof(digest); i++) 
 	         snprintf(&p->digest[i * 2], 3, "%02x", digest[i]);
 
-	fp = NULL == file ? "<buffer>" : file;
-	cur = NULL;
-
-	for (line = pos = 0; pos < sz; ) {
-		line++;
-		/* iCalendar is line-based: get the next line. */
-		if (0 == ical_line(cp, &buf, &pos, sz)) {
-			kerrx("%s:%zu: no CRLF", fp, sz);
+	while (pp.pos < pp.sz) {
+		if ((rc = ical_line(&pp, &name, &param, &val)) < 0)
 			break;
-		}
-
-		/* Parse the name/value pair from the line. */
-		if (NULL == (name = buf.buf)) {
-			kerrx("%s:%zu: no line pair", fp, sz);
+		if (NULL == icalnode_alloc(&pp, name, val, param))
 			break;
-		}
 
-		if (NULL != (val = strchr(name, ':')))
-			*val++ = '\0';
-		if (NULL == val) {
-			kerrx("%s:%zu: no value", fp, sz);
+		if (strcasecmp(name, "BEGIN")) {
+			kerrx("%s:%zu: not BEGIN: %s", pp.file, pp.line, name);
 			break;
-		}
-
-		if (NULL != (param = strchr(name, ';'))) 
-			*param++ = '\0';
-
-		/* Allocate the line record. */
-		if (NULL == (np = calloc(1, sizeof(struct icalnode)))) {
-			kerr(NULL);
+		} else if (strcasecmp(val, "VCALENDAR")) {
+			kerrx("%s:%zu: not VCALENDAR", pp.file, pp.line);
 			break;
-		} else if (NULL == (np->name = strdup(name))) {
-			kerr(NULL);
-			icalnode_free(np, 0);
+		} else if ( ! ical_parsecomp(&pp, ICALTYPE_VCALENDAR))
 			break;
-		} else if (val && NULL == (np->val = strdup(val))) {
-			kerr(NULL);
-			icalnode_free(np, 0);
-			break;
-		} else if (param && NULL == (np->param = strdup(param))) {
-			kerr(NULL);
-			icalnode_free(np, 0);
-			break;
-		}
-
-		/*
-		 * If this line defines a component, then scan it and
-		 * set the appropriate field on our calendar.
-		 * For example, if we're a VTODO, then set the bit on
-		 * the calendar object that we contain the VTODO.
-		 */
-		if (NULL != val && 0 == strcmp("BEGIN", np->name)) {
-			if ( ! icalcomp_alloc(comps, p, np)) {
-				icalnode_free(np, 0);
-				break;
-			}
-		}
-
-		/* Handle the first entry and bad nesting. */
-		if (NULL == p->first) {
-			p->first = cur = np;
-			continue;
-		} else if (NULL == cur) {
-			kerrx("%s:%zu: bad nest", fp, sz);
-			break;
-		} 
-
-		assert(NULL != cur);
-		assert(NULL != np);
-
-		/* Handle empty blocks. */
-		if (0 == strcmp("BEGIN", cur->name)) {
-			if (0 == strcmp("END", np->name)) {
-				np->parent = cur->parent;
-				cur->next = np;
-				cur = np;
-			} else {
-				cur->first = np;
-				np->parent = cur;
-				cur = np;
-			}
-		} else {
-			if (0 == strcmp("END", np->name))
-				if (NULL == (cur = cur->parent)) {
-					kerrx("%s:%zu: bad nest", fp, sz);
-					break;
-				}
-			np->parent = cur->parent;
-			cur->next = np;
-			cur = np;
-		}
-
-		/*
-		 * Here we set specific component properties such as the
-		 * UID or DTSTART.
-		 * First make sure that we can do so.
-		 */
-		if (NULL == val)
-			continue;
-		if (NULL == np->parent)
-			continue;
-		if (ICALTYPE__MAX == np->parent->type)
-			continue;
-
-		type = np->parent->type;
-		assert(NULL != comps[type]);
-
-		if (0 == strcasecmp(np->name, "uid"))
-			rc = ical_string(&comps[type]->uid, np);
-		else if (0 == strcasecmp(np->name, "created"))
-			rc = ical_utc(&comps[type]->created, np->val);
-		else if (0 == strcasecmp(np->name, "last-modified"))
-			rc = ical_utc(&comps[type]->lastmod, np->val);
-		else if (0 == strcasecmp(np->name, "dtstamp"))
-			rc = ical_utc(&comps[type]->dtstamp, np->val);
-		else if (0 == strcasecmp(np->name, "dtstart"))
-			rc = ical_string(&comps[type]->start, np);
-		else if (0 == strcasecmp(np->name, "dtend"))
-			rc = ical_string(&comps[type]->end, np);
-		else if (0 == strcasecmp(np->name, "tzoffsetfrom"))
-			rc = ical_utc_offs(&comps[type]->tzfrom, np->val);
-		else if (0 == strcasecmp(np->name, "tzoffsetto"))
-			rc = ical_utc_offs(&comps[type]->tzto, np->val);
-		else
-			rc = 1;
-
-		if ( ! rc) {
-			kerrx("%s:%zu: bad parse", fp, sz);
-			break;
-		}
 	}
 
-	free(buf.buf);
+	free(pp.buf.buf);
 
-	/* Handle all sorts of error conditions. */
-	if (NULL == p->first)
-		kerrx("%s: empty", fp);
-	else if (strcmp(p->first->name, "BEGIN") ||
-		 strcmp(p->first->val, "VCALENDAR"))
-		kerrx("%s: bad root", fp);
-	else if (NULL != cur && NULL != cur->parent)
-		kerrx("%s: bad nest", fp);
-	else if (pos < sz)
-		kerrx("%s: bad parse", fp);
-	else
+	if (pp.pos == pp.sz)
 		return(p);
 
+	kerrx("%s: parse failed", pp.file);
 	ical_free(p);
 	return(NULL);
 }
@@ -700,6 +813,15 @@ icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 	for (cp = p->name; '\0' != *cp; cp++) 
 		if (icalnode_putchar(*cp, &col, fp, arg) < 0)
 			return(0);
+
+	if (NULL != p->param) {
+		if (icalnode_putchar(';', &col, fp, arg) < 0)
+			return(0);
+		for (cp = p->param; '\0' != *cp; cp++) 
+			if (icalnode_putchar(*cp, &col, fp, arg) < 0)
+				return(0);
+	}
+
 	if (icalnode_putchar(':', &col, fp, arg) < 0)
 		return(0);
 	for (cp = p->val; '\0' != *cp; cp++) 
@@ -708,8 +830,6 @@ icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 	if ((*fp)('\r', arg) < 0)
 		return(0);
 	if ((*fp)('\n', arg) < 0)
-		return(0);
-	if (icalnode_print(p->first, fp, arg) < 0)
 		return(0);
 	if (icalnode_print(p->next, fp, arg) < 0)
 		return(0);
@@ -735,37 +855,3 @@ ical_printfile(int fd, const struct ical *p)
 
 	return(icalnode_print(p->first, icalnode_putc, &fd));
 }
-
-#if 0
-int
-ical_parsedatetime(time_t *tp, const struct icalnode *n)
-{
-	struct tm	 tm;
-
-	assert(NULL != n);
-	if (NULL == n->val || ! ical_parsedatenumeric(&tm, n->val))
-		return(0);
-
-	/* Accept all-day as being the start of the day GMT. */
-	if (NULL != n->param && strcasecmp(n->param, "VALUE=DATE"))  {
-		*tp = timegm(&tm);
-		return(1);
-	}
-
-	/* Try to convert into UTC.  Ignores any TZID. */
-	if ('Z' == n->val[strlen(n->val) - 1]) {
-		*tp = timegm(&tm);
-		return(1);
-	} else if (NULL == n->param) {
-		*tp = mktime(&tm);
-		return(1);
-	} else {
-		setenv("TZ", n->param, 1);
-		*tp = mktime(&tm);
-		unsetenv("TZ");
-		return(1);
-	}
-
-	return(0);
-}
-#endif

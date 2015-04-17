@@ -35,38 +35,54 @@ int verbose = 1;
 static void
 ical_printcomp(const struct icalcomp *c)
 {
+	size_t	 i;
 
 	assert(NULL != c);
 	assert(ICALTYPE__MAX != c->type);
 
-	printf("comp: %s\n", icaltypes[c->type]);
-
+	printf("[%s] Parsed...\n", icaltypes[c->type]);
 	if (NULL != c->uid)
-		printf("comp UID = %s\n", 
-			NULL == c->uid->val ? "(none)" :
-			c->uid->val);
-	if (NULL != c->start) 
-		printf("comp START[%s] = %s\n", 
-			NULL == c->start->param ? "(none)" : 
-			c->start->param, 
-			NULL == c->start->val ? "(none)" :
-			c->start->val);
-	if (NULL != c->end)
-		printf("comp END[%s] = %s\n", 
-			NULL == c->end->param ? "(none)" : 
-			c->end->param, 
-			NULL == c->end->val ? "(none)" :
-			c->end->val);
+		printf("[%s] UID = %s\n", 
+			icaltypes[c->type], c->uid);
+	if (NULL != c->tzid)
+		printf("[%s] TZID = %s\n", 
+			icaltypes[c->type], c->tzid);
 	if (0 != c->created)
-		printf("comp CREATED = %s", ctime(&c->created));
+		printf("[%s] CREATED = %s", 
+			icaltypes[c->type], ctime(&c->created));
 	if (0 != c->lastmod)
-		printf("comp LASTMODIFIED = %s", ctime(&c->lastmod));
+		printf("[%s] LASTMODIFIED = %s", 
+			icaltypes[c->type], ctime(&c->lastmod));
 	if (0 != c->dtstamp)
-		printf("comp DTSTAMP = %s", ctime(&c->dtstamp));
-	if (0 != c->tzfrom)
-		printf("comp TZOFFSETFROM = %04d", c->tzfrom);
-	if (0 != c->tzto)
-		printf("comp TZOFFSETTO = %04d", c->tzto);
+		printf("[%s] DTSTAMP = %s", 
+			icaltypes[c->type], ctime(&c->dtstamp));
+	for (i = 0; i < c->tzsz; i++) {
+		if (NULL != c->tzs[i].tzid)
+			printf("[%s:%s] TZID = %s\n", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type], 
+				c->tzs[i].tzid);
+		if (0 != c->tzs[i].dtstart)
+			printf("[%s:%s] DTSTART = %s", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type], 
+				ctime(&c->tzs[i].dtstart));
+		if (0 != c->tzs[i].tzto)
+			printf("[%s:%s] TZOFFSETTO = %d\n", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type], 
+				c->tzs[i].tzto);
+		if (0 != c->tzs[i].tzfrom)
+			printf("[%s:%s] TZOFFSETFROM = %d\n", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type], 
+				c->tzs[i].tzfrom);
+		if (NULL != c->tzs[i].rrule)
+			printf("[%s:%s] RRULE = %s\n", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type], 
+				c->tzs[i].rrule);
+	}
 
 	if (NULL != c->next)
 		ical_printcomp(c->next);
@@ -126,6 +142,7 @@ main(int argc, char *argv[])
 			printf(" VALARM");
 		printf("\n");
 #endif
+		fflush(stdout);
 		ical_printfile(STDOUT_FILENO, p);
 	}
 
