@@ -24,6 +24,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -47,6 +48,17 @@ const char *const icaltypes[ICALTYPE__MAX] = {
 const char *const icaltztypes[ICALTZ__MAX] = {
 	"DAYLIGHT", /* ICALTZ_DAYLIGHT */
 	"STANDARD", /* ICALTZ_STANDARD */
+};
+
+const char *const icalfreqs[ICALFREQ__MAX] = {
+	NULL, /* ICALFREQ_NONE */
+	"SECONDLY", /* ICALFREQ_SECONDLY */
+	"MINUTELY", /* ICALFREQ_MINUTELY */
+	"HOURLY", /* ICALFREQ_HOURLY */
+	"DAILY", /* ICALFREQ_DAILY */
+	"WEEKLY", /* ICALFREQ_WEEKLY */
+	"MONTHLY", /* ICALFREQ_MONTHLY */
+	"YEARLY", /* ICALFREQ_YEARLY */
 };
 
 /*
@@ -95,7 +107,7 @@ void
 ical_free(struct ical *p)
 {
 	struct icalcomp	*c;
-	size_t		 i;
+	size_t		 i, j;
 
 	if (NULL == p)
 		return;
@@ -103,6 +115,16 @@ ical_free(struct ical *p)
 	for (i = 0; i < ICALTYPE__MAX; i++) {
 		while (NULL != (c = p->comps[i])) {
 			p->comps[i] = c->next;
+			for (j = 0; j < c->tzsz; j++) {
+				free(c->tzs[j].rrule.bsec);
+				free(c->tzs[j].rrule.byrd);
+				free(c->tzs[j].rrule.bmon);
+				free(c->tzs[j].rrule.bmnd);
+				free(c->tzs[j].rrule.bmin);
+				free(c->tzs[j].rrule.bhr);
+				free(c->tzs[j].rrule.bwkn);
+				free(c->tzs[j].rrule.bsp);
+			}
 			free(c->tzs);
 			free(c);
 		}
@@ -118,7 +140,7 @@ ical_free(struct ical *p)
  * Return zero on failure, non-zero on success.
  */
 static int
-ical_datetime(struct icalparse *p, time_t *tm, const char *cp)
+ical_datetime(const struct icalparse *p, time_t *tm, const char *cp)
 {
 	size_t		 sz, i;
 	unsigned 	 year, mon, mday, hour, min, sec, day;
@@ -256,11 +278,59 @@ ical_datetime(struct icalparse *p, time_t *tm, const char *cp)
 }
 
 /*
+ * Parse a date and time, possibly requiring us to dig through the
+ * time-zone database and adjust the time.
+ * Sets "tm" to be an epoch time.
+ * Returns 0 on failure and 1 on success.
+ */
+static int
+ical_tzdatetime(struct icalparse *p, 
+	struct icaltime *tm, const struct icalnode *np)
+{
+
+	memset(tm, 0, sizeof(struct icaltime));
+
+	/* First, let's parse the raw date and time. */
+
+	if ( ! ical_datetime(p, &tm->time, np->val))
+		return(0);
+
+	/* 
+	 * Next, see if we're UTC.
+	 * Note: the "free floating" time is interpreted as UTC.
+	 */
+	if (NULL == np->param)
+		return(1);
+	else if (0 == strcasecmp(np->param, "VALUE=DATE")) 
+		return(1);
+	else if (0 == strcasecmp(np->param, "VALUE=DATE-TIME"))
+		return(1);
+	
+	if (strncasecmp(np->param, "TZID=", 5)) {
+		kerrx("%s:%zu: unrecognised param", p->file, p->line);
+		return(0);
+	}
+
+	/* Try looking up the timezone in our database. */
+	tm->tz = p->ical->comps[ICALTYPE_VTIMEZONE];
+	for ( ; NULL != tm->tz; tm->tz = tm->tz->next)
+		if (0 == strcasecmp(tm->tz->tzid, np->param + 5))
+			break;
+
+	if (NULL == tm->tz) {
+		kerrx("%s:%zu: timezone not found", p->file, p->line);
+		return(0);
+	}
+
+	return(1);
+}
+
+/*
  * Convert the string in "cp" into an epoch value.
  * Return zero on failure, non-zero on success.
  */
 static int
-ical_utc(struct icalparse *p, time_t *v, const char *cp)
+ical_utcdatetime(const struct icalparse *p, time_t *v, const char *cp)
 {
 	size_t	 sz;
 
@@ -277,6 +347,167 @@ ical_utc(struct icalparse *p, time_t *v, const char *cp)
 		return(0);
 	}
 	return(ical_datetime(p, v, cp));
+}
+
+static int
+ical_long(const struct icalparse *p, long *v, const char *cp)
+{
+	char	*ep;
+
+	*v = strtol(cp, &ep, 10);
+
+	if (cp == ep || *ep != '\0')
+		kerrx("%s:%zu: bad long\n", p->file, p->line);
+	else if ((*v == LONG_MAX && errno == ERANGE))
+		kerrx("%s:%zu: bad long\n", p->file, p->line);
+	else if ((*v == LONG_MIN && errno == ERANGE))
+		kerrx("%s:%zu: bad long\n", p->file, p->line);
+	else
+		return(1);
+
+	*v = 0;
+	return(0);
+}
+
+static int
+ical_longlist(const struct icalparse *p, 
+	long **v, size_t *vsz, char *cp)
+{
+	char	*string, *tok;
+	long	 lval;
+	void	*pp;
+
+	string = cp;
+	while (NULL != (tok = strsep(&string, ","))) {
+		if ( ! ical_long(p, &lval, tok))
+			return(0);
+		pp = reallocarray
+			(*v, *vsz + 1, sizeof(long));
+		if (NULL == p) {
+			kerr(NULL);
+			return(0);
+		}
+		*v = pp;
+		(*v)[*vsz] = lval;
+		(*vsz)++;
+	}
+	
+	return(1);
+}
+
+static int
+ical_ulong(const struct icalparse *p, unsigned long *v, const char *cp)
+{
+	char	*ep;
+
+	*v = strtoul(cp, &ep, 10);
+
+	if (cp == ep || *ep != '\0')
+		kerrx("%s:%zu: bad ulong\n", p->file, p->line);
+	else if ((*v == ULONG_MAX && errno == ERANGE))
+		kerrx("%s:%zu: bad ulong\n", p->file, p->line);
+	else
+		return(1);
+
+	*v = 0;
+	return(0);
+}
+
+static int
+ical_ulonglist(const struct icalparse *p, 
+	unsigned long **v, size_t *vsz, char *cp)
+{
+	char		*string, *tok;
+	unsigned long	 lval;
+	void		*pp;
+
+	string = cp;
+	while (NULL != (tok = strsep(&string, ","))) {
+		if ( ! ical_ulong(p, &lval, tok))
+			return(0);
+		pp = reallocarray
+			(*v, *vsz + 1, sizeof(unsigned long));
+		if (NULL == p) {
+			kerr(NULL);
+			return(0);
+		}
+		*v = pp;
+		(*v)[*vsz] = lval;
+		(*vsz)++;
+	}
+	
+	return(1);
+}
+
+/*
+ * Parse a full repeat-rule.
+ * Note that this re-allocates the "cp" string for internal usage.
+ * This returns zero on failure and non-zero on success.
+ */
+static int
+ical_rrule(const struct icalparse *p, 
+	struct icalrrule *vp, const char *cp)
+{
+	char	 *tofree, *string, *key, *v;
+
+	if (NULL == (tofree = strdup(cp))) {
+		kerr(NULL);
+		return(0);
+	}
+
+	string = tofree;
+	while (NULL != (key = strsep(&string, ";"))) {
+		if (NULL == (v = strchr(key, '='))) {
+			kerrx("%s:%zu: bad RRULE parameter",
+				p->file, p->line);
+			break;
+		}
+		*v++ = '\0';
+		if (0 == strcmp(key, "FREQ")) {
+			vp->freq = ICALFREQ_NONE + 1; 
+			for ( ; vp->freq < ICALFREQ__MAX; vp->freq++)
+				if (0 == strcmp(icalfreqs[vp->freq], v))
+					break;
+			if (ICALFREQ__MAX == vp->freq) {
+				kerrx("%s:%zu: bad RRULE FREQ",
+					p->file, p->line);
+				break;
+			}
+		} else if (0 == strcmp(key, "UNTIL")) {
+			if ( ! ical_utcdatetime(p, &vp->until, v))
+				break;
+		} else if (0 == strcmp(key, "COUNT")) {
+			if ( ! ical_ulong(p, &vp->count, v))
+				break;
+		} else if (0 == strcmp(key, "INTERVAL")) {
+			if ( ! ical_ulong(p, &vp->interval, v))
+				break;
+		} else if (0 == strcmp(key, "BYHOUR")) {
+			if ( ! ical_ulonglist(p, &vp->bhr, &vp->bhrsz, v))
+				break;
+		} else if (0 == strcmp(key, "BYMINUTE")) {
+			if ( ! ical_longlist(p, &vp->bmin, &vp->bminsz, v))
+				break;
+		} else if (0 == strcmp(key, "BYMONTH")) {
+			if ( ! ical_longlist(p, &vp->bmon, &vp->bmonsz, v))
+				break;
+		} else if (0 == strcmp(key, "BYSECOND")) {
+			if ( ! ical_ulonglist(p, &vp->bsec, &vp->bsecsz, v))
+				break;
+		} else if (0 == strcmp(key, "BYSETPOS")) {
+			if ( ! ical_longlist(p, &vp->bsp, &vp->bspsz, v))
+				break;
+		} else if (0 == strcmp(key, "BYWEEKNO")) {
+			if ( ! ical_longlist(p, &vp->bwkn, &vp->bwknsz, v))
+				break;
+		} else if (0 == strcmp(key, "BYYEARDAY")) {
+			if ( ! ical_longlist(p, &vp->byrd, &vp->byrdsz, v))
+				break;
+		}
+	}
+
+	free(tofree);
+	return(NULL == key);
 }
 
 /*
@@ -595,7 +826,7 @@ ical_parsetz(struct icalparse *p, enum icaltztype type)
 		else if (0 == strcasecmp(name, "tzoffsetto"))
 			rc = ical_utc_offs(p, &c->tzto, np->val);
 		else if (0 == strcasecmp(name, "rrule"))
-			rc = ical_string(p, &c->rrule, np->val);
+			rc = ical_rrule(p, &c->rrule, np->val);
 		else
 			rc = 1;
 
@@ -672,11 +903,13 @@ ical_parsecomp(struct icalparse *p, enum icaltype type)
 		if (0 == strcasecmp(name, "uid"))
 			rc = ical_string(p, &c->uid, np->val);
 		else if (0 == strcasecmp(name, "created"))
-			rc = ical_utc(p, &c->created, np->val);
+			rc = ical_utcdatetime(p, &c->created, np->val);
 		else if (0 == strcasecmp(name, "last-modified"))
-			rc = ical_utc(p, &c->lastmod, np->val);
+			rc = ical_utcdatetime(p, &c->lastmod, np->val);
 		else if (0 == strcasecmp(name, "dtstamp"))
-			rc = ical_utc(p, &c->dtstamp, np->val);
+			rc = ical_utcdatetime(p, &c->dtstamp, np->val);
+		else if (0 == strcasecmp(name, "dtstart"))
+			rc = ical_tzdatetime(p, &c->dtstart, np);
 		else if (0 == strcasecmp(name, "tzid"))
 			rc = ical_string(p, &c->tzid, np->val);
 		else

@@ -35,7 +35,7 @@ int verbose = 1;
 static void
 ical_printcomp(const struct icalcomp *c)
 {
-	size_t	 i;
+	size_t	 i, j;
 
 	assert(NULL != c);
 	assert(ICALTYPE__MAX != c->type);
@@ -56,12 +56,33 @@ ical_printcomp(const struct icalcomp *c)
 	if (0 != c->dtstamp)
 		printf("[%s] DTSTAMP = %s", 
 			icaltypes[c->type], ctime(&c->dtstamp));
+	if (0 != c->dtstart.time)
+		printf("[%s] DTSTART = %s: %s", 
+			icaltypes[c->type], 
+			NULL != c->dtstart.tz ?
+			c->dtstart.tz->tzid : "(no TZ)",
+			ctime(&c->dtstart.time));
 	for (i = 0; i < c->tzsz; i++) {
-		if (NULL != c->tzs[i].tzid)
-			printf("[%s:%s] TZID = %s\n", 
+		if (ICALFREQ_NONE != c->tzs[i].rrule.freq)
+			printf("[%s:%s] FREQ = %s\n", 
 				icaltypes[c->type], 
 				icaltztypes[c->tzs[i].type], 
-				c->tzs[i].tzid);
+				icalfreqs[c->tzs[i].rrule.freq]);
+		if (0 != c->tzs[i].rrule.until)
+			printf("[%s:%s] UNTIL = %s", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type], 
+				ctime(&c->tzs[i].rrule.until));
+		if (0 != c->tzs[i].rrule.count)
+			printf("[%s:%s] COUNT = %lu", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type], 
+				c->tzs[i].rrule.count);
+		if (0 != c->tzs[i].rrule.interval)
+			printf("[%s:%s] INTERVAL = %lu", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type], 
+				c->tzs[i].rrule.interval);
 		if (0 != c->tzs[i].dtstart)
 			printf("[%s:%s] DTSTART = %s", 
 				icaltypes[c->type], 
@@ -77,11 +98,70 @@ ical_printcomp(const struct icalcomp *c)
 				icaltypes[c->type], 
 				icaltztypes[c->tzs[i].type], 
 				c->tzs[i].tzfrom);
-		if (NULL != c->tzs[i].rrule)
-			printf("[%s:%s] RRULE = %s\n", 
+		if (0 != c->tzs[i].rrule.bhrsz) {
+			printf("[%s:%s] BYHOUR =", 
 				icaltypes[c->type], 
-				icaltztypes[c->tzs[i].type], 
-				c->tzs[i].rrule);
+				icaltztypes[c->tzs[i].type]);
+			for (j = 0; j < c->tzs[i].rrule.bhrsz; j++)
+				printf(" %lu", c->tzs[i].rrule.bhr[j]);
+			printf("\n");
+		}
+		if (0 != c->tzs[i].rrule.bminsz) {
+			printf("[%s:%s] BYMINUTE =", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type]);
+			for (j = 0; j < c->tzs[i].rrule.bminsz; j++)
+				printf(" %ld", c->tzs[i].rrule.bmin[j]);
+			printf("\n");
+		}
+		if (0 != c->tzs[i].rrule.bmonsz) {
+			printf("[%s:%s] BYMONTH =", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type]);
+			for (j = 0; j < c->tzs[i].rrule.bmonsz; j++)
+				printf(" %ld", c->tzs[i].rrule.bmon[j]);
+			printf("\n");
+		}
+		if (0 != c->tzs[i].rrule.bmndsz) {
+			printf("[%s:%s] BYMONTHDAY =", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type]);
+			for (j = 0; j < c->tzs[i].rrule.bmndsz; j++)
+				printf(" %ld", c->tzs[i].rrule.bmnd[j]);
+			printf("\n");
+		}
+		if (0 != c->tzs[i].rrule.bsecsz) {
+			printf("[%s:%s] BYSECOND =", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type]);
+			for (j = 0; j < c->tzs[i].rrule.bsecsz; j++)
+				printf(" %lu", c->tzs[i].rrule.bsec[j]);
+			printf("\n");
+		}
+		if (0 != c->tzs[i].rrule.bspsz) {
+			printf("[%s:%s] BYSETPOS =", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type]);
+			for (j = 0; j < c->tzs[i].rrule.bspsz; j++)
+				printf(" %ld", c->tzs[i].rrule.bsp[j]);
+			printf("\n");
+		}
+		if (0 != c->tzs[i].rrule.bwkn) {
+			printf("[%s:%s] BYWEEKNO =", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type]);
+			for (j = 0; j < c->tzs[i].rrule.bwknsz; j++)
+				printf(" %ld", c->tzs[i].rrule.bwkn[j]);
+			printf("\n");
+		}
+		if (0 != c->tzs[i].rrule.byrdsz) {
+			printf("[%s:%s] BYYEARDAY =", 
+				icaltypes[c->type], 
+				icaltztypes[c->tzs[i].type]);
+			for (j = 0; j < c->tzs[i].rrule.byrdsz; j++)
+				printf(" %ld", c->tzs[i].rrule.byrd[j]);
+			printf("\n");
+		}
 	}
 
 	if (NULL != c->next)

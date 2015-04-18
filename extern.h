@@ -126,6 +126,41 @@ enum	icaltztype {
 	ICALTZ__MAX
 };
 
+enum	icalfreq {
+	ICALFREQ_NONE = 0,
+	ICALFREQ_SECONDLY,
+	ICALFREQ_MINUTELY,
+	ICALFREQ_HOURLY,
+	ICALFREQ_DAILY,
+	ICALFREQ_WEEKLY,
+	ICALFREQ_MONTHLY,
+	ICALFREQ_YEARLY,
+	ICALFREQ__MAX
+};
+
+struct	icalrrule {
+	enum icalfreq	 freq;
+	time_t		 until;
+	unsigned long	 count;
+	unsigned long	 interval;
+	unsigned long	*bhr;
+	size_t		 bhrsz;
+	long		*bmin;
+	size_t		 bminsz;
+	long		*bmnd;
+	size_t		 bmndsz;
+	long		*bmon;
+	size_t		 bmonsz;
+	unsigned long	*bsec;
+	size_t		 bsecsz;
+	long		*bsp;
+	size_t		 bspsz;
+	long		*bwkn;
+	size_t		 bwknsz;
+	long		*byrd;
+	size_t		 byrdsz;
+};
+
 /*
  * This is either a daylight or standard-time time-zone block.
  * Each iCalendar timezone has at least one of these.
@@ -134,9 +169,20 @@ struct	icaltz {
 	enum icaltztype	 type;
 	int		 tzfrom;
 	int		 tzto;
-	const char	*rrule;
-	const char	*tzid;
 	time_t		 dtstart;
+	struct icalrrule rrule;
+};
+
+/*
+ * An iCalendar date-time can also be associated with a time-zone, e.g.,
+ * DTSTART for a VEVENT.
+ * This structure contains the timezone or NULL if there is no time-zone
+ * (i.e., the date is in UTC).
+ * It also contains the time within the timezone (or UTC).
+ */
+struct	icaltime {
+	struct icalcomp	*tz;
+	time_t		 time;
 };
 
 /*
@@ -152,6 +198,7 @@ struct	icalcomp {
 	time_t		 created; /* CREATED (or zero) */
 	time_t		 lastmod; /* LASTMODIFIED (or zero) */
 	time_t		 dtstamp; /* DTSTAMP (or zero) */
+	struct icaltime	 dtstart; /* DTSTART (or zero) */
 	struct icaltz	*tzs; /* timezone rules (or NULL) */
 	size_t		 tzsz; /* size of tzs */
 	const char	*uid; /* UID of component */
@@ -373,6 +420,7 @@ extern const enum calelem calpropelems[PROP__MAX];
 extern const char *const calelems[CALELEM__MAX];
 extern const char *const icaltypes[ICALTYPE__MAX];
 extern const char *const icaltztypes[ICALTZ__MAX];
+extern const char *const icalfreqs[ICALFREQ__MAX];
 extern int verbose;
 
 __END_DECLS
