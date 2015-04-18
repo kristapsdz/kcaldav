@@ -57,6 +57,14 @@
 						<code>make install</code>, then install the CGI script and its data files with
 						<code>make installcgi</code>.
 					</li>
+					<li>
+						If using <a href="https://www.apache.org/">Apache</a>, make sure that HTTP authorisation is not
+						interpreted by the web server:
+						<pre>&lt;IfModule mod_rewrite.c&gt;
+RewriteEngine on
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization},L]
+&lt;/IfModule&gt;</pre>
+					</li>
 				</ol>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
