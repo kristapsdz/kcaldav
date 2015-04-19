@@ -43,15 +43,20 @@ struct	parse {
 	struct buf	  buf;
 };
 
+/*
+ * This maps from the calendar XML element to a property.
+ * Of course, not all elements have associated properties!
+ */
 const enum proptype calprops[CALELEM__MAX] = {
 	PROP_CALENDAR_DATA, /* CALELEM_CALENDAR_DATA */
 	PROP_CALENDAR_HOME_SET, /* CALELEM_CALENDAR_HOME_SET */
+	PROP_CALENDAR_MIN_DATE_TIME, /* CALELEM_CALENDAR_MIN_DATE_... */
 	PROP__MAX, /* CALELEM_CALENDAR_MULTIGET */
 	PROP__MAX, /* CALELEM_CALENDAR_QUERY */
 	PROP_CALENDAR_TIMEZONE, /* CALELEM_CALENDAR_TIMEZONE */
-	PROP_CALENDAR_USER_ADDRESS_SET, /* CALELEM_CALENDAR_USER_ADDRESS_SET */
-	PROP_CURRENT_USER_PRINCIPAL, /* CALELEM_CURRENT_USER_PRINCIPAL */
-	PROP_CURRENT_USER_PRIVILEGE_SET, /* CALELEM_CURRENT_USER_PRIVILEGE_SET */
+	PROP_CALENDAR_USER_ADDRESS_SET, /* CALELEM_CALENDAR_USER_A... */
+	PROP_CURRENT_USER_PRINCIPAL, /* CALELEM_CURRENT_USER_PRINC... */
+	PROP_CURRENT_USER_PRIVILEGE_SET, /* CALELEM_CURRENT_USER_P... */
 	PROP_DISPLAYNAME, /* CALELEM_DISPLAYNAME */
 	PROP_GETCONTENTTYPE, /* CALELEM_GETCONTENTTYPE */
 	PROP_GETCTAG, /* CALELEM_GETCTAG */
@@ -73,6 +78,7 @@ const enum proptype calprops[CALELEM__MAX] = {
 const enum calelem calpropelems[PROP__MAX] = {
 	CALELEM_CALENDAR_DATA, /* PROP_CALENDAR_DATA */
 	CALELEM_CALENDAR_HOME_SET, /* PROP_CALENDAR_HOME_SET */
+	CALELEM_CALENDAR_MIN_DATE_TIME, /* PROP_CALENDAR_MIN_DATE_... */
 	CALELEM_CALENDAR_TIMEZONE, /* PROP_CALENDAR_TIMEZONE */
 	CALELEM_CALENDAR_USER_ADDRESS_SET, /* PROP_CALENDAR_USER_A... */
 	CALELEM_CURRENT_USER_PRINCIPAL, /* PROP_CURRENT_USER_PRINC... */
@@ -94,12 +100,13 @@ const enum calelem calpropelems[PROP__MAX] = {
 const char *const calelems[CALELEM__MAX] = {
 	CALDAVNS "calendar-data", /* CALELEM_CALENDAR_DATA */
 	CALDAVNS "calendar-home-set", /* CALELEM_CALENDAR_HOME_SET */
+	CALDAVNS "calendar-min-date-time", /* CALELEM_CALENDAR_MIN... */
 	CALDAVNS "calendar-multiget", /* CALELEM_CALENDAR_MULTIGET */
 	CALDAVNS "calendar-query", /* CALELEM_CALENDAR_QUERY */
 	CALDAVNS "calendar-timezone", /* CALELEM_CALENDAR_TIMEZONE */
-	CALDAVNS "calendar-user-address-set", /* CALELEM_CALENDAR_USER_ADDR... */
-	DAVNS "current-user-principal", /* CALELEM_CURRENT_USER_PRINCIPAL */
-	DAVNS "current-user-privilege-set", /* CALELEM_CURRENT_USER_PRIV... */
+	CALDAVNS "calendar-user-address-set", /* CALELEM_CALENDAR_... */
+	DAVNS "current-user-principal", /* CALELEM_CURRENT_USER_PR... */
+	DAVNS "current-user-privilege-set", /* CALELEM_CURRENT_USE... */
 	DAVNS "displayname", /* CALELEM_DISPLAYNAME */
 	DAVNS "getcontenttype", /* CALELEM_GETCONTENTTYPE */
 	CALSERVNS "getctag", /* CALELEM_GETCTAG */
@@ -110,12 +117,12 @@ const char *const calelems[CALELEM__MAX] = {
 	DAVNS "prop", /* CALELEM_PROP */
 	DAVNS "propertyupdate", /* CALELEM_PROPERTYUPDATE */
 	DAVNS "propfind", /* CALELEM_PROPFIND */
-	DAVNS "quota-available-bytes", /* CALELEM_QUOTA_AVAILABLE_BYTES */
+	DAVNS "quota-available-bytes", /* CALELEM_QUOTA_AVAILABLE_... */
 	DAVNS "quota-used-bytes", /* CALELEM_QUOTA_USED_BYTES */
 	DAVNS "resourcetype", /* CALELEM_RESOURCETYPE */
-	CALDAVNS "schedule-calendar-transp", /* CALELEM_SCHEDULE_CALENDAR_T... */
-	CALDAVNS "supported-calendar-component-set", /* CALELEM_SUPPORTED_C... */
-	CALDAVNS "supported-calendar-data", /* CALELEM_SUPPORTED_CALENDAR_D... */
+	CALDAVNS "schedule-calendar-transp", /* CALELEM_SCHEDULE_C... */
+	CALDAVNS "supported-calendar-component-set", /* CALELEM_SU... */
+	CALDAVNS "supported-calendar-data", /* CALELEM_SUPPORTED_C... */
 };
 
 static void	parseclose(void *, const XML_Char *);
