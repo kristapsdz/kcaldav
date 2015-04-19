@@ -262,3 +262,13 @@ collection_calendar_timezone(struct kxmlreq *xml)
 	kxml_puts(xml, "END:VTIMEZONE\r\n");
 	kxml_puts(xml, "END:VCALENDAR\r\n");
 }
+
+/*
+ * RFC 4791, 5.2.6.
+ */
+void
+collection_calendar_min_date_time(struct kxmlreq *xml)
+{
+
+	kxml_puts(xml, "19700101T000000Z");
+}
