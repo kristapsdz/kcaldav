@@ -31,6 +31,9 @@
 #include "extern.h"
 #include "kcaldav.h"
 
+/*
+ * RFC 4791, 6.2.1.
+ */
 void
 collection_calendar_home_set(struct kxmlreq *xml)
 {
@@ -41,6 +44,9 @@ collection_calendar_home_set(struct kxmlreq *xml)
 	kxml_pop(xml);
 }
 
+/*
+ * RFC 6638, 2.4.1.
+ */
 void
 collection_calendar_user_address_set(struct kxmlreq *xml)
 {
@@ -52,6 +58,9 @@ collection_calendar_user_address_set(struct kxmlreq *xml)
 	kxml_pop(xml);
 }
 
+/*
+ * RFC 5379, 3.
+ */
 void
 collection_current_user_principal(struct kxmlreq *xml)
 {
@@ -61,10 +70,11 @@ collection_current_user_principal(struct kxmlreq *xml)
 	kxml_puts(xml, xml->req->pname);
 	kxml_puts(xml, st->prncpl->homedir);
 	kxml_pop(xml);
-	kdbg("%s: %s: %s%s", st->path, __func__, 
-		xml->req->pname, st->prncpl->homedir);
 }
 
+/*
+ * RFC 3744, 5.4.
+ */
 void
 collection_current_user_privilege_set(struct kxmlreq *xml)
 {
@@ -94,6 +104,9 @@ collection_current_user_privilege_set(struct kxmlreq *xml)
 	}
 }
 
+/*
+ * RFC 4918, 15.2.
+ */
 void
 collection_displayname(struct kxmlreq *xml)
 {
@@ -102,6 +115,9 @@ collection_displayname(struct kxmlreq *xml)
 	kxml_puts(xml, st->cfg->displayname);
 }
 
+/*
+ * caldav-ctag-02, 4.1.
+ */
 void
 collection_getctag(struct kxmlreq *xml)
 {
@@ -112,6 +128,10 @@ collection_getctag(struct kxmlreq *xml)
 	kxml_puts(xml, ctag);
 }
 
+/*
+ * RFC 4918, 14.17.
+ * This only refers to locks, but provide it anyway.
+ */
 void
 collection_owner(struct kxmlreq *xml)
 {
@@ -122,6 +142,9 @@ collection_owner(struct kxmlreq *xml)
 	kxml_pop(xml);
 }
 
+/*
+ * RFC 3744, 4.2.
+ */
 void
 collection_principal_url(struct kxmlreq *xml)
 {
@@ -130,9 +153,13 @@ collection_principal_url(struct kxmlreq *xml)
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, st->rpath);
 	kxml_pop(xml);
-	kdbg("%s: %s: %s", st->path, __func__, st->rpath);
 }
 
+/*
+ * RFC 4331, 3.
+ * This is defined over the collection; the resource handler simply
+ * calls through here.
+ */
 void
 collection_quota_available_bytes(struct kxmlreq *xml)
 {
@@ -143,6 +170,11 @@ collection_quota_available_bytes(struct kxmlreq *xml)
 	kxml_puts(xml, buf);
 }
 
+/*
+ * RFC 4331, 4.
+ * This is defined over the collection; the resource handler simply
+ * calls through here.
+ */
 void
 collection_quota_used_bytes(struct kxmlreq *xml)
 {
@@ -153,6 +185,10 @@ collection_quota_used_bytes(struct kxmlreq *xml)
 	kxml_puts(xml, buf);
 }
 
+/*
+ * RFC 4918, 15.9.
+ * This is specific to collections; resource have their own.
+ */
 void
 collection_resourcetype(struct kxmlreq *xml)
 {
@@ -161,6 +197,11 @@ collection_resourcetype(struct kxmlreq *xml)
 	kxml_pushnull(xml, XML_CALDAV_CALENDAR);
 }
 
+/* 
+ * RFC 6638, 9.1.
+ * This seems to be required by iOS, although the standard says the
+ * default value is OPAQUE.
+ */
 void
 collection_schedule_calendar_transp(struct kxmlreq *xml)
 {
@@ -168,21 +209,56 @@ collection_schedule_calendar_transp(struct kxmlreq *xml)
 	kxml_pushnull(xml, XML_CALDAV_OPAQUE);
 }
 
+/*
+ * RFC 4791, 5.2.3.
+ */
 void
 collection_supported_calendar_component_set(struct kxmlreq *xml)
 {
-	size_t	 i;
+	enum icaltype	 i;
 
+	/* Accept all of the iCalendar types we know about. */
 	for (i = 0; i < ICALTYPE__MAX; i++) 
 		kxml_pushnullattrs(xml, XML_CALDAV_COMP,
 			"name", icaltypes[i], NULL);
 }
 
+/*
+ * RFC 4791, 5.2.4.
+ */
 void
 collection_supported_calendar_data(struct kxmlreq *xml)
 {
 
+	/* Use the canonical type. */
 	kxml_pushnullattrs(xml, XML_CALDAV_CALENDAR_DATA, 
 		"content-type", kmimetypes[KMIME_TEXT_CALENDAR], 
 		"version", "2.0", NULL);
+}
+
+/*
+ * RFC 4791, 5.2.2.
+ */
+void
+collection_calendar_timezone(struct kxmlreq *xml)
+{
+
+	/* 
+	 * Stipulate GMT.
+	 * This makes free-floating time convenient in that we can just
+	 * say that they're all UTC.
+	 */
+	kxml_puts(xml, "BEGIN:VCALENDAR\r\n");
+	kxml_puts(xml, "PRODID:-//BSD.lv Project/kcaldav " 
+		VERSION "//EN\r\n");
+	kxml_puts(xml, "VERSION:2.0\r\n");
+	kxml_puts(xml, "BEGIN:VTIMEZONE\r\n");
+	kxml_puts(xml, "TZID:GMT\r\n");
+	kxml_puts(xml, "BEGIN:STANDARD\r\n");
+	kxml_puts(xml, "DTSTART:19700101T000000\r\n");
+	kxml_puts(xml, "TZOFFSETTO:+0000\r\n");
+	kxml_puts(xml, "TZOFFSETFROM:+0000\r\n");
+	kxml_puts(xml, "END:STANDARD\r\n");
+	kxml_puts(xml, "END:VTIMEZONE\r\n");
+	kxml_puts(xml, "END:VCALENDAR\r\n");
 }
