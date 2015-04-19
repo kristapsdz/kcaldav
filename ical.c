@@ -50,6 +50,17 @@ const char *const icaltztypes[ICALTZ__MAX] = {
 	"STANDARD", /* ICALTZ_STANDARD */
 };
 
+const char *const icalwkdays[ICALWKDAY__MAX] = {
+	NULL, /* ICALWKDAY_NONE */
+	"SU", /* ICALWKDAY_SUN */
+	"MO", /* ICALWKDAY_MON */
+	"TU", /* ICALWKDAY_TUES */
+	"WE", /* ICALWKDAY_WED */
+	"TH", /* ICALWKDAY_THUR */
+	"FR", /* ICALWKDAY_FRI */
+	"SA", /* ICALWKDAY_SAT */
+};
+
 const char *const icalfreqs[ICALFREQ__MAX] = {
 	NULL, /* ICALFREQ_NONE */
 	"SECONDLY", /* ICALFREQ_SECONDLY */
@@ -100,6 +111,21 @@ icalnode_free(struct icalnode *p, int first)
 		icalnode_free(np, 0);
 }
 
+static void
+icalrrule_free(struct icalrrule *p)
+{
+
+	free(p->bsec);
+	free(p->byrd);
+	free(p->bmon);
+	free(p->bmnd);
+	free(p->bmin);
+	free(p->bhr);
+	free(p->bwkn);
+	free(p->bwkd);
+	free(p->bsp);
+}
+
 /*
  * Free the entire iCalendar parsed structure.
  */
@@ -115,16 +141,9 @@ ical_free(struct ical *p)
 	for (i = 0; i < ICALTYPE__MAX; i++) {
 		while (NULL != (c = p->comps[i])) {
 			p->comps[i] = c->next;
-			for (j = 0; j < c->tzsz; j++) {
-				free(c->tzs[j].rrule.bsec);
-				free(c->tzs[j].rrule.byrd);
-				free(c->tzs[j].rrule.bmon);
-				free(c->tzs[j].rrule.bmnd);
-				free(c->tzs[j].rrule.bmin);
-				free(c->tzs[j].rrule.bhr);
-				free(c->tzs[j].rrule.bwkn);
-				free(c->tzs[j].rrule.bsp);
-			}
+			icalrrule_free(&c->rrule);
+			for (j = 0; j < c->tzsz; j++)
+				icalrrule_free(&c->tzs[j].rrule);
 			free(c->tzs);
 			free(c);
 		}
@@ -349,6 +368,10 @@ ical_utcdatetime(const struct icalparse *p, time_t *v, const char *cp)
 	return(ical_datetime(p, v, cp));
 }
 
+/*
+ * Parse a single signed integer.
+ * Returns zero on success, non-zero on failure.
+ */
 static int
 ical_long(const struct icalparse *p, long *v, const char *cp)
 {
@@ -369,6 +392,89 @@ ical_long(const struct icalparse *p, long *v, const char *cp)
 	return(0);
 }
 
+static int
+ical_wkday(const struct icalparse *p, 
+	enum icalwkday *v, const char *cp)
+{
+
+	for (*v = 1; *v < ICALWKDAY__MAX; (*v)++) 
+		if (0 == strcmp(icalwkdays[*v], cp))
+			break;
+
+	if (ICALWKDAY__MAX == *v) 
+		kerrx("%s:%zu: unknown weekday", p->file, p->line);
+
+	return(ICALWKDAY__MAX != *v);
+}
+
+/*
+ * Convert a week/day designation (RFC2445, 4.3.10, weekdaynum).
+ * This is a signed integer followed by a weekday.
+ * Returns zero on failure, non-zero on success.
+ */
+static int
+ical_wk(const struct icalparse *p, 
+	struct icalwk *v, const char *cp)
+{
+	int	 sign;
+
+	memset(v, 0, sizeof(struct icalwk));
+
+	sign = 0;
+	if ('-' == cp[0]) {
+		sign = 1;
+		cp++;
+	} else if ('+' == cp[0])
+		cp++;
+
+	if (isdigit(cp[0]) && isdigit(cp[1])) {
+		v->wk += 10 * (cp[0] - 48);
+		v->wk += 1 * (cp[1] - 48);
+		v->wk *= sign ? -1 : 1;
+		cp += 2;
+	} else if (isdigit(cp[0])) {
+		v->wk += 1 * (cp[0] - 48);
+		v->wk *= sign ? -1 : 1;
+		cp += 1;
+	} 
+
+	return(ical_wkday(p, &v->wkday, cp));
+}
+
+/*
+ * Convert a week/day list (RFC2445, 4.3.10, bywdaylist).
+ * Returns zero on failure, non-zero on success.
+ */
+static int
+ical_wklist(const struct icalparse *p,
+	struct icalwk **v, size_t *vsz, char *cp)
+{
+	char		*string, *tok;
+	struct icalwk	 wk;
+	void		*pp;
+
+	string = cp;
+	while (NULL != (tok = strsep(&string, ","))) {
+		if ( ! ical_wk(p, &wk, tok))
+			return(0);
+		pp = reallocarray
+			(*v, *vsz + 1, sizeof(struct icalwk));
+		if (NULL == p) {
+			kerr(NULL);
+			return(0);
+		}
+		*v = pp;
+		(*v)[*vsz] = wk;
+		(*vsz)++;
+	}
+	
+	return(1);
+}
+
+/*
+ * Parse a comma-separated list of signed integers.
+ * Returns zero on success, non-zero on failure.
+ */
 static int
 ical_longlist(const struct icalparse *p, 
 	long **v, size_t *vsz, char *cp)
@@ -395,6 +501,10 @@ ical_longlist(const struct icalparse *p,
 	return(1);
 }
 
+/*
+ * Parse a single unsigned integer.
+ * Return zero on failure, non-zero on success.
+ */
 static int
 ical_ulong(const struct icalparse *p, unsigned long *v, const char *cp)
 {
@@ -413,6 +523,10 @@ ical_ulong(const struct icalparse *p, unsigned long *v, const char *cp)
 	return(0);
 }
 
+/*
+ * Parse a comma-separated list of unsigned integers.
+ * Return zero on failure, non-zero on success.
+ */
 static int
 ical_ulonglist(const struct icalparse *p, 
 	unsigned long **v, size_t *vsz, char *cp)
@@ -450,6 +564,13 @@ ical_rrule(const struct icalparse *p,
 {
 	char	 *tofree, *string, *key, *v;
 
+	if (vp->set) {
+		kerrx("%s:%zu: RRULE repeated", p->file, p->line);
+		return(0);
+	}
+
+	vp->set = 1;
+
 	if (NULL == (tofree = strdup(cp))) {
 		kerr(NULL);
 		return(0);
@@ -482,6 +603,9 @@ ical_rrule(const struct icalparse *p,
 		} else if (0 == strcmp(key, "INTERVAL")) {
 			if ( ! ical_ulong(p, &vp->interval, v))
 				break;
+		} else if (0 == strcmp(key, "BYDAY")) {
+			if ( ! ical_wklist(p, &vp->bwkd, &vp->bwkdsz, v))
+				break;
 		} else if (0 == strcmp(key, "BYHOUR")) {
 			if ( ! ical_ulonglist(p, &vp->bhr, &vp->bhrsz, v))
 				break;
@@ -503,7 +627,12 @@ ical_rrule(const struct icalparse *p,
 		} else if (0 == strcmp(key, "BYYEARDAY")) {
 			if ( ! ical_longlist(p, &vp->byrd, &vp->byrdsz, v))
 				break;
-		}
+		} else if (0 == strcmp(key, "WKST")) {
+			if ( ! ical_wkday(p, &vp->wkst, v))
+				break;
+		} else
+			kerrx("%s:%zu: unknown RRULE "
+				"parameters", p->file, p->line);
 	}
 
 	free(tofree);
@@ -581,6 +710,10 @@ ical_utc_offs(const struct icalparse *p, int *v, const char *cp)
 	return(1);
 }
 
+/*
+ * Parse a non zero-length string from the iCalendar.
+ * The string can have arbitrary characters.
+ */
 static int
 ical_string(const struct icalparse *p, 
 	const char **v, const char *cp)
@@ -912,6 +1045,8 @@ ical_parsecomp(struct icalparse *p, enum icaltype type)
 			rc = ical_tzdatetime(p, &c->dtstart, np);
 		else if (0 == strcasecmp(name, "tzid"))
 			rc = ical_string(p, &c->tzid, np->val);
+		else if (0 == strcasecmp(name, "rrule"))
+			rc = ical_rrule(p, &c->rrule, np->val);
 		else
 			rc = 1;
 
@@ -982,7 +1117,7 @@ ical_parse(const char *file, const char *cp, size_t sz)
 			break;
 
 		if (strcasecmp(name, "BEGIN")) {
-			kerrx("%s:%zu: not BEGIN: %s", pp.file, pp.line, name);
+			kerrx("%s:%zu: not BEGIN", pp.file, pp.line);
 			break;
 		} else if (strcasecmp(val, "VCALENDAR")) {
 			kerrx("%s:%zu: not VCALENDAR", pp.file, pp.line);
@@ -1009,6 +1144,10 @@ icalnode_putc(int c, void *arg)
 	return(write(fd, &c, 1));
 }
 
+/*
+ * Correctly wrap iCalendar output lines.
+ * We use (arbitrarily?) 74 written characters til wrapping.
+ */
 static int
 icalnode_putchar(char c, size_t *col, ical_putchar fp, void *arg)
 {
