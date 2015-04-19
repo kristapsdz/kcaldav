@@ -83,6 +83,7 @@ typedef	 void (*collectionfp)(struct kxmlreq *);
 typedef	 void (*resourcefp)(struct kxmlreq *, const struct ical *);
 
 void	 collection_calendar_home_set(struct kxmlreq *);
+void	 collection_calendar_min_date_time(struct kxmlreq *);
 void	 collection_calendar_timezone(struct kxmlreq *);
 void	 collection_calendar_user_address_set(struct kxmlreq *);
 void	 collection_current_user_principal(struct kxmlreq *);

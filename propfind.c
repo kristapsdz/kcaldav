@@ -82,6 +82,8 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 
 	accepted[PROP_CALENDAR_HOME_SET] = 
 		collection_calendar_home_set;
+	accepted[PROP_CALENDAR_MIN_DATE_TIME] = 
+		collection_calendar_min_date_time;
 	accepted[PROP_CALENDAR_TIMEZONE] = 
 		collection_calendar_timezone;
 	accepted[PROP_CALENDAR_USER_ADDRESS_SET] = 
@@ -216,6 +218,7 @@ propfind_resource(struct kxmlreq *xml,
 	accepted[PROP_RESOURCETYPE] = 
 		resource_resourcetype;
 
+	ignore[PROP_CALENDAR_MIN_DATE_TIME] = 1;
 	ignore[PROP_CALENDAR_TIMEZONE] = 1;
 	ignore[PROP_GETCTAG] = 1;
 	ignore[PROP_SCHEDULE_CALENDAR_TRANSP] = 1;
