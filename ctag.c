@@ -94,5 +94,5 @@ ctag_get(const char *fname, char *str)
 	}
 	close_unlock(fname, fd);
 	for (i = 0; i < 32; i++)
-		snprintf(&str[i * 2], 3, "%.2X", buf[i]);
+		snprintf(&str[i * 2], 3, "%02X", buf[i]);
 }

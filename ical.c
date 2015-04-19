@@ -564,17 +564,12 @@ ical_rrule(const struct icalparse *p,
 {
 	char	 *tofree, *string, *key, *v;
 
-	if (vp->set) {
-		kerrx("%s:%zu: RRULE repeated", p->file, p->line);
-		return(0);
-	}
-
-	vp->set = 1;
-
 	if (NULL == (tofree = strdup(cp))) {
 		kerr(NULL);
 		return(0);
 	}
+
+	vp->set = 1;
 
 	string = tofree;
 	while (NULL != (key = strsep(&string, ";"))) {

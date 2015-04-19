@@ -8,5 +8,7 @@
 		Add a flag to <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a> to create new principal's home directories and populate them
 		with a simple <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> file.
 		Completely re-write the internal iCalendar parser to get ready for handling iCalendar dates.
+		Add a handler for the default time-zone, encouraging GMT use.
+		Lastly, document each property we support (in the source) with a pointer to the RFC section.
 	</aside>
 </article>
