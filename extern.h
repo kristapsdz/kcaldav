@@ -138,27 +138,52 @@ enum	icalfreq {
 	ICALFREQ__MAX
 };
 
+enum	icalwkday {
+	ICALWKDAY_NONE = 0,
+	ICALWKDAY_SUN,
+	ICALWKDAY_MON,
+	ICALWKDAY_TUES,
+	ICALWKDAY_WED,
+	ICALWKDAY_THUR,
+	ICALWKDAY_FRI,
+	ICALWKDAY_SAT,
+	ICALWKDAY__MAX
+};
+
+/*
+ * An iCalendar weekday consists of both a signed numeric value and a
+ * named weekday component.
+ */
+struct	icalwk {
+	long	 	 wk; /* zero if not set */
+	unsigned int	 wkday;  /* ICALWKDAY_NONE if not set */
+};
+
 struct	icalrrule {
-	enum icalfreq	 freq;
-	time_t		 until;
-	unsigned long	 count;
-	unsigned long	 interval;
-	unsigned long	*bhr;
+	int		 set; /* has been set */
+	enum icalfreq	 freq; /* FREQ */
+	time_t		 until; /* UNTIL */
+	unsigned long	 count; /* COUNT */
+	unsigned long	 interval; /* INTERVAL */
+	unsigned long	*bhr; /* BYHOUR */
 	size_t		 bhrsz;
-	long		*bmin;
+	long		*bmin; /* BYMINUTE */
 	size_t		 bminsz;
-	long		*bmnd;
+	long		*bmnd; /* BYMONTHDAY */
 	size_t		 bmndsz;
-	long		*bmon;
+	long		*bmon; /* BYMONTH */
 	size_t		 bmonsz;
-	unsigned long	*bsec;
+	unsigned long	*bsec; /* BYSECOND */
 	size_t		 bsecsz;
-	long		*bsp;
+	long		*bsp; /* BYSETPOS */
 	size_t		 bspsz;
-	long		*bwkn;
+	struct icalwk	*bwkd; /* BYDAY */
+	size_t		 bwkdsz;
+	long		*bwkn; /* BYWEEKNO */
 	size_t		 bwknsz;
-	long		*byrd;
+	long		*byrd; /* BYYEARDAY */
 	size_t		 byrdsz;
+	enum icalwkday	 wkst; /* WKST */
 };
 
 /*
@@ -198,6 +223,7 @@ struct	icalcomp {
 	time_t		 created; /* CREATED (or zero) */
 	time_t		 lastmod; /* LASTMODIFIED (or zero) */
 	time_t		 dtstamp; /* DTSTAMP (or zero) */
+	struct icalrrule rrule; /* RRULE (or zeroed) */
 	struct icaltime	 dtstart; /* DTSTART (or zero) */
 	struct icaltz	*tzs; /* timezone rules (or NULL) */
 	size_t		 tzsz; /* size of tzs */
@@ -421,6 +447,7 @@ extern const char *const calelems[CALELEM__MAX];
 extern const char *const icaltypes[ICALTYPE__MAX];
 extern const char *const icaltztypes[ICALTZ__MAX];
 extern const char *const icalfreqs[ICALFREQ__MAX];
+extern const char *const icalwkdays[ICALWKDAY__MAX];
 extern int verbose;
 
 __END_DECLS
