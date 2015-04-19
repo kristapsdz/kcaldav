@@ -174,6 +174,7 @@ VERSION		 = 0.0.13
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
+CFLAGS		+= -DVERSION=\"$(VERSION)\"
 
 all: $(BINS) kcaldav.8 kcaldav.passwd.1
 

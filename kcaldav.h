@@ -83,6 +83,7 @@ typedef	 void (*collectionfp)(struct kxmlreq *);
 typedef	 void (*resourcefp)(struct kxmlreq *, const struct ical *);
 
 void	 collection_calendar_home_set(struct kxmlreq *);
+void	 collection_calendar_timezone(struct kxmlreq *);
 void	 collection_calendar_user_address_set(struct kxmlreq *);
 void	 collection_current_user_principal(struct kxmlreq *);
 void	 collection_current_user_privilege_set(struct kxmlreq *);
@@ -98,6 +99,8 @@ void	 collection_supported_calendar_component_set(struct kxmlreq *);
 void	 collection_supported_calendar_data(struct kxmlreq *);
 
 void	 resource_calendar_data(struct kxmlreq *, const struct ical *);
+void	 resource_calendar_home_set(struct kxmlreq *, const struct ical *);
+void	 resource_calendar_user_address_set(struct kxmlreq *, const struct ical *);
 void	 resource_current_user_principal(struct kxmlreq *, const struct ical *);
 void	 resource_current_user_privilege_set(struct kxmlreq *, const struct ical *);
 void	 resource_getcontenttype(struct kxmlreq *, const struct ical *);
