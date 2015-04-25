@@ -39,7 +39,7 @@ method_options(struct kreq *r)
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_200]);
 	khttp_head(r, kresps[KRESP_ALLOW], "%s", 
-		"OPTIONS, GET, PUT, PROPFIND");
+		"OPTIONS, GET, PUT, PROPFIND, PROPPATCH");
 	khttp_head(r, "DAV", "%s",
 		"1, access-control, calendar-access");
 	khttp_body(r);

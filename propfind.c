@@ -80,6 +80,8 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	memset(accepted, 0, sizeof(accepted));
 	memset(ignore, 0, sizeof(ignore));
 
+	accepted[PROP_CALENDAR_COLOR] = 
+		collection_calendar_colour;
 	accepted[PROP_CALENDAR_HOME_SET] = 
 		collection_calendar_home_set;
 	accepted[PROP_CALENDAR_MIN_DATE_TIME] = 
@@ -218,6 +220,7 @@ propfind_resource(struct kxmlreq *xml,
 	accepted[PROP_RESOURCETYPE] = 
 		resource_resourcetype;
 
+	ignore[PROP_CALENDAR_COLOR] = 1;
 	ignore[PROP_CALENDAR_MIN_DATE_TIME] = 1;
 	ignore[PROP_CALENDAR_TIMEZONE] = 1;
 	ignore[PROP_GETCTAG] = 1;

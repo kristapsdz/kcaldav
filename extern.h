@@ -32,6 +32,7 @@ enum	type {
  * Each of the XML elements we support.
  */
 enum	calelem {
+	CALELEM_CALENDAR_COLOR,
 	CALELEM_CALENDAR_DATA,
 	CALELEM_CALENDAR_HOME_SET,
 	CALELEM_CALENDAR_MIN_DATE_TIME,
@@ -65,6 +66,7 @@ enum	calelem {
  * support.
  */
 enum	proptype {
+	PROP_CALENDAR_COLOR,
 	PROP_CALENDAR_DATA,
 	PROP_CALENDAR_HOME_SET,
 	PROP_CALENDAR_MIN_DATE_TIME,
@@ -263,6 +265,7 @@ struct	prop {
 	enum proptype	 key;
 	char		*name;
 	char		*xmlns;
+	char		*val;
 };
 
 /*
@@ -359,9 +362,11 @@ struct	priv {
  * to produce the permissions.
  */
 struct	config {
+	int		  writable; /* can write to config file */
 	long long	  bytesused;
 	long long	  bytesavail;
 	char		 *displayname;
+	char		 *colour;
 	unsigned int	  perms; /* current principal perms */
 	struct priv	 *privs;
 	size_t		  privsz;

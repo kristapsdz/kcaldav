@@ -54,13 +54,16 @@ int verbose = 0;
 const char *const pages[PAGE__MAX] = {
 	"index", /* PAGE_INDEX */
 	"setemail", /* PAGE_SETEMAIL */
+	"setname", /* PAGE_SETNAME */
 	"setpass", /* PAGE_SETPASS */
 };
 
 const char *const valids[VALID__MAX] = {
 	"", /* VALID_BODY */
 	"email", /* VALID_EMAIL */
+	"name", /* VALID_NAME */
 	"pass", /* VALID_PASS */
+	"uri", /* VALID_URI */
 };
 
 /*
@@ -77,6 +80,8 @@ req2path(struct kreq *r, const char *caldir)
 	int		 machack = 0;
 	struct stat	 s;
 	char		*cp;
+
+	st->caldir = caldir;
 
 	/* Absolutely don't let it empty paths! */
 	if (NULL == r->fullpath || '\0' == r->fullpath[0]) {
@@ -132,6 +137,18 @@ req2path(struct kreq *r, const char *caldir)
 	sz = strlcat(st->homefile, "/home.html", sizeof(st->homefile));
 	if (sz > sizeof(st->homefile)) {
 		kerrx("%s: path too long", st->homefile);
+		return(0);
+	}
+
+	/* Create our collection filename. */
+	sz = strlcpy(st->collectionfile, 
+		caldir, sizeof(st->collectionfile));
+	if ('/' == st->collectionfile[sz - 1])
+		st->collectionfile[sz - 1] = '\0';
+	sz = strlcat(st->collectionfile, 
+		"/collection.html", sizeof(st->collectionfile));
+	if (sz > sizeof(st->collectionfile)) {
+		kerrx("%s: path too long", st->collectionfile);
 		return(0);
 	}
 
@@ -309,7 +326,9 @@ main(int argc, char *argv[])
 	struct kvalid	 valid[VALID__MAX] = {
 		{ kvalid_body, valids[VALID_BODY] },
 		{ kvalid_email, valids[VALID_EMAIL] },
-		{ kvalid_hash, valids[VALID_PASS] } }; 
+		{ kvalid_stringne, valids[VALID_NAME] },
+		{ kvalid_hash, valids[VALID_PASS] },
+		{ kvalid_stringne, valids[VALID_URI] } }; 
 	struct state	*st;
 	int		 rc;
 	size_t		 reqsz;
@@ -371,6 +390,8 @@ main(int argc, char *argv[])
 			kerr("ktrace");
 	}
 #endif
+	verbose = 1;
+
 	kdbg("%s: %s", r.fullpath, 
 		KMETHOD__MAX == r.method ? 
 		"(unknown)" : kmethods[r.method]);
@@ -578,8 +599,14 @@ main(int argc, char *argv[])
 	case (KMETHOD_PROPFIND):
 		method_propfind(&r);
 		break;
+	case (KMETHOD_PROPPATCH):
+		method_proppatch(&r);
+		break;
 	case (KMETHOD_GET):
-		method_get(&r);
+		if (st->isdir)
+			method_dynamic_get(&r);
+		else
+			method_get(&r);
 		break;
 	case (KMETHOD_REPORT):
 		method_report(&r);
