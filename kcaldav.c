@@ -54,12 +54,12 @@ int verbose = 0;
 const char *const pages[PAGE__MAX] = {
 	"index", /* PAGE_INDEX */
 	"setemail", /* PAGE_SETEMAIL */
-	"setname", /* PAGE_SETNAME */
 	"setpass", /* PAGE_SETPASS */
 };
 
 const char *const valids[VALID__MAX] = {
 	"", /* VALID_BODY */
+	"colour", /* VALID_COLOUR */
 	"email", /* VALID_EMAIL */
 	"name", /* VALID_NAME */
 	"pass", /* VALID_PASS */
@@ -271,6 +271,36 @@ req2path(struct kreq *r, const char *caldir)
 }
 
 /*
+ * The HTML5 string representation of a colour is a hex RGB.
+ * We accept any hexadecimal case.
+ * (Accept RGBA too, just in case.)
+ */
+static int
+kvalid_colour(struct kpair *kp)
+{
+	size_t	 i;
+
+	if ( ! kvalid_stringne(kp))
+		return(0);
+	if (7 != kp->valsz && 9 != kp->valsz)
+		return(0);
+	if ('#' != kp->val[0])
+		return(0);
+	for (i = 1; i < kp->valsz; i++) {
+		if (isdigit((int)kp->val[i]))
+			continue;
+		if (isalpha((int)kp->val[i]) && 
+			((kp->val[i] >= 'a' && 
+			  kp->val[i] <= 'f') ||
+			 (kp->val[i] >= 'A' &&
+			  kp->val[i] <= 'F')))
+			continue;
+		return(0);
+	}
+	return(1);
+}
+
+/*
  * Validate a password MD5 hash.
  * These are fixed length and with fixed characteristics.
  */
@@ -287,7 +317,9 @@ kvalid_hash(struct kpair *kp)
 		if (isdigit((int)kp->val[i]))
 			continue;
 		if (isalpha((int)kp->val[i]) && 
-			 islower((int)kp->val[i]))
+			 islower((int)kp->val[i]) &&
+			 kp->val[i] >= 'a' && 
+			 kp->val[i] <= 'f')
 			continue;
 		return(0);
 	}
@@ -325,6 +357,7 @@ main(int argc, char *argv[])
 	struct kreq	 r;
 	struct kvalid	 valid[VALID__MAX] = {
 		{ kvalid_body, valids[VALID_BODY] },
+		{ kvalid_colour, valids[VALID_COLOUR] },
 		{ kvalid_email, valids[VALID_EMAIL] },
 		{ kvalid_stringne, valids[VALID_NAME] },
 		{ kvalid_hash, valids[VALID_PASS] },
@@ -601,6 +634,21 @@ main(int argc, char *argv[])
 		break;
 	case (KMETHOD_PROPPATCH):
 		method_proppatch(&r);
+		break;
+	case (KMETHOD_POST):
+		/*
+		 * According to RFC 4918 section 9.5, we can implement
+		 * POST on a collection any way, so ship it to the
+		 * dynamic site for dynamic updates.
+		 * POST to a resource, however, gets 405'd.
+		 */
+		if (st->isdir) {
+			method_dynamic_post(&r);
+			break;
+		}
+		kerrx("%s: ignoring method %s",
+			st->path, kmethods[r.method]);
+		http_error(&r, KHTTP_405);
 		break;
 	case (KMETHOD_GET):
 		/*

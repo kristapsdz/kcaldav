@@ -68,6 +68,51 @@ config_defaults(const char *file, struct config *cfg)
 	return(1);
 }
 
+/*
+ * Read a colour from our configuration file.
+ * This must be either an RGB or RGBA value: it will convert into an
+ * RGBA value.
+ * Returns zero on failure and non-zero on success.
+ */
+static int
+colour(char **p, const char *file, size_t line, const char *val)
+{
+	size_t	 i, sz;
+
+	if (7 != (sz = strlen(val)) && 9 != sz) {
+		kerrx("%s:%zu: bad colour length", file, line);
+		return(0);
+	} else if ('#' != val[0]) {
+		kerrx("%s:%zu: bad colour value", file, line);
+		return(0);
+	}
+
+	for (i = 1; i < sz; i++) {
+		if (isdigit((int)val[i]))
+			continue;
+		if (isalpha((int)val[i]) && 
+			((val[i] >= 'a' && 
+			  val[i] <= 'f') ||
+			 (val[i] >= 'A' &&
+			  val[i] <= 'F')))
+			continue;
+		kerrx("%s:%zu: bad colour value: %c", file, line, val[i]);
+		return(0);
+	}
+
+	if (9 == sz) 
+		return(set(p, val));
+
+	free(*p);
+	if (NULL == (*p = malloc(10))) {
+		kerr(NULL);
+		return(0);
+	}
+	strlcpy(*p, val, 10);
+	strlcat(*p, "FF", 10);
+	return(1);
+}
+
 static int
 priv(struct config *cfg, const struct prncpl *prncpl,
 	const char *file, size_t line, const char *val)
@@ -335,7 +380,7 @@ config_parse(const char *file,
 		else if (0 == strcmp(key, "displayname"))
 			rc = set(&(*pp)->displayname, val);
 		else if (0 == strcmp(key, "colour"))
-			rc = set(&(*pp)->colour, val);
+			rc = colour(&(*pp)->colour, file, line + 1, val);
 		else
 			rc = 1;
 
