@@ -1,0 +1,15 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.0.15</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-04-25">2015-04-25</time>
+	</header>
+	<aside>
+		Allow web-based viewing of collection data.
+		This works because GET isn't defined in calendar collections (according to <a href="https://tools.ietf.org/html/rfc4918">RFC
+			4918</a>, section 9.4), so we can send all GET requests for collections to an HTML dynamic handler.
+		Add initial <code>PROPPATCH</code> bits so that clients can (conditionally) set certain properties, e.g., iCal setting the
+		calendar display name and colour.
+		Add a framework for field-specific validation in the CalDAV parser to do so.
+	</aside>
+</article>
