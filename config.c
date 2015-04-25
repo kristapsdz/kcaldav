@@ -30,6 +30,11 @@
 
 #include "extern.h"
 
+/*
+ * Copy the string "val" into "p", first free'ing any existing memory.
+ * Returns zero on memory failure, non-zero on success (in the event of
+ * failure, the error has already been reported).
+ */
 static int
 set(char **p, const char *val)
 {
@@ -41,10 +46,21 @@ set(char **p, const char *val)
 	return(0);
 }
 
+/*
+ * Set some defaults.
+ * The file can really be empty, although then nobody will ever be able
+ * to access it.
+ */
 static int
 config_defaults(const char *file, struct config *cfg)
 {
 
+	/* Default to "red" (as defined by iCal). */
+	if (NULL == cfg->colour)
+		if ( ! set(&cfg->colour, "#B90E28FF"))
+			return(-1);
+
+	/* Default to an empty name. */
 	if (NULL == cfg->displayname)
 		if ( ! set(&cfg->displayname, ""))
 			return(-1);
@@ -141,6 +157,41 @@ priv(struct config *cfg, const struct prncpl *prncpl,
 	return(1);
 }
 
+/*
+ * Write a name-value pair to the configuration file, making sure to
+ * escape any hash or newline characters.
+ * The "name" string should not have any special characters.
+ * Returns zero on failure, non-zero on success.
+ */
+static int
+config_write(FILE *f, const char *file, const char *name, const char *val)
+{
+
+	if (EOF == fputs(name, f)) {
+		kerr("%s: fputs", file);
+		return(0);
+	} else if (EOF == fputc('=', f)) {
+		kerr("%s: fputc", file);
+		return(0);
+	}
+	for ( ; '\0' != *val; val++) {
+		if ('\n' == *val || '#' == *val) 
+			if (EOF == fputc('\\', f)) {
+				kerr("%s: fputc", file);
+				return(0);
+			}
+		if (EOF == fputc(*val, f)) {
+			kerr("%s: fputc", file);
+			return(0);
+		}
+	}
+	if (EOF == fputc('\n', f)) {
+		kerr("%s: fputc", file);
+		return(0);
+	}
+	return(1);
+}
+
 int
 config_replace(const char *file, const struct config *p)
 {
@@ -155,53 +206,45 @@ config_replace(const char *file, const struct config *p)
 	
 	i = 0;
 
-	rc = fprintf(f, "displayname = \"%s\"\n", p->displayname);
-	if (-1 == rc) {
-		kerr("%s: fprintf", file);
+	if ( ! config_write(f, file, "displayname", p->displayname))
 		goto out;
-	}
-
-	if (NULL != p->colour) {
-		rc = fprintf(f, "colour = \"%s\"\n", p->colour);
-		if (-1 == rc) {
-			kerr("%s: fprintf", file);
-			goto out;
-		}
-	}
+	if ( ! config_write(f, file, "colour", p->colour))
+		goto out;
 
 	for ( ; i < p->privsz; i++) {
-		rc = fprintf(f, "privilege = %s", p->privs[i].prncpl);
+		rc = fprintf(f, "privilege=%s", p->privs[i].prncpl);
+
 		if (-1 == rc) {
 			kerr("%s: fprintf", file);
 			break;
 		} else if (PERMS_NONE == p->privs[i].perms) {
-			if (-1 != fprintf(f, " NONE\n")) 
+			if (EOF != fputs(" NONE\n", f)) 
 				continue;
-			kerr("%s: fprintf", file);
+			kerr("%s: fputs", file);
 			break;
 		} else if (PERMS_ALL == p->privs[i].perms) {
-			if (-1 != fprintf(f, " ALL\n"))
+			if (EOF != fputs(" ALL\n", f))
 				continue;
-			kerr("%s: fprintf", file);
+			kerr("%s: fputs", file);
 			break;
 		}
 		if (PERMS_READ & p->privs[i].perms)
-			if (-1 == fprintf(f, " READ")) {
-				kerr("%s: fprintf", file);
+			if (EOF == fputs(" READ", f)) {
+				kerr("%s: fputs", file);
 				break;
 			}
 		if (PERMS_WRITE & p->privs[i].perms)
-			if (-1 == fprintf(f, " WRITE")) {
-				kerr("%s: fprintf", file);
+			if (EOF == fputs(" WRITE", f)) {
+				kerr("%s: fputs", file);
 				break;
 			}
 		if (PERMS_DELETE & p->privs[i].perms)
-			if (-1 == fprintf(f, " DELETE")) {
-				kerr("%s: fprintf", file);
+			if (EOF == fputs(" DELETE", f)) {
+				kerr("%s: fputs", file);
 				break;
 			}
-		if (-1 == fprintf(f, "\n")) {
-			kerr("%s: fprintf", file);
+		if (EOF == fputc('\n', f)) {
+			kerr("%s: fputc", file);
 			break;
 		}
 	}
@@ -234,6 +277,7 @@ config_parse(const char *file,
 	if (-1 == (fd = open_lock_sh(file, O_RDONLY, 0600)))
 		return(0);
 
+	/* Opaque quota getting... */
 	if ( ! quota(file, fd, &bytesused, &bytesavail)) {
 		kerrx("%s: quota failure", file);
 		close_unlock(file, fd);
@@ -249,6 +293,7 @@ config_parse(const char *file,
 		return(-1);
 	}
 
+	/* FIXME: use the file descriptor for this. */
 	(*pp)->writable = -1 != access(file, W_OK);
 	(*pp)->bytesused = bytesused;
 	(*pp)->bytesavail = bytesavail;

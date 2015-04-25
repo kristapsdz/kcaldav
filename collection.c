@@ -40,8 +40,7 @@ collection_calendar_colour(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
 
-	kxml_puts(xml, NULL == st->cfg->colour ? 
-		"#000000" : st->cfg->colour);
+	kxml_puts(xml, st->cfg->colour);
 }
 
 /*

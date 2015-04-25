@@ -60,7 +60,7 @@ BINLDFLAGS	 = -L/usr/local/lib
 
 # You probably don't want to change anything after this point.
 
-BINLIBS		 = -lkcgi -lkcgixml -lz $(LIBS) 
+BINLIBS		 = -lkcgi -lkcgixml -lkcgihtml -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-caldav \
