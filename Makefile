@@ -171,7 +171,8 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_11.xml \
 		   version_0_0_12.xml \
 		   version_0_0_13.xml \
-		   version_0_0_14.xml
+		   version_0_0_14.xml \
+		   version_0_0_15.xml
 VERSION		 = 0.0.14
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
