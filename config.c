@@ -154,10 +154,19 @@ config_replace(const char *file, const struct config *p)
 		return(0);
 	
 	i = 0;
+
 	rc = fprintf(f, "displayname = \"%s\"\n", p->displayname);
 	if (-1 == rc) {
 		kerr("%s: fprintf", file);
 		goto out;
+	}
+
+	if (NULL != p->colour) {
+		rc = fprintf(f, "colour = \"%s\"\n", p->colour);
+		if (-1 == rc) {
+			kerr("%s: fprintf", file);
+			goto out;
+		}
 	}
 
 	for ( ; i < p->privsz; i++) {
@@ -240,6 +249,7 @@ config_parse(const char *file,
 		return(-1);
 	}
 
+	(*pp)->writable = -1 != access(file, W_OK);
 	(*pp)->bytesused = bytesused;
 	(*pp)->bytesavail = bytesavail;
 
@@ -279,6 +289,8 @@ config_parse(const char *file,
 			rc = priv(*pp, prncpl, file, line + 1, val);
 		else if (0 == strcmp(key, "displayname"))
 			rc = set(&(*pp)->displayname, val);
+		else if (0 == strcmp(key, "colour"))
+			rc = set(&(*pp)->colour, val);
 		else
 			rc = 1;
 
@@ -333,5 +345,6 @@ config_free(struct config *p)
 
 	free(p->privs);
 	free(p->displayname);
+	free(p->colour);
 	free(p);
 }

@@ -33,6 +33,7 @@
 
 #include "extern.h"
 
+#define APPLENS		"http://apple.com/ns/ical/:"
 #define CALDAVNS	"urn:ietf:params:xml:ns:caldav:"
 #define	DAVNS		"DAV::"
 #define	CALSERVNS	"http://calendarserver.org/ns/:"
@@ -48,6 +49,7 @@ struct	parse {
  * Of course, not all elements have associated properties!
  */
 const enum proptype calprops[CALELEM__MAX] = {
+	PROP_CALENDAR_COLOR, /* CALELEM_CALENDAR_COLOR */
 	PROP_CALENDAR_DATA, /* CALELEM_CALENDAR_DATA */
 	PROP_CALENDAR_HOME_SET, /* CALELEM_CALENDAR_HOME_SET */
 	PROP_CALENDAR_MIN_DATE_TIME, /* CALELEM_CALENDAR_MIN_DATE_... */
@@ -76,6 +78,7 @@ const enum proptype calprops[CALELEM__MAX] = {
 };
 
 const enum calelem calpropelems[PROP__MAX] = {
+	CALELEM_CALENDAR_COLOR, /* PROP_CALENDAR_COLOR */
 	CALELEM_CALENDAR_DATA, /* PROP_CALENDAR_DATA */
 	CALELEM_CALENDAR_HOME_SET, /* PROP_CALENDAR_HOME_SET */
 	CALELEM_CALENDAR_MIN_DATE_TIME, /* PROP_CALENDAR_MIN_DATE_... */
@@ -98,6 +101,7 @@ const enum calelem calpropelems[PROP__MAX] = {
 };
 
 const char *const calelems[CALELEM__MAX] = {
+	APPLENS "calendar-color", /* CALELEM_CALENDAR_COLOR */
 	CALDAVNS "calendar-data", /* CALELEM_CALENDAR_DATA */
 	CALDAVNS "calendar-home-set", /* CALELEM_CALENDAR_HOME_SET */
 	CALDAVNS "calendar-min-date-time", /* CALELEM_CALENDAR_MIN... */
@@ -163,6 +167,7 @@ propadd(struct parse *p, const XML_Char *name,
 {
 	const XML_Char	*ns;
 	size_t		 namesz, nssz;
+	void		*pp;
 
 	if (NULL == p->p) {
 		caldav_err(p, "property list in unknown request");
@@ -175,12 +180,14 @@ propadd(struct parse *p, const XML_Char *name,
 		nssz = 0;
 	}
 
-	p->p->props = reallocarray(p->p->props,
+	pp = reallocarray(p->p->props,
 		p->p->propsz + 1, sizeof(struct prop));
-	if (NULL == p->p->props) {
+	if (NULL == pp) {
 		caldav_err(p, "memory exhausted");
 		return;
 	}
+	p->p->props = pp;
+	memset(&p->p->props[p->p->propsz], 0, sizeof(struct prop));
 
 	p->p->props[p->p->propsz].key = prop;
 	p->p->props[p->p->propsz].xmlns = malloc(namesz + 1);
@@ -198,10 +205,19 @@ propadd(struct parse *p, const XML_Char *name,
 	}
 	memcpy(p->p->props[p->p->propsz].name, ns, nssz);
 	p->p->props[p->p->propsz].name[nssz] = '\0';
-	kdbg("Property: %s, %s", 
-		p->p->props[p->p->propsz].name,
-		p->p->props[p->p->propsz].xmlns);
 	p->p->propsz++;
+	
+	if (PROP__MAX == prop)
+		return;
+	if (TYPE_PROPERTYUPDATE != p->p->type) 
+		return;
+
+	assert(NULL != cp);
+	p->p->props[p->p->propsz - 1].val = strdup(cp);
+	if (NULL == p->p->props[p->p->propsz - 1].val) {
+		caldav_err(p, "memory exhausted");
+		return;
+	}
 }
 
 static void
@@ -209,6 +225,7 @@ prop_free(struct prop *p)
 {
 
 	free(p->xmlns);
+	free(p->val);
 	free(p->name);
 }
 

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+		<meta charset="utf-8" /> 
+		<title>kcaldav: @@name@@</title>
+		<link rel="stylesheet" href="@@hturi@@/style.css" type="text/css" />
+	</head>
+	<body>
+		<header>
+			<h1>
+				<a href="@@page-home@@">CalDAV</a> Management
+			</h1>
+		</header>
+		<article>
+			<p>
+				Welcome, @@name@@.
+				To this collection, <q>@@displayname@@</q>, you have @@privileges@@ access.
+				It has @@bytes-used@@ used and @@bytes-avail@@ available.
+			</p>
+			<section class="@@class-collection-writable@@">
+				<h2>
+					Collection Name
+				</h2>
+				<form method="post" action="@@page-name@@">
+					<div class="input double">
+						<input value="@@displayname@@" name="@@valid-name@@" type="text" />
+						<input value="Change Name" type="submit" />
+					</div>
+				</form>
+			</section>
+		</article>
+		<footer>
+			&copy; 2015 <a href="http://kristaps.bsd.lv">Kristaps Dzonsons</a>
+		</footer>
+	</body>
+</html>

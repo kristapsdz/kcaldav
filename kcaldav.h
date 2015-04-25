@@ -30,10 +30,12 @@ struct	state {
 	struct prncpl	*prncpl;
 	struct config	*cfg;
 	struct httpauth	 auth;
+	const char	*caldir;
 	char		 path[PATH_MAX]; /* filesystem path */
 	char		 temp[PATH_MAX]; /* temporary path */
 	char		 dir[PATH_MAX]; /* "path" directory part */
 	char		 homefile[PATH_MAX]; 
+	char		 collectionfile[PATH_MAX]; 
 	char		 ctagfile[PATH_MAX]; /* ctag filename */
 	char		 noncefile[PATH_MAX]; /* nonce db filename */
 	char		 configfile[PATH_MAX]; /* config filename */
@@ -59,13 +61,14 @@ enum	xml {
 	XML_DAV_RESPONSE,
 	XML_DAV_STATUS,
 	XML_DAV_UNBIND,
-	XML_DAV_WRITE_CONTENT,
+	XML_DAV_WRITE,
 	XML__MAX
 };
 
 enum	page {
 	PAGE_INDEX = 0,
 	PAGE_SETEMAIL,
+	PAGE_SETNAME,
 	PAGE_SETPASS,
 	PAGE__MAX
 };
@@ -73,7 +76,9 @@ enum	page {
 enum	valid {
 	VALID_BODY = 0,
 	VALID_EMAIL,
+	VALID_NAME,
 	VALID_PASS,
+	VALID_URI,
 	VALID__MAX
 };
 
@@ -82,6 +87,7 @@ __BEGIN_DECLS
 typedef	 void (*collectionfp)(struct kxmlreq *);
 typedef	 void (*resourcefp)(struct kxmlreq *, const struct ical *);
 
+void	 collection_calendar_colour(struct kxmlreq *);
 void	 collection_calendar_home_set(struct kxmlreq *);
 void	 collection_calendar_min_date_time(struct kxmlreq *);
 void	 collection_calendar_timezone(struct kxmlreq *);
@@ -122,6 +128,7 @@ void	 method_dynamic_post(struct kreq *);
 void	 method_get(struct kreq *);
 void	 method_options(struct kreq *);
 void	 method_propfind(struct kreq *);
+void	 method_proppatch(struct kreq *);
 void	 method_put(struct kreq *);
 void	 method_report(struct kreq *);
 

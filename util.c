@@ -49,7 +49,7 @@ const char *const xmls[XML__MAX] = {
 	"D:response", /* XML_DAV_RESPONSE */
 	"D:status", /* XML_DAV_STATUS */
 	"D:unbind", /* XML_DAV_UNBIND */
-	"D:write-content", /* XML_DAV_WRITE_CONTENT */
+	"D:write", /* XML_DAV_WRITE */
 };
 
 int

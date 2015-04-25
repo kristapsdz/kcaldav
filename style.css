@@ -40,7 +40,7 @@ input					{ -webkit-appearance: none;
 					  -moz-box-sizing: border-box;
 					  -webkit-box-sizing: border-box;
 					  box-sizing: border-box; }
-input[disabled]				{ background-color: #aaa; 
+input[readonly]				{ background-color: #aaa; 
 					  -webkit-text-fill-color: #000; /* for Safari */
 					  opacity: 1.0; /* for Safari */
 					  color: #000; }
@@ -67,6 +67,7 @@ kbd					{ font-size: 13pt; }
 					  color: #ffd452; }
 .error:target				{ display: block; }
 .noshow					{ display: none; }
+div.principaluri input			{ cursor: pointer; }
 @media only screen and (max-width: 768px), only screen and (max-device-width: 768px) {
 h1					{ font-size: 22pt; 
 					  text-align: center; }
