@@ -262,10 +262,11 @@ struct	ical {
  * A CalDAV or DAV property in the XML request.
  */
 struct	prop {
-	enum proptype	 key;
-	char		*name;
-	char		*xmlns;
-	char		*val;
+	enum proptype	 key; /* key or PROP__MAX if unknown */
+	char		*name; /* name (without namespace */
+	char		*xmlns; /* XML namespace */
+	char		*val; /* the value if provided for setting */
+	int		 valid; /* -1 invalid, 0 no valid, 1 valid */
 };
 
 /*
@@ -425,9 +426,9 @@ int		  nonce_new(const char *, char **);
 enum nonceerr	  nonce_update(const char *, const char *, size_t);
 enum nonceerr	  nonce_validate(const char *, const char *, size_t);
 
+void		  config_free(struct config *);
 int		  config_parse(const char *, struct config **, const struct prncpl *);
 int		  config_replace(const char *, const struct config *);
-void		  config_free(struct config *);
 
 FILE		 *fdopen_lock(const char *, int, const char *);
 int		  fclose_unlock(const char *, FILE *, int);

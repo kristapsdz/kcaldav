@@ -39,17 +39,19 @@ enum	templ {
 	TEMPL_CLASS_READONLY,
 	TEMPL_CLASS_WRITABLE,
 	TEMPL_COLLECTION_WRITABLE,
+	TEMPL_COLOUR,
 	TEMPL_DISPLAYNAME,
 	TEMPL_EMAIL,
+	TEMPL_FULLPATH,
 	TEMPL_HTURI,
 	TEMPL_NAME,
 	TEMPL_URI,
 	TEMPL_PAGE_EMAIL,
 	TEMPL_PAGE_HOME,
-	TEMPL_PAGE_NAME,
 	TEMPL_PAGE_PASS,
 	TEMPL_PRIVS,
 	TEMPL_REALM,
+	TEMPL_VALID_COLOUR,
 	TEMPL_VALID_EMAIL,
 	TEMPL_VALID_NAME,
 	TEMPL_VALID_PASS,
@@ -65,17 +67,19 @@ static	const char *const templs[TEMPL__MAX] = {
 	"class-readonly", /* TEMPL_CLASS_READONLY */
 	"class-writable", /* TEMPL_CLASS_WRITABLE */
 	"collection-writable", /* TEMPL_COLLECTION_WRITABLE */
+	"colour", /* TEMPL_COLOUR */
 	"displayname", /* TEMPL_DISPLAYNAME */
 	"email", /* TEMPL_EMAIL */
+	"fullpath", /* TEMPL_FULLPATH */
 	"hturi", /* TEMPL_HTURI */
 	"name", /* TEMPL_NAME */
 	"uri", /* TEMPL_URI */
 	"page-email", /* TEMPL_PAGE_EMAIL */
 	"page-home", /* TEMPL_PAGE_HOME */
-	"page-name", /* TEMPL_PAGE_NAME */
 	"page-pass", /* TEMPL_PAGE_PASS */
 	"privileges", /* TEMPL_PRIVS */
 	"realm", /* TEMPL_REALM */
+	"valid-colour", /* TEMPL_VALID_COLOUR */
 	"valid-email", /* TEMPL_VALID_EMAIL */
 	"valid-name", /* TEMPL_VALID_NAME */
 	"valid-pass", /* TEMPL_VALID_PASS */
@@ -89,6 +93,7 @@ dotemplate(size_t key, void *arg)
 	struct khtmlreq  req;
 	struct state	*st = r->arg;
 	char		 buf[32];
+	size_t		 i;
 
 	memset(&req, 0, sizeof(struct khtmlreq));
 	req.req = r;
@@ -151,12 +156,27 @@ dotemplate(size_t key, void *arg)
 		khtml_puts(&req, st->cfg->writable ?
 			"writable" : "read-only");
 		break;
+	case (TEMPL_COLOUR):
+		assert(NULL != st->cfg);
+		/*
+		 * HTML5 only accepts a six-alnum hexadecimal value.
+		 * However, we encode our colour as RGBA.
+		 * Thus, truncate the vaue.
+		 */
+		khtml_putc(&req, '#');
+		for (i = 1; i < 7; i++)
+			khtml_putc(&req, st->cfg->colour[i]);
+		break;
 	case (TEMPL_DISPLAYNAME):
 		assert(NULL != st->cfg);
 		khtml_puts(&req, st->cfg->displayname);
 		break;
 	case (TEMPL_EMAIL):
 		khtml_puts(&req, st->prncpl->email);
+		break;
+	case (TEMPL_FULLPATH):
+		khtml_puts(&req, r->pname);
+		khtml_puts(&req, r->fullpath);
 		break;
 	case (TEMPL_HTURI):
 		khtml_puts(&req, HTDOCS);
@@ -183,12 +203,6 @@ dotemplate(size_t key, void *arg)
 		khtml_puts(&req, pages[PAGE_INDEX]);
 		khtml_puts(&req, ".html");
 		break;
-	case (TEMPL_PAGE_NAME):
-		khtml_puts(&req, r->pname);
-		khtml_putc(&req, '/');
-		khtml_puts(&req, pages[PAGE_SETNAME]);
-		khtml_puts(&req, ".html");
-		break;
 	case (TEMPL_PAGE_PASS):
 		khtml_puts(&req, r->pname);
 		khtml_putc(&req, '/');
@@ -208,6 +222,9 @@ dotemplate(size_t key, void *arg)
 		break;
 	case (TEMPL_REALM):
 		khtml_puts(&req, KREALM);
+		break;
+	case (TEMPL_VALID_COLOUR):
+		khtml_puts(&req, valids[VALID_COLOUR]);
 		break;
 	case (TEMPL_VALID_EMAIL):
 		khtml_puts(&req, valids[VALID_EMAIL]);
@@ -229,22 +246,45 @@ dotemplate(size_t key, void *arg)
 }
 
 static void
-dosetname(struct kreq *r)
+dosetcollection(struct kreq *r)
 {
-	char		*url;
-	char		 page[PATH_MAX];
+	struct state	*st = r->arg;
+	size_t		 df = 0;
+	const char	*fragment = NULL;
+	struct config	 cfg;
 
-	snprintf(page, sizeof(page), 
-		"%s/%s.%s", r->pname, 
-		pages[PAGE_INDEX], ksuffixes[r->mime]);
+	cfg = *st->cfg;
 
-	kasprintf(&url, "%s://%s%s", 
-		kschemes[r->scheme], r->host, page);
+	if (NULL != r->fieldmap[VALID_NAME]) {
+		cfg.displayname = (char *)
+			r->fieldmap[VALID_NAME]->parsed.s;
+		kinfo("%s: display name modified: %s",
+			st->path, st->auth.user);
+		df++;
+	} else if (NULL != r->fieldnmap[VALID_NAME])
+		fragment = "#error";
+
+	if (NULL != r->fieldmap[VALID_COLOUR]) {
+		cfg.colour = (char *)
+			r->fieldmap[VALID_COLOUR]->parsed.s;
+		kinfo("%s: colour modified: %s",
+			st->path, st->auth.user);
+		df++;
+	} else if (NULL != r->fieldnmap[VALID_COLOUR]) 
+		fragment = "#error";
+
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_303]);
-	khttp_head(r, kresps[KRESP_LOCATION], "%s", url);
+	khttp_head(r, kresps[KRESP_LOCATION], "%s://%s%s%s%s", 
+		kschemes[r->scheme], r->host, r->pname, 
+		r->fullpath, NULL != fragment ? fragment : "");
 	khttp_body(r);
-	free(url);
+
+	if (0 == df || NULL != fragment)
+		return;
+	if (config_replace(st->configfile, &cfg))
+		return;
+	kerrx("%s: couldn't replace config file", st->configfile);
 }
 
 static void
@@ -328,7 +368,7 @@ dosetemail(struct kreq *r)
 }
 
 static void
-dodirectory(struct kreq *r)
+dogetcollection(struct kreq *r)
 {
 	struct state	*st = r->arg;
 	struct ktemplate t;
@@ -353,7 +393,7 @@ dodirectory(struct kreq *r)
  * The requested content type must be HTML.
  */
 static void
-doindex(struct kreq *r)
+dogetindex(struct kreq *r)
 {
 	struct state	*st = r->arg;
 	struct ktemplate t;
@@ -386,11 +426,11 @@ method_dynamic_get(struct kreq *r)
 
 	switch (r->page) {
 	case (PAGE_INDEX):
-		doindex(r);
+		dogetindex(r);
 		break;
 	default:
 		if (st->isdir)
-			dodirectory(r);
+			dogetcollection(r);
 		else
 			http_error(r, KHTTP_404);
 		break;
@@ -420,6 +460,12 @@ method_dynamic_post(struct kreq *r)
 		http_error(r, KHTTP_403);
 		return;
 	default:
+		assert(st->isdir);
+		if (st->cfg->writable) 
+			break;
+		kerrx("%s: POST on readonly configuration "
+			"file: %s", st->path, st->auth.user);
+		http_error(r, KHTTP_403);
 		break;
 	}
 
@@ -427,14 +473,11 @@ method_dynamic_post(struct kreq *r)
 	case (PAGE_SETEMAIL):
 		dosetemail(r);
 		break;
-	case (PAGE_SETNAME):
-		dosetname(r);
-		break;
 	case (PAGE_SETPASS):
 		dosetpass(r);
 		break;
 	default:
-		http_error(r, KHTTP_404);
+		dosetcollection(r);
 		break;
 	}
 }

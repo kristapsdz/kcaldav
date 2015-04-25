@@ -68,13 +68,13 @@ enum	xml {
 enum	page {
 	PAGE_INDEX = 0,
 	PAGE_SETEMAIL,
-	PAGE_SETNAME,
 	PAGE_SETPASS,
 	PAGE__MAX
 };
 
 enum	valid {
 	VALID_BODY = 0,
+	VALID_COLOUR,
 	VALID_EMAIL,
 	VALID_NAME,
 	VALID_PASS,
