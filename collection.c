@@ -32,6 +32,19 @@
 #include "kcaldav.h"
 
 /*
+ * Non-standard.
+ * Used by Apple's clients.
+ */
+void
+collection_calendar_colour(struct kxmlreq *xml)
+{
+	struct state	*st = xml->req->arg;
+
+	kxml_puts(xml, NULL == st->cfg->colour ? 
+		"#000000" : st->cfg->colour);
+}
+
+/*
  * RFC 4791, 6.2.1.
  */
 void
@@ -91,7 +104,7 @@ collection_current_user_privilege_set(struct kxmlreq *xml)
 	}
 	if (PERMS_WRITE & st->cfg->perms) {
 		kxml_push(xml, XML_DAV_PRIVILEGE);
-		kxml_pushnull(xml, XML_DAV_WRITE_CONTENT);
+		kxml_pushnull(xml, XML_DAV_WRITE);
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_PRIVILEGE);
 		kxml_pushnull(xml, XML_DAV_BIND);

@@ -25,7 +25,8 @@
 		<article>
 			<p>
 				Welcome, @@name@@.
-				This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> installation.
+				This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a>
+				(version @@version@@) installation.
 				<span class="@@class-readonly@@">
 					The database is <strong>read-only</strong>, so you won't be able to change anything.
 				</span>
@@ -43,8 +44,8 @@
 				<h2>
 					Your CalDAV Address
 				</h2>
-				<div class="input single">
-					<input disabled="disabled" type="text" value="@@uri@@"/>
+				<div class="input single principaluri">
+					<input readonly="readonly" type="text" value="@@uri@@" onclick="location.href='@@uri@@';" />
 				</div>
 			</section>
 			<section>
@@ -64,7 +65,7 @@
 					</div>
 				</form>
 				<div class="input single @@class-readonly@@">
-					<input value="@@email@@" disabled="disabled" type="email"/>
+					<input value="@@email@@" readonly="readonly" type="email"/>
 				</div>
 			</section>
 			<section class="@@class-writable@@">
