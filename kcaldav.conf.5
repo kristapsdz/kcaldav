@@ -36,6 +36,8 @@ defines properties for a CalDAV collection.
 It must be exist and be well-formed for each collection (file-system
 directory), else that collection is not considered by
 .Xr kcaldav 8 .
+An empty file is perfectly valid, although without at least one
+privilege defined, useless.
 .Pp
 The configuration file is line-based, with blank lines discarded.
 See
@@ -60,7 +62,11 @@ The following configuration tokens are accepted:
 .Bl -tag -width Ds
 .It colour
 The colour to be used when displaying calendar resources.
-(This is not checked for format: it's an opaque string.)
+It must be either an RGB or RGBA string in the usual
+.Li \&#rrggbbaa
+format (remember to escape the
+.Qq #
+character).
 This defaults to red.
 It is only used by some clients, e.g., iCal.
 .It displayname
