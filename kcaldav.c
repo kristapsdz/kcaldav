@@ -603,6 +603,12 @@ main(int argc, char *argv[])
 		method_proppatch(&r);
 		break;
 	case (KMETHOD_GET):
+		/*
+		 * According to RFC 4918 section 9.4, GET for
+		 * collections is undefined and we can do what we want.
+		 * Thus, return an HTML page describing the collection.
+		 * Otherwise, use the regular WebDAV handler.
+		 */
 		if (st->isdir)
 			method_dynamic_get(&r);
 		else

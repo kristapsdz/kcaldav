@@ -26,6 +26,7 @@
 
 #include <kcgi.h>
 #include <kcgixml.h>
+#include <kcgihtml.h>
 
 #include "extern.h"
 #include "kcaldav.h"
@@ -37,6 +38,7 @@ enum	templ {
 	TEMPL_CLASS_INSECURE,
 	TEMPL_CLASS_READONLY,
 	TEMPL_CLASS_WRITABLE,
+	TEMPL_COLLECTION_WRITABLE,
 	TEMPL_DISPLAYNAME,
 	TEMPL_EMAIL,
 	TEMPL_HTURI,
@@ -62,6 +64,7 @@ static	const char *const templs[TEMPL__MAX] = {
 	"class-insecure", /* TEMPL_CLASS_INSECURE */
 	"class-readonly", /* TEMPL_CLASS_READONLY */
 	"class-writable", /* TEMPL_CLASS_WRITABLE */
+	"collection-writable", /* TEMPL_COLLECTION_WRITABLE */
 	"displayname", /* TEMPL_DISPLAYNAME */
 	"email", /* TEMPL_EMAIL */
 	"hturi", /* TEMPL_HTURI */
@@ -83,8 +86,12 @@ static int
 dotemplate(size_t key, void *arg)
 {
 	struct kreq	*r = arg;
+	struct khtmlreq  req;
 	struct state	*st = r->arg;
 	char		 buf[32];
+
+	memset(&req, 0, sizeof(struct khtmlreq));
+	req.req = r;
 
 	switch (key) {
 	case (TEMPL_BYTES_AVAIL):
@@ -102,7 +109,7 @@ dotemplate(size_t key, void *arg)
 				st->cfg->bytesavail / 
 				(double)1024);
 		}
-		khttp_puts(r, buf);
+		khtml_puts(&req, buf);
 		break;
 	case (TEMPL_BYTES_USED):
 		assert(NULL != st->cfg);
@@ -119,94 +126,100 @@ dotemplate(size_t key, void *arg)
 				st->cfg->bytesused / 
 				(double)1024);
 		}
-		khttp_puts(r, buf);
+		khtml_puts(&req, buf);
 		break;
 	case (TEMPL_CLASS_COLLECTION_WRITABLE):
 		assert(NULL != st->cfg);
 		if ( ! (PERMS_WRITE & st->cfg->perms))
-			khttp_puts(r, "noshow");
+			khtml_puts(&req, "noshow");
+		else if ( ! st->cfg->writable)
+			khtml_puts(&req, "noshow");
 		break;
 	case (TEMPL_CLASS_INSECURE):
 		if (KSCHEME_HTTPS == r->scheme)
-			khttp_puts(r, "noshow");
+			khtml_puts(&req, "noshow");
 		break;
 	case (TEMPL_CLASS_READONLY):
 		if (st->prncpl->writable)
-			khttp_puts(r, "noshow");
+			khtml_puts(&req, "noshow");
 		break;
 	case (TEMPL_CLASS_WRITABLE):
 		if ( ! st->prncpl->writable)
-			khttp_puts(r, "noshow");
+			khtml_puts(&req, "noshow");
+		break;
+	case (TEMPL_COLLECTION_WRITABLE):
+		khtml_puts(&req, st->cfg->writable ?
+			"writable" : "read-only");
 		break;
 	case (TEMPL_DISPLAYNAME):
 		assert(NULL != st->cfg);
-		khttp_puts(r, st->cfg->displayname);
+		khtml_puts(&req, st->cfg->displayname);
 		break;
 	case (TEMPL_EMAIL):
-		khttp_puts(r, st->prncpl->email);
+		khtml_puts(&req, st->prncpl->email);
 		break;
 	case (TEMPL_HTURI):
-		khttp_puts(r, HTDOCS);
+		khtml_puts(&req, HTDOCS);
 		break;
 	case (TEMPL_NAME):
-		khttp_puts(r, st->prncpl->name);
+		khtml_puts(&req, st->prncpl->name);
 		break;
 	case (TEMPL_URI):
-		khttp_puts(r, kschemes[r->scheme]);
-		khttp_puts(r, "://");
-		khttp_puts(r, r->host);
-		khttp_puts(r, r->pname);
-		khttp_puts(r, st->prncpl->homedir);
+		khtml_puts(&req, kschemes[r->scheme]);
+		khtml_puts(&req, "://");
+		khtml_puts(&req, r->host);
+		khtml_puts(&req, r->pname);
+		khtml_puts(&req, st->prncpl->homedir);
 		break;
 	case (TEMPL_PAGE_EMAIL):
-		khttp_puts(r, r->pname);
-		khttp_putc(r, '/');
-		khttp_puts(r, pages[PAGE_SETEMAIL]);
-		khttp_puts(r, ".html");
+		khtml_puts(&req, r->pname);
+		khtml_putc(&req, '/');
+		khtml_puts(&req, pages[PAGE_SETEMAIL]);
+		khtml_puts(&req, ".html");
 		break;
 	case (TEMPL_PAGE_HOME):
-		khttp_puts(r, r->pname);
-		khttp_putc(r, '/');
-		khttp_puts(r, pages[PAGE_INDEX]);
-		khttp_puts(r, ".html");
+		khtml_puts(&req, r->pname);
+		khtml_putc(&req, '/');
+		khtml_puts(&req, pages[PAGE_INDEX]);
+		khtml_puts(&req, ".html");
 		break;
 	case (TEMPL_PAGE_NAME):
-		khttp_puts(r, r->pname);
-		khttp_putc(r, '/');
-		khttp_puts(r, pages[PAGE_SETNAME]);
-		khttp_puts(r, ".html");
+		khtml_puts(&req, r->pname);
+		khtml_putc(&req, '/');
+		khtml_puts(&req, pages[PAGE_SETNAME]);
+		khtml_puts(&req, ".html");
 		break;
 	case (TEMPL_PAGE_PASS):
-		khttp_puts(r, r->pname);
-		khttp_putc(r, '/');
-		khttp_puts(r, pages[PAGE_SETPASS]);
+		khtml_puts(&req, r->pname);
+		khtml_putc(&req, '/');
+		khtml_puts(&req, pages[PAGE_SETPASS]);
 		break;
 	case (TEMPL_PRIVS):
 		assert(NULL != st->cfg);
 		assert(PERMS_READ & st->cfg->perms);
-		khttp_puts(r, "read");
+		khtml_puts(&req, "read");
 		if (PERMS_WRITE & st->cfg->perms &&
 			 PERMS_DELETE & st->cfg->perms)
-			khttp_puts(r, ", write, and delete");
+			khtml_puts(&req, ", write, and delete");
 		else if (PERMS_WRITE & st->cfg->perms)
-			khttp_puts(r, " and write");
+			khtml_puts(&req, " and write");
 		else if (PERMS_DELETE & st->cfg->perms)
-			khttp_puts(r, " and delete");
+			khtml_puts(&req, " and delete");
 		break;
 	case (TEMPL_REALM):
-		khttp_puts(r, KREALM);
+		khtml_puts(&req, KREALM);
 		break;
 	case (TEMPL_VALID_EMAIL):
-		khttp_puts(r, valids[VALID_EMAIL]);
+		khtml_puts(&req, valids[VALID_EMAIL]);
 		break;
 	case (TEMPL_VALID_NAME):
-		khttp_puts(r, valids[VALID_NAME]);
+		khtml_puts(&req, valids[VALID_NAME]);
 		break;
 	case (TEMPL_VALID_PASS):
-		khttp_puts(r, valids[VALID_PASS]);
+		khtml_puts(&req, valids[VALID_PASS]);
 		break;
 	case (TEMPL_VERSION):
-		khttp_puts(r, VERSION);
+		khtml_puts(&req, VERSION);
 		break;
 	default:
 		abort();
