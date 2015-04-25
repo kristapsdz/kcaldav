@@ -58,6 +58,11 @@ Trailing and leading line white-space are discarded.
 .Pp
 The following configuration tokens are accepted:
 .Bl -tag -width Ds
+.It colour
+The colour to be used when displaying calendar resources.
+(This is not checked for format: it's an opaque string.)
+This defaults to red.
+It is only used by some clients, e.g., iCal.
 .It displayname
 This is the collection's natural-language name.
 It may be in UTF-8.
