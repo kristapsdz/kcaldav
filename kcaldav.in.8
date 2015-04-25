@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: April 14 2015 $
+.Dd $Mdocdate: April 15 2015 $
 .Dt KCALDAV 8
 .Os
 .Sh NAME
@@ -174,14 +174,30 @@ has built-in support for web-based administration by logged-in
 principals.
 The functionality depends on the CGI process's access to the
 .Xr kcaldav.passwd 5
-database: if the database is writable, principals can change their
-e-mail addresses and passwords.
+and/or
+.Xr kcaldav.conf 5
+databases.
+.Pp
+If the 
+.Xr kcaldav.passwd 5
+database is writable, principals can change their e-mail addresses and
+passwords.
 Otherwise, they can only view some limited information.
 Principals can access the server root,
 .Pp
 .D1 http://localhost/cgi-bin/kcaldav/
 .Pp
 in our above example, to see their configuration.
+.Pp
+If the
+.Xr kcaldav.conf 5
+database is writable and the principal has write privileges, the
+principal can modify collection information online, e.g.,
+.Pp
+.D1 http://localhost/cgi-bin/kcaldav/<user>/
+.Pp
+If the principal has read privileges or the database is not writable,
+then the principal can only view this information.
 .\" .Sh HTTP METHODS
 .\" In this section, I describe each HTTP method supported.
 .\" .Ss HTTP GET

@@ -21,6 +21,7 @@
 #include <sys/mman.h>
 
 #include <assert.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -38,11 +39,16 @@
 #define	DAVNS		"DAV::"
 #define	CALSERVNS	"http://calendarserver.org/ns/:"
 
+/*
+ * Parse sequence.
+ */
 struct	parse {
-	struct caldav	 *p;
+	struct caldav	 *p; /* resulting structure */
 	XML_Parser	  xp;
 	struct buf	  buf;
 };
+
+typedef	int (*propvalid)(const char *);
 
 /*
  * This maps from the calendar XML element to a property.
@@ -129,10 +135,58 @@ const char *const calelems[CALELEM__MAX] = {
 	CALDAVNS "supported-calendar-data", /* CALELEM_SUPPORTED_C... */
 };
 
+static int	 propvalid_rgb(const char *);
+
+static const propvalid propvalids[PROP__MAX] = {
+	propvalid_rgb, /* PROP_CALENDAR_COLOR */
+	NULL, /* PROP_CALENDAR_DATA */
+	NULL, /* PROP_CALENDAR_HOME_SET */
+	NULL, /* PROP_CALENDAR_MIN_DATE_... */
+	NULL, /* PROP_CALENDAR_TIMEZONE */
+	NULL, /* PROP_CALENDAR_USER_A... */
+	NULL, /* PROP_CURRENT_USER_PRINC... */
+	NULL, /* PROP_CURRENT_USER_P... */
+	NULL, /* PROP_DISPLAYNAME */
+	NULL, /* PROP_GETCONTENTTYPE */
+	NULL, /* PROP_GETCTAG */
+	NULL, /* PROP_GETETAG */
+	NULL, /* PROP_OWNER */
+	NULL,/* PROP_PRINCIPAL_URL */
+	NULL, /* PROP_QUOTA_AVAILABLE_BYTES */
+	NULL, /* PROP_QUOTA_USED_BYTES */
+	NULL,/* PROP_RESOURCETYPE */
+	NULL,/* PROP_SCHEDULE_CALENDAR... */
+	NULL,/* PROP_SUPPORTED... */
+	NULL,/* PROP_SUPPORTED_CALENDAR... */
+};
+
 static void	parseclose(void *, const XML_Char *);
 static void	propclose(void *, const XML_Char *);
 static void	propopen(void *, const XML_Char *, const XML_Char **);
 static void	parseopen(void *, const XML_Char *, const XML_Char **);
+
+static int
+propvalid_rgb(const char *cp)
+{
+	size_t	 i, sz;
+
+	if ((7 != (sz = strlen(cp))) && 9 != sz)
+		return(0);
+	if ('#' != cp[0])
+		return(0);
+	for (i = 1; i < sz; i++) {
+		if (isdigit((int)cp[i]))
+			continue;
+		if (isalpha((int)cp[i]) && 
+			((cp[i] >= 'a' && 
+			  cp[i] <= 'f') ||
+			 (cp[i] >= 'A' &&
+			  cp[i] <= 'F')))
+			continue;
+		return(0);
+	}
+	return(1);
+}
 
 static enum calelem
 calelem_find(const XML_Char *name)
@@ -161,6 +215,15 @@ caldav_err(struct parse *p, const char *fmt, ...)
 	XML_StopParser(p->xp, 0);
 }
 
+/*
+ * Add a property we've parsed from our input.
+ * Properties appear in nearly all CalDAV XML requests, either as
+ * requests for a property (e.g, TYPE_PROPFIND) or for setting
+ * properties (e.g., TYPE_PROPERTYUPDATE).
+ * If we know about a property, it's type isn't PROP__MAX.
+ * If we're setting a property, we also validate the value to make sure
+ * it's ok.
+ */
 static void
 propadd(struct parse *p, const XML_Char *name, 
 	enum proptype prop, const char *cp)
@@ -189,6 +252,10 @@ propadd(struct parse *p, const XML_Char *name,
 	p->p->props = pp;
 	memset(&p->p->props[p->p->propsz], 0, sizeof(struct prop));
 
+	/*
+	 * Copy over the name and XML namespace as the parser gives it
+	 * to us: with the colon as a separator.
+	 */
 	p->p->props[p->p->propsz].key = prop;
 	p->p->props[p->p->propsz].xmlns = malloc(namesz + 1);
 	if (NULL == p->p->props[p->p->propsz].xmlns) {
@@ -207,17 +274,33 @@ propadd(struct parse *p, const XML_Char *name,
 	p->p->props[p->p->propsz].name[nssz] = '\0';
 	p->p->propsz++;
 	
+	/* Now prep for settable properties... */
 	if (PROP__MAX == prop)
 		return;
 	if (TYPE_PROPERTYUPDATE != p->p->type) 
 		return;
 
+	/*
+	 * Copy over any settable value.
+	 * Make sure that we validate anything that we could set.
+	 */
 	assert(NULL != cp);
 	p->p->props[p->p->propsz - 1].val = strdup(cp);
 	if (NULL == p->p->props[p->p->propsz - 1].val) {
 		caldav_err(p, "memory exhausted");
 		return;
-	}
+	} else if (NULL == propvalids[prop])
+		return;
+
+	/* Validation... */
+	p->p->props[p->p->propsz - 1].valid = 
+		propvalids[prop](cp) ? 1 : -1;
+
+	if (p->p->props[p->p->propsz - 1].valid >= 0) 
+		return;
+
+	kdbg("Bad property value: %s", 
+		p->p->props[p->p->propsz - 1].name);
 }
 
 static void

@@ -19,14 +19,26 @@
 				(The web server has @@collection-writable@@ access.)
 				It has @@bytes-used@@ used and @@bytes-avail@@ available.
 			</p>
+			<div class="error" id="error">
+				You provided invalid input.  Try again.
+			</div>
 			<section class="@@class-collection-writable@@">
 				<h2>
 					Collection Name
 				</h2>
-				<form method="post" action="@@page-name@@">
+				<form method="post" action="@@fullpath@@">
 					<div class="input double">
 						<input value="@@displayname@@" name="@@valid-name@@" type="text" />
 						<input value="Change Name" type="submit" />
+					</div>
+				</form>
+				<h2>
+					Collection Colour
+				</h2>
+				<form method="post" action="@@fullpath@@">
+					<div class="input double">
+						<input value="@@colour@@" name="@@valid-colour@@" type="color" />
+						<input value="Change Colour" type="submit" />
 					</div>
 				</form>
 			</section>
