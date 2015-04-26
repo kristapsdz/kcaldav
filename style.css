@@ -47,9 +47,11 @@ input[readonly]				{ background-color: #aaa;
 div.input				{ width: 100%; }
 div.input textarea			{ width: 100%; 
 				   	  padding: 6pt;
+					  box-sizing: border-box;
+					  border: none;
 					  font-family: inherit;
 					  font-size: inherit;
-					  height: 4em;
+					  height: 5em;
 					  margin-bottom: 6pt;
 					  border-radius: 6pt; }
 div.single input			{ width: 100%; 
@@ -68,6 +70,9 @@ div.double input:last-child		{ width: 18ex;
 					  border-bottom-right-radius: 6pt; 
 					  border-top-right-radius: 6pt;  }
 div.double input:last-child:active 	{ background-color: #fff; }
+div.textarea input[type=submit]		{ background-color: #e05151;
+					  border-radius: 6pt;
+					  color: #222; }
 kbd					{ font-size: 13pt; }
 .error					{ display: none; 
 					  font-weight: bold; 
