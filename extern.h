@@ -219,6 +219,19 @@ struct	icaltime {
 };
 
 /*
+ * An iCalendar duration.
+ * If this has no values, the sign is zero.
+ */
+struct	icaldur {
+	int		 sign; /* >0 pos, <0 neg */
+	long		 day;
+	long		 week;
+	long		 hour;
+	long		 min;
+	long		 sec;
+};
+
+/*
  * An iCalendar component.
  * Each of these may be associated with component properties such as the
  * UID or DTSTART, which are referenced here.
@@ -233,6 +246,8 @@ struct	icalcomp {
 	time_t		 dtstamp; /* DTSTAMP (or zero) */
 	struct icalrrule rrule; /* RRULE (or zeroed) */
 	struct icaltime	 dtstart; /* DTSTART (or zero) */
+	struct icaltime	 dtend; /* DTEND (or zero) */
+	struct icaldur	 duration; /* DURATION (or zero) */
 	struct icaltz	*tzs; /* timezone rules (or NULL) */
 	size_t		 tzsz; /* size of tzs */
 	const char	*uid; /* UID of component */
