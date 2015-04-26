@@ -102,7 +102,8 @@ dotemplate(size_t key, void *arg)
 
 	switch (key) {
 	case (TEMPL_BYTES_AVAIL):
-		assert(NULL != st->cfg);
+		if (NULL == st->cfg)
+			break;
 		if (st->cfg->bytesavail > 1073741824) {
 			snprintf(buf, sizeof(buf), "%.2f GB", 
 				st->cfg->bytesavail / 
@@ -119,7 +120,8 @@ dotemplate(size_t key, void *arg)
 		khtml_puts(&req, buf);
 		break;
 	case (TEMPL_BYTES_USED):
-		assert(NULL != st->cfg);
+		if (NULL == st->cfg)
+			break;
 		if (st->cfg->bytesused > 1073741824) {
 			snprintf(buf, sizeof(buf), "%.2f GB", 
 				st->cfg->bytesused / 
@@ -136,7 +138,8 @@ dotemplate(size_t key, void *arg)
 		khtml_puts(&req, buf);
 		break;
 	case (TEMPL_CLASS_COLLECTION_WRITABLE):
-		assert(NULL != st->cfg);
+		if (NULL == st->cfg)
+			break;
 		if ( ! (PERMS_WRITE & st->cfg->perms))
 			khtml_puts(&req, "noshow");
 		else if ( ! st->cfg->writable)
@@ -159,7 +162,8 @@ dotemplate(size_t key, void *arg)
 			"writable" : "read-only");
 		break;
 	case (TEMPL_COLOUR):
-		assert(NULL != st->cfg);
+		if (NULL == st->cfg)
+			break;
 		/*
 		 * HTML5 only accepts a six-alnum hexadecimal value.
 		 * However, we encode our colour as RGBA.
@@ -170,11 +174,13 @@ dotemplate(size_t key, void *arg)
 			khtml_putc(&req, st->cfg->colour[i]);
 		break;
 	case (TEMPL_DESCRIPTION):
-		assert(NULL != st->cfg);
+		if (NULL == st->cfg)
+			break;
 		khtml_puts(&req, st->cfg->description);
 		break;
 	case (TEMPL_DISPLAYNAME):
-		assert(NULL != st->cfg);
+		if (NULL == st->cfg)
+			break;
 		khtml_puts(&req, st->cfg->displayname);
 		break;
 	case (TEMPL_EMAIL):
@@ -215,8 +221,10 @@ dotemplate(size_t key, void *arg)
 		khtml_puts(&req, pages[PAGE_SETPASS]);
 		break;
 	case (TEMPL_PRIVS):
-		assert(NULL != st->cfg);
-		assert(PERMS_READ & st->cfg->perms);
+		if (NULL == st->cfg)
+			break;
+		if ( ! (PERMS_READ & st->cfg->perms))
+			break;
 		khtml_puts(&req, "read");
 		if (PERMS_WRITE & st->cfg->perms &&
 			 PERMS_DELETE & st->cfg->perms)

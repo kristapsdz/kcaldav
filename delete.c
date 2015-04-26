@@ -105,43 +105,65 @@ method_delete(struct kreq *r)
 	 * of a collection (NOT its configuration) without any
 	 * sort of checks on the collection data.
 	 */
-	kerrx("%s: WARNING: unsafe delete", st->path);
-
 	assert(st->isdir);
+	strlcpy(buf, st->path, sizeof(buf));
+	sz = strlcat(buf, "kcaldav.conf", sizeof(buf));
+	if (sz >= sizeof(buf)) {
+		kerrx("%s: path too long", buf);
+		http_error(r, KHTTP_505);
+		return;
+	}
+
+	/*
+	 * Begin by removing the kcaldav.conf file.
+	 * We do this within an exclusive lock to protect corrupting any
+	 * other sort of work on the file.
+	 */
+	fd = open_lock_ex(buf, O_RDONLY, 0600);
+	if (-1 == fd) {
+		http_error(r, KHTTP_403);
+		return;
+	} else if (-1 == unlink(buf)) {
+		kerr("%s: unlink", buf);
+		http_error(r, KHTTP_403);
+		return;
+	} 
+	close_unlock(buf, fd);
+
+	kinfo("%s: collection unlinked: %s", buf, st->auth.user);
+	http_error(r, KHTTP_204);
+
+	/*
+	 * Now the configuration file has been removed, we remove
+	 * everything else in the collection.
+	 * Since the kcaldav.conf file doesn't exist any more, the
+	 * directory is no longer visible to kcaldav, so just return
+	 * that everything went alright.
+	 */
 	if (NULL == (dirp = opendir(st->path))) {
 		kerr("%s: opendir", st->path);
-		http_error(r, KHTTP_505);
+		kinfo("%s: directory remains for unlinked "
+			"collection: %s", st->path, st->auth.user);
 		return;
 	}
 
 	errs = 0;
 	while (NULL != dirp && NULL != (dp = readdir(dirp))) {
-		if ('.' == dp->d_name[0])
+		if (0 == strcmp(dp->d_name, "."))
 			continue;
-		if ((sz = strlen(dp->d_name)) < 5)
-			continue;
-		if (strcasecmp(dp->d_name + sz - 4, ".ics"))
+		if (0 == strcmp(dp->d_name, ".."))
 			continue;
 		strlcpy(buf, st->path, sizeof(buf));
 		sz = strlcat(buf, dp->d_name, sizeof(buf));
-		if (sz >= sizeof(buf)) {
+		if (sz >= sizeof(buf))
 			kerrx("%s: path too long", buf);
-			errs = 1;
-		} else if (-1 == unlink(buf)) {
+		else if (-1 == unlink(buf))
 			kerr("%s: unlink", buf);
-			errs = 1;
-		} 
-		kinfo("%s: resource (in collection) "
-			"deleted: %s", buf, st->auth.user);
+		else
+			kinfo("%s: deleted: %s", buf, st->auth.user);
 	}
 	if (-1 == closedir(dirp))
 		kerr("%s: closedir", st->path);
-
-	if (errs)
-		http_error(r, KHTTP_505);
-	else
-		http_error(r, KHTTP_204);
-
-	ctag_update(st->ctagfile);
-	kinfo("%s: collection deleted: %s", st->path, st->auth.user);
+	if (-1 == rmdir(st->path)) 
+		kerr("%s: rmdir", st->path);
 }

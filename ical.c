@@ -861,9 +861,9 @@ ical_parsefile_open(const char *file, int *keep)
 	struct ical	*p;
 
 	if (NULL != keep)
-		*keep = fd = open_lock_ex(file, O_RDONLY, 06000);
+		*keep = fd = open_lock_ex(file, O_RDONLY, 0600);
 	else
-		fd = open_lock_sh(file, O_RDONLY, 06000);
+		fd = open_lock_sh(file, O_RDONLY, 0600);
 
 	if (-1 == fd)
 		return(NULL);
