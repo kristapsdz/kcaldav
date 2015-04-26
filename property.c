@@ -402,7 +402,7 @@ collection_calendar_timezone(struct kxmlreq *xml)
  * RFC 4791, 5.2.6.
  */
 static void
-collection_calendar_min_date_time(struct kxmlreq *xml)
+collection_min_date_time(struct kxmlreq *xml)
 {
 
 	kxml_puts(xml, "19700101T000000Z");
@@ -460,7 +460,7 @@ const struct property properties[PROP__MAX] = {
 	  resource_calendar_home_set }, 
 	{ /* PROP_CALENDAR_MIN_DATE_TIME */
 	  0, 
-	  collection_calendar_min_date_time, 
+	  collection_min_date_time, 
 	  NULL }, 
 	{ /* PROP_CALENDAR_TIMEZONE */
 	  0, 
