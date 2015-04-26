@@ -35,7 +35,7 @@
  * Non-standard.
  * Used by Apple's clients.
  */
-void
+static void
 collection_calendar_colour(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -46,7 +46,7 @@ collection_calendar_colour(struct kxmlreq *xml)
 /*
  * RFC 4791, 5.2.1.
  */
-void
+static void
 collection_calendar_description(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -57,7 +57,7 @@ collection_calendar_description(struct kxmlreq *xml)
 /*
  * RFC 4791, 6.2.1.
  */
-void
+static void
 collection_calendar_home_set(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -68,9 +68,20 @@ collection_calendar_home_set(struct kxmlreq *xml)
 }
 
 /*
+ * RFC 4791, 6.2.1.
+ * Route through to collection handler.
+ */
+static void
+resource_calendar_home_set(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_calendar_home_set(xml);
+}
+
+/*
  * RFC 6638, 2.4.1.
  */
-void
+static void
 collection_calendar_user_address_set(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -82,9 +93,20 @@ collection_calendar_user_address_set(struct kxmlreq *xml)
 }
 
 /*
+ * RFC 6638, 2.4.1.
+ * Route through to collection handler.
+ */
+static void
+resource_calendar_user_address_set(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_calendar_user_address_set(xml);
+}
+
+/*
  * RFC 5379, 3.
  */
-void
+static void
 collection_current_user_principal(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -96,9 +118,20 @@ collection_current_user_principal(struct kxmlreq *xml)
 }
 
 /*
+ * RFC 5379, 3.
+ * We define this over the whole collection.
+ */
+static void
+resource_current_user_principal(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_current_user_principal(xml);
+}
+
+/*
  * RFC 3744, 5.4.
  */
-void
+static void
 collection_current_user_privilege_set(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -128,9 +161,20 @@ collection_current_user_privilege_set(struct kxmlreq *xml)
 }
 
 /*
+ * RFC 3744, 5.4.
+ * We define this over the whole collection for now.
+ */
+static void
+resource_current_user_privilege_set(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_current_user_privilege_set(xml);
+}
+
+/*
  * RFC 4918, 15.2.
  */
-void
+static void
 collection_displayname(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -141,7 +185,7 @@ collection_displayname(struct kxmlreq *xml)
 /*
  * caldav-ctag-02, 4.1.
  */
-void
+static void
 collection_getctag(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -152,30 +196,65 @@ collection_getctag(struct kxmlreq *xml)
 }
 
 /*
+ * RFC 4918, 15.6.
+ */
+static void
+resource_getetag(struct kxmlreq *xml, const struct ical *p)
+{
+
+	kxml_puts(xml, p->digest);
+}
+
+/*
  * RFC 4918, 14.17.
  * This only refers to locks, but provide it anyway.
  */
-void
+static void
 collection_owner(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, st->rpath);
+	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, st->prncpl->homedir);
 	kxml_pop(xml);
+}
+
+/*
+ * RFC 4918, 14.17.
+ * This only refers to locks, but provide it anyway.
+ */
+static void
+resource_owner(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_owner(xml);
 }
 
 /*
  * RFC 3744, 4.2.
  */
-void
+static void
 collection_principal_url(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, st->rpath);
+	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, st->prncpl->homedir);
 	kxml_pop(xml);
+}
+
+/*
+ * RFC 3744, 4.2.
+ * Note that this doesn't specify that this property is on resources, so
+ * assume that it is.
+ */
+static void
+resource_principal_url(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_principal_url(xml);
 }
 
 /*
@@ -183,7 +262,7 @@ collection_principal_url(struct kxmlreq *xml)
  * This is defined over the collection; the resource handler simply
  * calls through here.
  */
-void
+static void
 collection_quota_available_bytes(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -194,11 +273,21 @@ collection_quota_available_bytes(struct kxmlreq *xml)
 }
 
 /*
+ * RFC 4331, 3.
+ */
+static void
+resource_quota_available_bytes(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_quota_available_bytes(xml);
+}
+
+/*
  * RFC 4331, 4.
  * This is defined over the collection; the resource handler simply
  * calls through here.
  */
-void
+static void
 collection_quota_used_bytes(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
@@ -209,10 +298,20 @@ collection_quota_used_bytes(struct kxmlreq *xml)
 }
 
 /*
+ * RFC 4331, 4.
+ */
+static void
+resource_quota_used_bytes(struct kxmlreq *xml, const struct ical *p)
+{
+
+	collection_quota_used_bytes(xml);
+}
+
+/*
  * RFC 4918, 15.9.
  * This is specific to collections; resource have their own.
  */
-void
+static void
 collection_resourcetype(struct kxmlreq *xml)
 {
 
@@ -220,12 +319,25 @@ collection_resourcetype(struct kxmlreq *xml)
 	kxml_pushnull(xml, XML_CALDAV_CALENDAR);
 }
 
+/*
+ * RFC 4918, 15.9.
+ */
+static void
+resource_resourcetype(struct kxmlreq *xml, const struct ical *p)
+{
+
+	/* 
+	 * Intentionally do nothing. 
+	 * This is specified by the RFC (the default).
+	 */
+}
+
 /* 
  * RFC 6638, 9.1.
  * This seems to be required by iOS, although the standard says the
  * default value is OPAQUE.
  */
-void
+static void
 collection_schedule_calendar_transp(struct kxmlreq *xml)
 {
 
@@ -235,7 +347,7 @@ collection_schedule_calendar_transp(struct kxmlreq *xml)
 /*
  * RFC 4791, 5.2.3.
  */
-void
+static void
 collection_supported_calendar_component_set(struct kxmlreq *xml)
 {
 	enum icaltype	 i;
@@ -249,7 +361,7 @@ collection_supported_calendar_component_set(struct kxmlreq *xml)
 /*
  * RFC 4791, 5.2.4.
  */
-void
+static void
 collection_supported_calendar_data(struct kxmlreq *xml)
 {
 
@@ -262,7 +374,7 @@ collection_supported_calendar_data(struct kxmlreq *xml)
 /*
  * RFC 4791, 5.2.2.
  */
-void
+static void
 collection_calendar_timezone(struct kxmlreq *xml)
 {
 
@@ -289,9 +401,129 @@ collection_calendar_timezone(struct kxmlreq *xml)
 /*
  * RFC 4791, 5.2.6.
  */
-void
+static void
 collection_calendar_min_date_time(struct kxmlreq *xml)
 {
 
 	kxml_puts(xml, "19700101T000000Z");
 }
+
+/*
+ * RFC 4791, 9.6.
+ */
+static void
+resource_calendar_data(struct kxmlreq *xml, const struct ical *p)
+{
+
+	ical_print(p, xml_ical_putc, xml);
+}
+
+/*
+ * RFC 4918, 15.5.
+ * NOTE: there's no clear consensus on what this should return, but this
+ * seems reasonable enough and a topical web search indicates the same.
+ * The RFC is silent on this matter.
+ */
+static void
+collection_getcontenttype(struct kxmlreq *xml)
+{
+
+	kxml_puts(xml, "httpd/unix-directory");
+}
+
+/*
+ * RFC 4918, 15.5.
+ */
+static void
+resource_getcontenttype(struct kxmlreq *xml, const struct ical *p)
+{
+
+	kxml_puts(xml, kmimetypes[KMIME_TEXT_CALENDAR]);
+}
+
+const struct property properties[PROP__MAX] = {
+	{ /* PROP_CALENDAR_COLOR */
+	  0, 
+	  collection_calendar_colour, 
+	  NULL }, 
+	{ /* PROP_CALENDAR_DATA */
+	  0, 
+	  NULL, 
+	  resource_calendar_data }, 
+	{ /* PROP_CALENDAR_DESCRIPTION */
+	  0, 
+	  collection_calendar_description, 
+	  NULL }, 
+	{ /* PROP_CALENDAR_HOME_SET */
+	  0, 
+	  collection_calendar_home_set, 
+	  resource_calendar_home_set }, 
+	{ /* PROP_CALENDAR_MIN_DATE_TIME */
+	  0, 
+	  collection_calendar_min_date_time, 
+	  NULL }, 
+	{ /* PROP_CALENDAR_TIMEZONE */
+	  0, 
+	  collection_calendar_timezone, 
+	  NULL }, 
+	{ /* PROP_CALENDAR_USER_ADDRESS_SET */
+	  0, 
+	  collection_calendar_user_address_set, 
+	  resource_calendar_user_address_set }, 
+	{ /* PROP_CURRENT_USER_PRINCIPAL */
+	  0, 
+	  collection_current_user_principal, 
+	  resource_current_user_principal }, 
+	{ /* PROP_CURRENT_USER_PRIVILEGE_SET */
+  	  0, 
+	  collection_current_user_privilege_set, 
+	  resource_current_user_privilege_set }, 
+	{ /* PROP_DISPLAYNAME */
+	  0, 
+	  collection_displayname, 
+	  NULL }, 
+	{ /* PROP_GETCONTENTTYPE */
+	  0, 
+	  collection_getcontenttype, 
+	  resource_getcontenttype }, 
+	{ /* PROP_GETCTAG */
+	  0, 
+	  collection_getctag, 
+	  NULL }, 
+	{ /* PROP_GETETAG */
+	  0, 
+	  NULL, 
+	  resource_getetag }, 
+	{ /* PROP_OWNER */
+	  0, 
+	  collection_owner, 
+	  resource_owner }, 
+	{ /* PROP_PRINCIPAL_URL */
+	  0, 
+	  collection_principal_url, 
+	  resource_principal_url }, 
+	{ /* PROP_QUOTA_AVAILABLE_BYTES */
+	  0, 
+	  collection_quota_available_bytes, 
+	  resource_quota_available_bytes }, 
+	{ /* PROP_QUOTA_USED_BYTES */
+	  0, 
+	  collection_quota_used_bytes, 
+	  resource_quota_used_bytes }, 
+	{ /* PROP_RESOURCETYPE */
+	  0, 
+	  collection_resourcetype, 
+	  resource_resourcetype }, 
+	{ /* PROP_SCHEDULE_CALENDAR_TRANSP */
+	  0, 
+	  collection_schedule_calendar_transp, 
+	  NULL }, 
+	{ /* PROP_SUPPORTED_CALENDAR_COMPONENT_SET */
+	  0, 
+	  collection_supported_calendar_component_set, 
+	  NULL }, 
+	{ /* PROP_SUPPORTED_CALENDAR_DATA */
+	  0, 
+	  collection_supported_calendar_data, 
+	  NULL }, 
+};

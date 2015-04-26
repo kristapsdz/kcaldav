@@ -19,21 +19,21 @@
 
 # Use this for installing into a single directory.
 # I use this on my Mac OS X laptop (no chroot(2)).
-#CALDIR		 = /Users/kristaps/Sites
-#HTDOCS	 	 = /~kristaps
-#CALPREFIX	 = /Users/kristaps/Sites
-#CGIPREFIX	 = /Users/kristaps/Sites
-#HTDOCSPREFIX	 = /Users/kristaps/Sites
-#PREFIX		 = /usr/local
+CALDIR		 = /Users/kristaps/Sites
+HTDOCS	 	 = /~kristaps
+CALPREFIX	 = /Users/kristaps/Sites
+CGIPREFIX	 = /Users/kristaps/Sites
+HTDOCSPREFIX	 = /Users/kristaps/Sites
+PREFIX		 = /usr/local
 
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
-CALDIR		 = /caldav
-HTDOCS	 	 = /kcaldav
-CALPREFIX	 = /var/www/caldav
-CGIPREFIX	 = /var/www/cgi-bin
-HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
-PREFIX		 = /usr/local
+#CALDIR		 = /caldav
+#HTDOCS	 	 = /kcaldav
+#CALPREFIX	 = /var/www/caldav
+#CGIPREFIX	 = /var/www/cgi-bin
+#HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
+#PREFIX		 = /usr/local
 
 # Add any special dependency directives here.
 # The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
@@ -41,16 +41,16 @@ PREFIX		 = /usr/local
 # Most web servers provide this; others (e.g., OpenBSD httpd(8)) don't.
 
 #### For OpenBSD:
-LIBS		 = -lexpat -lutil 
-STATIC		 = -static
-CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-BINLDFLAGS	 = -L/usr/local/lib
+#LIBS		 = -lexpat -lutil 
+#STATIC		 = -static
+#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-#LIBS		 = -lexpat 
-#STATIC		 = 
-#CPPFLAGS	+= -I/usr/local/include 
-#BINLDFLAGS	 = -L/usr/local/lib
+LIBS		 = -lexpat 
+STATIC		 = 
+CPPFLAGS	+= -I/usr/local/include 
+BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lutil -lbsd
@@ -98,7 +98,6 @@ ALLSRCS		 = Makefile \
 		   $(MANS) \
 		   buf.c \
 		   caldav.c \
-		   collection.c \
 		   compat-explicit_bzero.c \
 		   compat-fparseln.c \
 		   compat-memmem.c \
@@ -126,9 +125,9 @@ ALLSRCS		 = Makefile \
 		   quota.c \
 		   principal.c \
 		   propfind.c \
+		   property.c \
 		   proppatch.c \
 		   put.c \
-		   resource.c \
 		   util.c
 OBJS		 = buf.o \
 		   caldav.o \
@@ -146,16 +145,15 @@ OBJS		 = buf.o \
 		   open.o \
 		   principal.o \
 		   quota.o
-BINOBJS		 = collection.o \
-		   delete.o \
+BINOBJS		 = delete.o \
 		   dynamic.o \
 		   get.o \
 		   kcaldav.o \
 		   options.o \
 		   propfind.o \
+		   property.o \
 		   proppatch.o \
 		   put.o \
-		   resource.o \
 		   util.o
 ALLOBJS		 = $(TESTOBJS) \
 		   $(BINOBJS) \

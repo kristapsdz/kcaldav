@@ -73,54 +73,9 @@ req2caldav(struct kreq *r)
 static void
 propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 {
-	size_t	 	 i, nf;
-	collectionfp	 accepted[PROP__MAX + 1];
-	int		 ignore[PROP__MAX + 1];
-
-	memset(accepted, 0, sizeof(accepted));
-	memset(ignore, 0, sizeof(ignore));
-
-	accepted[PROP_CALENDAR_COLOR] = 
-		collection_calendar_colour;
-	accepted[PROP_CALENDAR_HOME_SET] = 
-		collection_calendar_home_set;
-	accepted[PROP_CALENDAR_MIN_DATE_TIME] = 
-		collection_calendar_min_date_time;
-	accepted[PROP_CALENDAR_TIMEZONE] = 
-		collection_calendar_timezone;
-	accepted[PROP_CALENDAR_USER_ADDRESS_SET] = 
-		collection_calendar_user_address_set;
-	accepted[PROP_CURRENT_USER_PRINCIPAL] = 
-		collection_current_user_principal;
-	accepted[PROP_CURRENT_USER_PRIVILEGE_SET] = 
-		collection_current_user_privilege_set;
-	accepted[PROP_DISPLAYNAME] = 
-		collection_displayname;
-	accepted[PROP_GETCTAG] = 
-		collection_getctag;
-	accepted[PROP_OWNER] = 
-		collection_owner;
-	accepted[PROP_PRINCIPAL_URL] = 
-		collection_principal_url;
-	accepted[PROP_QUOTA_AVAILABLE_BYTES] = 
-		collection_quota_available_bytes;
-	accepted[PROP_QUOTA_USED_BYTES] = 
-		collection_quota_used_bytes;
-	accepted[PROP_RESOURCETYPE] = 
-		collection_resourcetype;
-	accepted[PROP_SCHEDULE_CALENDAR_TRANSP] = 
-		collection_schedule_calendar_transp;
-	accepted[PROP_SUPPORTED_CALENDAR_COMPONENT_SET] = 
-		collection_supported_calendar_component_set;
-	accepted[PROP_SUPPORTED_CALENDAR_DATA] = 
-		collection_supported_calendar_data;
-
-	/*
-	 * As defined by RFC 4918, we can ignore these.
-	 */
-	ignore[PROP_CALENDAR_DATA] = 1;
-	ignore[PROP_GETETAG] = 1;
-	ignore[PROP_GETCONTENTTYPE] = 1;
+	size_t	 	 i;
+	int		 nf;
+	enum proptype	 key;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
@@ -130,19 +85,18 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	kxml_push(xml, XML_DAV_PROPSTAT);
 	kxml_push(xml, XML_DAV_PROP);
 
-	for (nf = i = 0; i < dav->propsz; i++) {
-		if (NULL == accepted[dav->props[i].key]) {
-			if (ignore[dav->props[i].key])
-				continue;
-			nf++;
+	for (nf = 0, i = 0; i < dav->propsz; i++) {
+		if (PROP__MAX == (key = dav->props[i].key)) {
+			nf = 1;
 			continue;
-		}
+		} else if (NULL == properties[key].cgetfp)
+			continue;
 		khttp_puts(xml->req, "<X:");
 		khttp_puts(xml->req, dav->props[i].name);
 		khttp_puts(xml->req, " xmlns:X=\"");
 		khttp_puts(xml->req, dav->props[i].xmlns);
 		khttp_puts(xml->req, "\">");
-		(*accepted[dav->props[i].key])(xml);
+		(*properties[key].cgetfp)(xml);
 		khttp_puts(xml->req, "</X:");
 		khttp_puts(xml->req, dav->props[i].name);
 		khttp_putc(xml->req, '>');
@@ -154,13 +108,15 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	kxml_pop(xml);
 	kxml_pop(xml);
 
-	if (nf > 0) {
+	/*
+	 * If we had any properties for which we're not going to report,
+	 * then indicate that now with a 404.
+	 */
+	if (nf) {
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			if (NULL != accepted[dav->props[i].key])
-				continue;
-			if (ignore[dav->props[i].key])
+			if (PROP__MAX != dav->props[i].key)
 				continue;
 			khttp_puts(xml->req, "<X:");
 			khttp_puts(xml->req, dav->props[i].name);
@@ -188,45 +144,11 @@ propfind_resource(struct kxmlreq *xml,
 {
 	struct state	*st = xml->req->arg;
 	struct ical	*ical;
-	size_t		 i, nf, sz;
+	size_t		 i, sz;
+	int		 nf;
+	enum proptype	 key;
 	const char	*pathp;
 	char		 buf[PATH_MAX];
-	resourcefp	 accepted[PROP__MAX + 1];
-	int		 ignore[PROP__MAX + 1];
-
-	memset(accepted, 0, sizeof(accepted));
-	memset(ignore, 0, sizeof(ignore));
-
-	accepted[PROP_CALENDAR_DATA] = 
-		resource_calendar_data;
-	accepted[PROP_CALENDAR_HOME_SET] = 
-		resource_calendar_home_set;
-	accepted[PROP_CALENDAR_USER_ADDRESS_SET] = 
-		resource_calendar_user_address_set;
-	accepted[PROP_CURRENT_USER_PRINCIPAL] = 
-		resource_current_user_principal;
-	accepted[PROP_CURRENT_USER_PRIVILEGE_SET] = 
-		resource_current_user_privilege_set;
-	accepted[PROP_GETCONTENTTYPE] = 
-		resource_getcontenttype;
-	accepted[PROP_GETETAG] = 
-		resource_getetag;
-	accepted[PROP_OWNER] = 
-		resource_owner;
-	accepted[PROP_QUOTA_AVAILABLE_BYTES] = 
-		resource_quota_available_bytes;
-	accepted[PROP_QUOTA_USED_BYTES] = 
-		resource_quota_used_bytes;
-	accepted[PROP_RESOURCETYPE] = 
-		resource_resourcetype;
-
-	ignore[PROP_CALENDAR_COLOR] = 1;
-	ignore[PROP_CALENDAR_MIN_DATE_TIME] = 1;
-	ignore[PROP_CALENDAR_TIMEZONE] = 1;
-	ignore[PROP_GETCTAG] = 1;
-	ignore[PROP_SCHEDULE_CALENDAR_TRANSP] = 1;
-	ignore[PROP_SUPPORTED_CALENDAR_COMPONENT_SET] = 1;
-	ignore[PROP_SUPPORTED_CALENDAR_DATA] = 1;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
@@ -275,19 +197,19 @@ propfind_resource(struct kxmlreq *xml,
 
 	kxml_push(xml, XML_DAV_PROPSTAT);
 	kxml_push(xml, XML_DAV_PROP);
-	for (nf = i = 0; i < dav->propsz; i++) {
-		if (NULL == accepted[dav->props[i].key]) {
-			if (ignore[dav->props[i].key])
-				continue;
-			nf++;
+	for (nf = 0, i = 0; i < dav->propsz; i++) {
+		if (PROP__MAX == (key = dav->props[i].key)) {
+			nf = 1;
 			continue;
-		}
+		} else if (NULL == properties[key].rgetfp) 
+			continue;
+
 		khttp_puts(xml->req, "<X:");
 		khttp_puts(xml->req, dav->props[i].name);
 		khttp_puts(xml->req, " xmlns:X=\"");
 		khttp_puts(xml->req, dav->props[i].xmlns);
 		khttp_puts(xml->req, "\">");
-		(*accepted[dav->props[i].key])(xml, ical);
+		(*properties[key].rgetfp)(xml, ical);
 		khttp_puts(xml->req, "</X:");
 		khttp_puts(xml->req, dav->props[i].name);
 		khttp_putc(xml->req, '>');
@@ -303,13 +225,11 @@ propfind_resource(struct kxmlreq *xml,
 	 * If we had any properties for which we're not going to report,
 	 * then indicate that now with a 404.
 	 */
-	if (nf > 0) {
+	if (nf) {
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			if (NULL != accepted[dav->props[i].key])
-				continue;
-			if (ignore[dav->props[i].key])
+			if (PROP__MAX != dav->props[i].key)
 				continue;
 			khttp_puts(xml->req, "<X:");
 			khttp_puts(xml->req, dav->props[i].name);
