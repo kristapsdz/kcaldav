@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: April 25 2015 $
+.Dd $Mdocdate: April 26 2015 $
 .Dt KCALDAV 8
 .Os
 .Sh NAME
@@ -200,7 +200,7 @@ If the principal has read privileges or the database is not writable,
 then the principal can only view this information.
 .Sh HTTP METHODS
 In this section, I describe each HTTP method supported.
-.Ss HTTP DELETE
+.Ss DELETE
 The DELETE method is handled according to RFC 4918.
 Principals must have
 .Dv DELETE
@@ -216,8 +216,8 @@ file, which renders the directory opaque to
 Following that, all files are removed followed by the directory itself.
 .Em Note :
 it is possible to remove the principal's home URL!
-.Ss HTTP GET
-The HTTP GET method is supported for calendar resources (defined by
+.Ss GET
+The GET method is supported for calendar resources (defined by
 content-type) as defined by RFC 4918.
 The
 .Dq If-None-Match
@@ -237,7 +237,7 @@ For calendar collections, GET requests are interpreted by a management
 framework emitting HTML.
 Requests for the server root are aliased to
 .Pa index.html .
-.Ss HTTP POST
+.Ss POST
 The POST method is supported only for text/html requests for specific
 management (HTML content-type) resources.
 POST methods on calendar collections are interpreted by the management
@@ -245,9 +245,55 @@ framework as HTML form requests to change collection properties.
 The principal must have
 .Dv WRITE
 access.
-.\" .Ss HTTP PROPFIND
-.\" This is the more...
-.Ss HTTP PUT
+.Ss PROPFIND
+The PROPFIND method queries collection or resource properties.
+The principal must have
+.Dv READ
+access.
+It accepts the
+.Dq Depth
+header for recursive reports.
+The following is a table of gettable properties.
+.Pp
+.TS
+l l.
+calendar-color	Apple extension
+calendar-data	RFC 4791, 9.6
+calendar-description	RFC 4791, 5.2.1
+calendar-home-set	RFC 4791, 6.2.1
+calendar-timezone	RFC 4791, 5.2.2
+calendar-user-address-set	RFC 6638, 2.4.1
+current-user-principal	RFC 5379, 3
+current-user-privilege-set	RFC 3744, 5.4
+displayname	RFC 4918, 15.2
+getcontenttype	RFC 4918, 15.5
+getctag	caldav-ctag-02, 4.1
+getetag	RFC 4918, 15.6
+min-date-time	RFC 4791, 5.2.6
+owner	RFC 4918, 14.17
+principal-URL	RFC 3744, 4.2
+quota-available-bytes	RFC 4331, 3
+quota-used-bytes	RFC 4331, 4
+resourcetype	RFC 4918, 15.9
+schedule-calendar-transp	RFC 6638, 9.1
+supported-calendar-component-set	RFC 4791, 5.2.3
+supported-calendar-data	RFC 4791, 9.6
+.TE
+.Ss PROPPATCH
+If the web server has write access to collection
+.Pa kcaldav.conf
+files and the principal has
+.Dv WRITE
+access, its properties may be modified.
+The following is a table of settable properties.
+.Pp
+.TS
+l l.
+calendar-colour	Apple extension
+calendar-description	RFC 4791, 5.2.1
+displayname	RFC 4918, 15.2
+.TE
+.Ss PUT
 The PUT method is supported for calendar resources where the principal
 has
 .Dv WRITE
@@ -259,9 +305,12 @@ and
 .Dq If
 headers are both accepted to check against etags (MD5 sums) and
 conditionally replace resources.
-.Ss HTTP REPORT
+.Ss REPORT
 The REPORT method is handled similarly to
-.Sx HTTP PROPFIND .
+.Sx PROPFIND .
+It accepts the
+.Dq Depth
+header for recursive reports.
 .Sh IMPLEMENTATION NOTES
 The
 .Nm
@@ -301,6 +350,17 @@ Resource read access is simpler: files are opened with shared advisory
 locks.
 This allows simultaneous read access whilst protecting resource
 modification.
+.Pp
+Deletion of resources follows the same logic of creating new resources,
+except the resource is unlinked whilst locked.
+Collection deletions initially remove the
+.Xr kcaldav.conf 5
+file, rendering the collection opaque to
+.Nm ,
+then removing remaining files.
+Recursive deletions are
+.Em not
+supported.
 .Pp
 The locking and consistency behaviour depends upon standards-defined
 behaviour of
