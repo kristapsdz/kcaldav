@@ -40,6 +40,7 @@ enum	templ {
 	TEMPL_CLASS_WRITABLE,
 	TEMPL_COLLECTION_WRITABLE,
 	TEMPL_COLOUR,
+	TEMPL_DESCRIPTION,
 	TEMPL_DISPLAYNAME,
 	TEMPL_EMAIL,
 	TEMPL_FULLPATH,
@@ -68,6 +69,7 @@ static	const char *const templs[TEMPL__MAX] = {
 	"class-writable", /* TEMPL_CLASS_WRITABLE */
 	"collection-writable", /* TEMPL_COLLECTION_WRITABLE */
 	"colour", /* TEMPL_COLOUR */
+	"description", /* TEMPL_DESCRIPTION */
 	"displayname", /* TEMPL_DISPLAYNAME */
 	"email", /* TEMPL_EMAIL */
 	"fullpath", /* TEMPL_FULLPATH */
@@ -166,6 +168,10 @@ dotemplate(size_t key, void *arg)
 		khtml_putc(&req, '#');
 		for (i = 1; i < 7; i++)
 			khtml_putc(&req, st->cfg->colour[i]);
+		break;
+	case (TEMPL_DESCRIPTION):
+		assert(NULL != st->cfg);
+		khtml_puts(&req, st->cfg->description);
 		break;
 	case (TEMPL_DISPLAYNAME):
 		assert(NULL != st->cfg);

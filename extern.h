@@ -34,6 +34,7 @@ enum	type {
 enum	calelem {
 	CALELEM_CALENDAR_COLOR,
 	CALELEM_CALENDAR_DATA,
+	CALELEM_CALENDAR_DESCRIPTION,
 	CALELEM_CALENDAR_HOME_SET,
 	CALELEM_CALENDAR_MIN_DATE_TIME,
 	CALELEM_CALENDAR_MULTIGET,
@@ -68,6 +69,7 @@ enum	calelem {
 enum	proptype {
 	PROP_CALENDAR_COLOR,
 	PROP_CALENDAR_DATA,
+	PROP_CALENDAR_DESCRIPTION,
 	PROP_CALENDAR_HOME_SET,
 	PROP_CALENDAR_MIN_DATE_TIME,
 	PROP_CALENDAR_TIMEZONE,
@@ -368,6 +370,7 @@ struct	config {
 	long long	  bytesavail;
 	char		 *displayname;
 	char		 *colour;
+	char		 *description;
 	unsigned int	  perms; /* current principal perms */
 	struct priv	 *privs;
 	size_t		  privsz;

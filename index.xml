@@ -59,11 +59,10 @@
 					</li>
 					<li>
 						If using <a href="https://www.apache.org/">Apache</a>, make sure that HTTP authorisation is not
-						interpreted by the web server:
-						<pre>&lt;IfModule mod_rewrite.c&gt;
-RewriteEngine on
-RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization},L]
-&lt;/IfModule&gt;</pre>
+						interpreted by the web server.
+						You'll probably need a re-write rule, e.g., <code>[E=HTTP_AUTHORIZATION:%{HTTP:Authorization},L]</code>.
+						OpenBSD's <a href="http://www.openbsd.org/cgi-bin/man.cgi/OpenBSD-current/man8/httpd.8">httpd(8)</a> doesn't need this.
+						I'm not sure about <a href="http://nginx.org/">nginx</a>.
 					</li>
 				</ol>
 				<p>
@@ -78,7 +77,7 @@ RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization},L]
 			</section>
 			<section>
 				<h2>Recent Release History</h2>
-				<nav data-sblg-nav="1" data-sblg-navsz="3" data-sblg-navcontent="1">
+				<nav data-sblg-nav="1" data-sblg-navsz="6" data-sblg-navcontent="1">
 					<time datetime="${sblg-date}">${sblg-date}</time>
 					(version <span class="version">${sblg-title}</span>):
 					${sblg-aside}

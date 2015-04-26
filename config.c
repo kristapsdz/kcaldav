@@ -65,6 +65,11 @@ config_defaults(const char *file, struct config *cfg)
 		if ( ! set(&cfg->displayname, ""))
 			return(-1);
 
+	/* Default to an empty description. */
+	if (NULL == cfg->description)
+		if ( ! set(&cfg->description, ""))
+			return(-1);
+
 	return(1);
 }
 
@@ -255,6 +260,8 @@ config_replace(const char *file, const struct config *p)
 		goto out;
 	if ( ! config_write(f, file, "colour", p->colour))
 		goto out;
+	if ( ! config_write(f, file, "description", p->description))
+		goto out;
 
 	for ( ; i < p->privsz; i++) {
 		rc = fprintf(f, "privilege=%s", p->privs[i].prncpl);
@@ -379,6 +386,8 @@ config_parse(const char *file,
 			rc = priv(*pp, prncpl, file, line + 1, val);
 		else if (0 == strcmp(key, "displayname"))
 			rc = set(&(*pp)->displayname, val);
+		else if (0 == strcmp(key, "description"))
+			rc = set(&(*pp)->description, val);
 		else if (0 == strcmp(key, "colour"))
 			rc = colour(&(*pp)->colour, file, line + 1, val);
 		else
@@ -435,6 +444,7 @@ config_free(struct config *p)
 
 	free(p->privs);
 	free(p->displayname);
+	free(p->description);
 	free(p->colour);
 	free(p);
 }
