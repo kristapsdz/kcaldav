@@ -75,6 +75,7 @@ enum	page {
 enum	valid {
 	VALID_BODY = 0,
 	VALID_COLOUR,
+	VALID_DESCRIPTION,
 	VALID_EMAIL,
 	VALID_NAME,
 	VALID_PASS,

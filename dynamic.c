@@ -53,6 +53,7 @@ enum	templ {
 	TEMPL_PRIVS,
 	TEMPL_REALM,
 	TEMPL_VALID_COLOUR,
+	TEMPL_VALID_DESCRIPTION,
 	TEMPL_VALID_EMAIL,
 	TEMPL_VALID_NAME,
 	TEMPL_VALID_PASS,
@@ -82,6 +83,7 @@ static	const char *const templs[TEMPL__MAX] = {
 	"privileges", /* TEMPL_PRIVS */
 	"realm", /* TEMPL_REALM */
 	"valid-colour", /* TEMPL_VALID_COLOUR */
+	"valid-description", /* TEMPL_VALID_DESCRIPTION */
 	"valid-email", /* TEMPL_VALID_EMAIL */
 	"valid-name", /* TEMPL_VALID_NAME */
 	"valid-pass", /* TEMPL_VALID_PASS */
@@ -240,6 +242,9 @@ dotemplate(size_t key, void *arg)
 	case (TEMPL_VALID_COLOUR):
 		khtml_puts(&req, valids[VALID_COLOUR]);
 		break;
+	case (TEMPL_VALID_DESCRIPTION):
+		khtml_puts(&req, valids[VALID_DESCRIPTION]);
+		break;
 	case (TEMPL_VALID_EMAIL):
 		khtml_puts(&req, valids[VALID_EMAIL]);
 		break;
@@ -263,30 +268,48 @@ static void
 dosetcollection(struct kreq *r)
 {
 	struct state	*st = r->arg;
-	size_t		 df = 0;
 	const char	*fragment = NULL;
 	struct config	 cfg;
 
 	cfg = *st->cfg;
 
+	/* Displayname. */
 	if (NULL != r->fieldmap[VALID_NAME]) {
 		cfg.displayname = (char *)
 			r->fieldmap[VALID_NAME]->parsed.s;
 		kinfo("%s: display name modified: %s",
 			st->path, st->auth.user);
-		df++;
-	} else if (NULL != r->fieldnmap[VALID_NAME])
+		goto resp;
+	} else if (NULL != r->fieldnmap[VALID_NAME]) {
 		fragment = "#error";
+		goto resp;
+	}
 
+	/* Colour. */
 	if (NULL != r->fieldmap[VALID_COLOUR]) {
 		cfg.colour = (char *)
 			r->fieldmap[VALID_COLOUR]->parsed.s;
 		kinfo("%s: colour modified: %s",
 			st->path, st->auth.user);
-		df++;
-	} else if (NULL != r->fieldnmap[VALID_COLOUR]) 
+		goto resp;
+	} else if (NULL != r->fieldnmap[VALID_COLOUR]) {
 		fragment = "#error";
+		goto resp;
+	}
 
+	/* Description. */
+	if (NULL != r->fieldmap[VALID_DESCRIPTION]) {
+		cfg.description = (char *)
+			r->fieldmap[VALID_DESCRIPTION]->parsed.s;
+		kinfo("%s: description modified: %s",
+			st->path, st->auth.user);
+		goto resp;
+	} else if (NULL != r->fieldnmap[VALID_DESCRIPTION]) {
+		fragment = "#error";
+		goto resp;
+	}
+
+resp:
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_303]);
 	khttp_head(r, kresps[KRESP_LOCATION], "%s://%s%s%s%s", 
@@ -294,7 +317,7 @@ dosetcollection(struct kreq *r)
 		r->fullpath, NULL != fragment ? fragment : "");
 	khttp_body(r);
 
-	if (0 == df || NULL != fragment)
+	if (NULL != fragment)
 		return;
 	if (config_replace(st->configfile, &cfg))
 		return;
