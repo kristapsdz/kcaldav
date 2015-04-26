@@ -60,6 +60,7 @@ const char *const pages[PAGE__MAX] = {
 const char *const valids[VALID__MAX] = {
 	"", /* VALID_BODY */
 	"colour", /* VALID_COLOUR */
+	"description", /* VALID_DESCRIPTION */
 	"email", /* VALID_EMAIL */
 	"name", /* VALID_NAME */
 	"pass", /* VALID_PASS */
@@ -358,8 +359,9 @@ main(int argc, char *argv[])
 	struct kvalid	 valid[VALID__MAX] = {
 		{ kvalid_body, valids[VALID_BODY] },
 		{ kvalid_colour, valids[VALID_COLOUR] },
+		{ kvalid_string, valids[VALID_DESCRIPTION] },
 		{ kvalid_email, valids[VALID_EMAIL] },
-		{ kvalid_stringne, valids[VALID_NAME] },
+		{ kvalid_string, valids[VALID_NAME] },
 		{ kvalid_hash, valids[VALID_PASS] },
 		{ kvalid_stringne, valids[VALID_URI] } }; 
 	struct state	*st;
