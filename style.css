@@ -45,6 +45,13 @@ input[readonly]				{ background-color: #aaa;
 					  opacity: 1.0; /* for Safari */
 					  color: #000; }
 div.input				{ width: 100%; }
+div.input textarea			{ width: 100%; 
+				   	  padding: 6pt;
+					  font-family: inherit;
+					  font-size: inherit;
+					  height: 4em;
+					  margin-bottom: 6pt;
+					  border-radius: 6pt; }
 div.single input			{ width: 100%; 
 					  border-radius: 6pt; }
 div.double				{ display: flex;

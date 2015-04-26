@@ -82,40 +82,20 @@ enum	valid {
 	VALID__MAX
 };
 
-__BEGIN_DECLS
-
 typedef	 void (*collectionfp)(struct kxmlreq *);
 typedef	 void (*resourcefp)(struct kxmlreq *, const struct ical *);
 
-void	 collection_calendar_colour(struct kxmlreq *);
-void	 collection_calendar_home_set(struct kxmlreq *);
-void	 collection_calendar_min_date_time(struct kxmlreq *);
-void	 collection_calendar_timezone(struct kxmlreq *);
-void	 collection_calendar_user_address_set(struct kxmlreq *);
-void	 collection_current_user_principal(struct kxmlreq *);
-void	 collection_current_user_privilege_set(struct kxmlreq *);
-void	 collection_displayname(struct kxmlreq *);
-void	 collection_getctag(struct kxmlreq *);
-void	 collection_owner(struct kxmlreq *);
-void	 collection_principal_url(struct kxmlreq *);
-void	 collection_quota_available_bytes(struct kxmlreq *);
-void	 collection_quota_used_bytes(struct kxmlreq *);
-void	 collection_resourcetype(struct kxmlreq *);
-void	 collection_schedule_calendar_transp(struct kxmlreq *);
-void	 collection_supported_calendar_component_set(struct kxmlreq *);
-void	 collection_supported_calendar_data(struct kxmlreq *);
+/*
+ * This fully describes the properties that we handle and their various
+ * callbacks and informational bits.
+ */
+struct	property {
+	unsigned int	flags;
+	collectionfp	cgetfp;
+	resourcefp	rgetfp;
+};
 
-void	 resource_calendar_data(struct kxmlreq *, const struct ical *);
-void	 resource_calendar_home_set(struct kxmlreq *, const struct ical *);
-void	 resource_calendar_user_address_set(struct kxmlreq *, const struct ical *);
-void	 resource_current_user_principal(struct kxmlreq *, const struct ical *);
-void	 resource_current_user_privilege_set(struct kxmlreq *, const struct ical *);
-void	 resource_getcontenttype(struct kxmlreq *, const struct ical *);
-void	 resource_getetag(struct kxmlreq *, const struct ical *);
-void	 resource_owner(struct kxmlreq *, const struct ical *);
-void	 resource_quota_available_bytes(struct kxmlreq *, const struct ical *);
-void	 resource_quota_used_bytes(struct kxmlreq *, const struct ical *);
-void	 resource_resourcetype(struct kxmlreq *, const struct ical *);
+__BEGIN_DECLS
 
 int	 xml_ical_putc(int, void *);
 int	 http_ical_putc(int, void *);
@@ -135,6 +115,7 @@ void	 method_report(struct kreq *);
 extern const char *const pages[PAGE__MAX];
 extern const char *const xmls[XML__MAX];
 extern const char *const valids[VALID__MAX];
+extern const struct property properties[PROP__MAX];
 
 __END_DECLS
 

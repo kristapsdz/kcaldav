@@ -84,6 +84,7 @@ method_proppatch(struct kreq *r)
 
 	memset(accepted, 0, sizeof(accepted));
 	accepted[PROP_CALENDAR_COLOR] = 1;
+	accepted[PROP_CALENDAR_DESCRIPTION] = 1;
 	accepted[PROP_DISPLAYNAME] = 1;
 
 	/*
@@ -152,6 +153,11 @@ method_proppatch(struct kreq *r)
 			kinfo("%s: colour modified: %s",
 				st->path, st->auth.user);
 			break;
+		case (PROP_CALENDAR_DESCRIPTION):
+			cfg.description = dav->props[i].val;
+			kinfo("%s: description modified: %s",
+				st->path, st->auth.user);
+			break;
 		default:
 			abort();
 		}
@@ -212,7 +218,6 @@ method_proppatch(struct kreq *r)
 		kxml_pop(&xml);
 	}
 
-	caldav_free(dav);
 	kxml_popall(&xml);
 	kxml_close(&xml);
 
@@ -221,8 +226,11 @@ method_proppatch(struct kreq *r)
 	 * We do this post-factum to avoid long requests clogging up the
 	 * configuration file in exclusive write mode.
 	 */
-	if (0 == df || config_replace(st->configfile, &cfg))
+	if (0 == df || config_replace(st->configfile, &cfg)) {
+		caldav_free(dav);
 		return;
+	}
+	caldav_free(dav);
 	kerrx("%s: couldn't replace config file", st->configfile);
 }
 
