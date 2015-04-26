@@ -635,6 +635,87 @@ ical_rrule(const struct icalparse *p,
 }
 
 /*
+ * Parse a DURATION (RFC 2445, 4.3.6).
+ * Note that we're careful to only parse non-empty durations.
+ */
+static int
+ical_duration(const struct icalparse *p, struct icaldur *v, char *cp)
+{
+	char	*start;
+	char	 type;
+
+	memset(v, 0, sizeof(struct icaldur));
+
+	if ('P' != cp[0]) {
+		kerrx("%s:%zu: bad duration", p->file, p->line);
+		return(0);
+	}
+	cp++;
+
+	/* Process the sign. */
+	v->sign = 1;
+	if ('-' == cp[0]) {
+		v->sign = -1;
+		cp++;
+	} else if ('+' == cp[0])
+		cp++;
+
+	if ('\0' == *cp) {
+		v->sign = 0;
+		kerrx("%s:%zu: empty duration", p->file, p->line);
+		return(0);
+	}
+
+	while ('\0' != *cp) {
+		/* Ignore the time designation. */
+		if ('T' == *cp) {
+			if ('\0' == cp[1])
+				break;
+			cp++;
+			continue;
+		}
+		start = cp;
+		while (isdigit((int)*cp)) 
+			cp++;
+		if ('\0' == *cp)
+			break;
+
+		type = *cp;
+		*cp++ = '\0';
+		switch (type) {
+		case ('D'):
+			if (ical_long(p, &v->day, start))
+				continue;
+			break;
+		case ('W'):
+			if (ical_long(p, &v->week, start))
+				continue;
+			break;
+		case ('H'):
+			if (ical_long(p, &v->hour, start))
+				continue;
+			break;
+		case ('M'):
+			if (ical_long(p, &v->min, start))
+				continue;
+			break;
+		case ('S'):
+			if (ical_long(p, &v->sec, start))
+				continue;
+			break;
+		default:
+			break;
+		}
+		break;
+	}
+
+	if ('\0' == *cp)
+		return(1);
+	kerrx("%s:%zu: bad duration", p->file, p->line);
+	return(0);
+}
+
+/*
  * Try to convert "cp" into a UTC-offset string.
  * Return zero on failure, non-zero on success.
  */
@@ -1038,6 +1119,10 @@ ical_parsecomp(struct icalparse *p, enum icaltype type)
 			rc = ical_utcdatetime(p, &c->dtstamp, np->val);
 		else if (0 == strcasecmp(name, "dtstart"))
 			rc = ical_tzdatetime(p, &c->dtstart, np);
+		else if (0 == strcasecmp(name, "dtend"))
+			rc = ical_tzdatetime(p, &c->dtend, np);
+		else if (0 == strcasecmp(name, "duration"))
+			rc = ical_duration(p, &c->duration, np->val);
 		else if (0 == strcasecmp(name, "tzid"))
 			rc = ical_string(p, &c->tzid, np->val);
 		else if (0 == strcasecmp(name, "rrule"))
@@ -1056,6 +1141,9 @@ ical_parsecomp(struct icalparse *p, enum icaltype type)
 	case (ICALTYPE_VEVENT):
 		if (NULL == c->uid) {
 			kerrx("%s:%zu: missing UID", p->file, line);
+			return(0);
+		} else if (0 == c->dtstart.time) {
+			kerrx("%s:%zu: missing DTSTART", p->file, line);
 			return(0);
 		}
 		break;
@@ -1221,4 +1309,18 @@ ical_printfile(int fd, const struct ical *p)
 {
 
 	return(icalnode_print(p->first, icalnode_putc, &fd));
+}
+
+/*
+ * Check whether the time "tm" (UTC) falls within the time described by
+ * componet "c".
+ */
+int
+ical_vevent_check(time_t tm, const struct icalcomp *c)
+{
+
+	assert(ICALTYPE_VEVENT == c->type);
+	assert(0 != c->dtstart.time);
+
+	return(1);
 }

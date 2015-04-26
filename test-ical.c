@@ -137,6 +137,13 @@ ical_printcomp(const struct icalcomp *c)
 	if (0 != c->dtstamp)
 		printf("[%s] DTSTAMP = %s", 
 			icaltypes[c->type], ctime(&c->dtstamp));
+	if (0 != c->duration.sign)
+		printf("[%s] DURATION = P%c%ldW%ldD%ldH%ldM%ldS\n", 
+			icaltypes[c->type], 
+			c->duration.sign > 0 ? '+' : '-',
+			c->duration.week, c->duration.day,
+			c->duration.hour, c->duration.min,
+			c->duration.sec);
 	if (0 != c->rrule.set)
 		ical_printrrule(c, ICALTZ__MAX, &c->rrule);
 	if (0 != c->dtstart.time)
@@ -174,7 +181,7 @@ main(int argc, char *argv[])
 {
 	int		 fd, c;
 	struct stat	 st;
-	size_t		 sz;
+	size_t		 i, sz;
 	char		*map;
 	struct ical	*p = NULL;
 
@@ -204,25 +211,9 @@ main(int argc, char *argv[])
 		perror(argv[0]);
 		return(EXIT_FAILURE);
 	} else if (NULL != (p = ical_parse(argv[0], map, sz))) {
-		if (ICAL_VCALENDAR & p->bits)
-			ical_printcomp(p->comps[ICALTYPE_VCALENDAR]);
-		if (ICAL_VEVENT & p->bits)
-			ical_printcomp(p->comps[ICALTYPE_VEVENT]);
-		if (ICAL_VTIMEZONE & p->bits)
-			ical_printcomp(p->comps[ICALTYPE_VTIMEZONE]);
-#if 0
-		if (ICAL_VTODO & p->bits)
-			printf(" VTODO");
-		if (ICAL_VJOURNAL & p->bits)
-			printf(" VJOURNAL");
-		if (ICAL_VFREEBUSY & p->bits)
-			printf(" VFREEBUSY");
-		if (ICAL_VTIMEZONE & p->bits)
-			printf(" VTIMEZONE");
-		if (ICAL_VALARM & p->bits)
-			printf(" VALARM");
-		printf("\n");
-#endif
+		for (i = 0; i < ICALTYPE__MAX; i++)
+			if (NULL != p->comps[i])
+				ical_printcomp(p->comps[i]);
 		fflush(stdout);
 		ical_printfile(STDOUT_FILENO, p);
 	}
