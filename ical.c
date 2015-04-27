@@ -618,7 +618,7 @@ ical_rrule_param(const struct icalparse *p,
 			return(1);
 		kerrx("%s:%zu: bad \"BYHOUR\"", p->file, p->line);
 	} else if (0 == strcmp(key, "BYMINUTE")) {
-		if (ical_llong(p, &vp->bmin, &vp->bminsz, v, 0, 59))
+		if (ical_lulong(p, &vp->bmin, &vp->bminsz, v, 0, 59))
 			return(1);
 		kerrx("%s:%zu: bad \"BYMINUTE\"", p->file, p->line);
 	} else if (0 == strcmp(key, "BYMONTH")) {

@@ -99,8 +99,7 @@ dotemplate(size_t key, void *arg)
 	char		 buf[32];
 	size_t		 i;
 
-	memset(&req, 0, sizeof(struct khtmlreq));
-	req.req = r;
+	khtml_open(&req, r);
 
 	switch (key) {
 	case (TEMPL_BYTES_AVAIL):
@@ -261,6 +260,8 @@ dotemplate(size_t key, void *arg)
 		abort();
 		break;
 	}
+
+	khtml_close(&req);
 	return(1);
 }
 
