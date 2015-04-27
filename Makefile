@@ -41,10 +41,10 @@ PREFIX		 = /usr/local
 # Most web servers provide this; others (e.g., OpenBSD httpd(8)) don't.
 
 #### For OpenBSD:
-#LIBS		 = -lexpat -lutil -lm
-#STATIC		 = -static
-#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-#BINLDFLAGS	 = -L/usr/local/lib
+LIBS		 = -lexpat -lutil -lm
+STATIC		 = -static
+CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
+BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
 #LIBS		 = -lexpat 
@@ -53,10 +53,10 @@ PREFIX		 = /usr/local
 #BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Linux:
-LIBS		 = -lexpat -lutil -lbsd -lm
-STATIC		 = 
-CPPFLAGS	+= -I/usr/local/include 
-BINLDFLAGS	 = -L/usr/local/lib
+#LIBS		 = -lexpat -lutil -lbsd -lm
+#STATIC		 = 
+#CPPFLAGS	+= -I/usr/local/include 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 # You probably don't want to change anything after this point.
 
