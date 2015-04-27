@@ -18,6 +18,11 @@
 #define	MD5_BLOCK_LENGTH		64
 #define	MD5_DIGEST_LENGTH		16
 
+/* Silence compiler warnings. */
+#ifndef __OpenBSD__
+#define __bounded__(a, b, c) /* Nothing */
+#endif
+
 typedef struct MD5Context {
 	u_int32_t state[4];			/* state */
 	u_int64_t count;			/* number of bits, mod 2^64 */

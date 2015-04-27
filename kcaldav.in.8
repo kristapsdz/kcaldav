@@ -443,6 +443,34 @@ to access the system.
 .Pp
 The remaining attack is for an adversary to build up a database of known
 historical responses and replay them all at once.
+.Ss Date and Time
+Well-defined calendar date and time is required for computing ranges of
+free-busy, multiget filters, and so on.
+.Nm
+parses valid RFC 2445 (iCalendar) calendar dates fully, encompassing
+arbitrary repeat-rules and so on.
+Parsing UTC time-stamps is well-defined using the formula from the
+.Dq Single Unix Specification
+section 15 on
+.Dq Seconds since epoch .
+Parsing embedded time-zone time-stamps is far more complicated, but
+fully supported as defined by RFC 2445 using both the SUS algorithm and
+Zeller's congruence to compute time components.
+Other CalDAV implementations make use of
+.Xr tzfile 5
+databases: since
+.Nm
+assumes it is in a
+.Xr chroot 2
+and that this database is unavailable, it parses all time-zone
+definitions directly.
+.Pp
+One of the most complex components of RFC 2445 is the repeat-rule, such
+as that used for time-zone daylight and standard sub-component
+definitions.
+.Nm
+enumerates over all possible repeat-rule instances, and is thus able to
+accomodate for arbitrarily-complicated repeat rules.
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
 .\" For sections 2, 3, and 9 function return values only.

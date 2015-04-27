@@ -67,17 +67,20 @@ BINS		 = kcaldav \
 		   test-config \
 		   test-ical \
 		   test-nonce \
-		   test-prncpl
+		   test-prncpl \
+		   test-rrule
 TESTSRCS 	 = test-caldav.c \
 		   test-config.c \
 		   test-ical.c \
 		   test-nonce.c \
-		   test-prncpl.c
+		   test-prncpl.c \
+		   test-rrule.c
 TESTOBJS 	 = test-caldav.o \
 		   test-config.o \
 		   test-ical.o \
 		   test-nonce.o \
-		   test-prncpl.o
+		   test-prncpl.o \
+		   test-rrule.o
 HTMLS	 	 = index.html \
 		   kcaldav.8.html \
 		   kcaldav.conf.5.html \
@@ -128,6 +131,7 @@ ALLSRCS		 = Makefile \
 		   property.c \
 		   proppatch.c \
 		   put.c \
+		   rrule.c \
 		   util.c
 OBJS		 = buf.o \
 		   caldav.o \
@@ -144,7 +148,8 @@ OBJS		 = buf.o \
 		   nonce.o \
 		   open.o \
 		   principal.o \
-		   quota.o
+		   quota.o \
+		   rrule.o
 BINOBJS		 = delete.o \
 		   dynamic.o \
 		   get.o \
@@ -234,6 +239,9 @@ kcaldav.passwd: kcaldav.passwd.o $(OBJS)
 
 test-ical: test-ical.o $(OBJS)
 	$(CC) -o $@ test-ical.o $(OBJS) $(LIBS)
+
+test-rrule: test-rrule.o $(OBJS)
+	$(CC) -o $@ test-rrule.o $(OBJS) $(LIBS)
 
 test-nonce: test-nonce.o $(OBJS)
 	$(CC) -o $@ test-nonce.o $(OBJS) $(LIBS)
