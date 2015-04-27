@@ -32,6 +32,30 @@
 
 int verbose = 1;
 
+static	const char *const weeks[7] = {
+	"Sat",
+	"Sun",
+	"Mon",
+	"Tues",
+	"Wed",
+	"Thurs",
+	"Fri",
+};
+
+static char *
+ical_datefmt(const struct icaltm *cur)
+{
+	static char	buf[1024];
+
+	snprintf(buf, sizeof(buf), 
+		"%04lu%02lu%02luT%02lu%02lu%02lu (%s)",
+		cur->year + 1900, cur->mon,
+		cur->mday, cur->hour,
+		cur->min, cur->sec, cur->wday < 7 ?
+		weeks[cur->wday] : "unknown-week");
+	return(buf);
+}
+
 static void
 ical_printrrule(const struct icalcomp *c, 
 	enum icaltztype type, const struct icalrrule *r)
@@ -48,8 +72,10 @@ ical_printrrule(const struct icalcomp *c,
 
 	if (ICALFREQ_NONE != r->freq)
 		printf("%sFREQ = %s\n", buf, icalfreqs[r->freq]);
-	if (0 != r->until)
-		printf("%sUNTIL = %s", buf, ctime(&r->until));
+	if (0 != r->until.tm)
+		printf("%sUNTIL = %s: %s", buf, 
+			ical_datefmt(&r->until),
+			ctime(&r->until.tm));
 	if (0 != r->count)
 		printf("%sCOUNT = %lu", buf, r->count);
 	if (0 != r->interval)
@@ -76,7 +102,7 @@ ical_printrrule(const struct icalcomp *c,
 	if (0 != r->bmonsz) {
 		printf("%sBYMONTH =", buf);
 		for (j = 0; j < r->bmonsz; j++)
-			printf(" %ld", r->bmon[j]);
+			printf(" %lu", r->bmon[j]);
 		printf("\n");
 	}
 	if (0 != r->bmndsz) {
@@ -128,15 +154,21 @@ ical_printcomp(const struct icalcomp *c)
 	if (NULL != c->tzid)
 		printf("[%s] TZID = %s\n", 
 			icaltypes[c->type], c->tzid);
-	if (0 != c->created)
-		printf("[%s] CREATED = %s", 
-			icaltypes[c->type], ctime(&c->created));
-	if (0 != c->lastmod)
-		printf("[%s] LASTMODIFIED = %s", 
-			icaltypes[c->type], ctime(&c->lastmod));
-	if (0 != c->dtstamp)
-		printf("[%s] DTSTAMP = %s", 
-			icaltypes[c->type], ctime(&c->dtstamp));
+	if (0 != c->created.tm)
+		printf("[%s] CREATED = %s: %s", 
+			icaltypes[c->type], 
+			ical_datefmt(&c->created),
+			ctime(&c->created.tm));
+	if (0 != c->lastmod.tm)
+		printf("[%s] LASTMODIFIED = %s: %s", 
+			icaltypes[c->type], 
+			ical_datefmt(&c->lastmod),
+			ctime(&c->lastmod.tm));
+	if (0 != c->dtstamp.tm)
+		printf("[%s] DTSTAMP = %s: %s", 
+			icaltypes[c->type], 
+			ical_datefmt(&c->dtstamp),
+			ctime(&c->dtstamp.tm));
 	if (0 != c->duration.sign)
 		printf("[%s] DURATION = P%c%ldW%ldD%ldH%ldM%ldS\n", 
 			icaltypes[c->type], 
@@ -146,18 +178,19 @@ ical_printcomp(const struct icalcomp *c)
 			c->duration.sec);
 	if (0 != c->rrule.set)
 		ical_printrrule(c, ICALTZ__MAX, &c->rrule);
-	if (0 != c->dtstart.time)
+	if (0 != c->dtstart.time.tm)
 		printf("[%s] DTSTART = %s: %s", 
 			icaltypes[c->type], 
 			NULL != c->dtstart.tz ?
 			c->dtstart.tz->tzid : "(no TZ)",
-			ctime(&c->dtstart.time));
+			ctime(&c->dtstart.time.tm));
 	for (i = 0; i < c->tzsz; i++) {
-		if (0 != c->tzs[i].dtstart)
-			printf("[%s:%s] DTSTART = %s", 
+		if (0 != c->tzs[i].dtstart.tm)
+			printf("[%s:%s] DTSTART = %s: %s", 
 				icaltypes[c->type], 
 				icaltztypes[c->tzs[i].type], 
-				ctime(&c->tzs[i].dtstart));
+				ical_datefmt(&c->tzs[i].dtstart),
+				ctime(&c->tzs[i].dtstart.tm));
 		if (0 != c->tzs[i].tzto)
 			printf("[%s:%s] TZOFFSETTO = %d\n", 
 				icaltypes[c->type], 
