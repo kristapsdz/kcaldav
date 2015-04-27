@@ -235,7 +235,7 @@ struct	icalrrule {
 	unsigned long	 interval; /* INTERVAL */
 	unsigned long	*bhr; /* BYHOUR */
 	size_t		 bhrsz;
-	long		*bmin; /* BYMINUTE */
+	unsigned long	*bmin; /* BYMINUTE */
 	size_t		 bminsz;
 	long		*bmnd; /* BYMONTHDAY */
 	size_t		 bmndsz;
