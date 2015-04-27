@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -35,6 +36,10 @@
 #include "extern.h"
 #include "md5.h"
 
+/*
+ * This is a misnomer: it should be "icalcomponents".
+ * These are all possible iCalendar components (see RFC 2445, 4.6).
+ */
 const char *const icaltypes[ICALTYPE__MAX] = {
 	"VCALENDAR", /* ICALTYPE_VCALENDAR */
 	"VEVENT", /* ICALTYPE_VEVENT */
@@ -45,11 +50,17 @@ const char *const icaltypes[ICALTYPE__MAX] = {
 	"VALARM", /* ICALTYPE_VALARM */
 };
 
+/*
+ * These are the subcomponents of a VTIMEZONE (RFC 2445, 4.6.5).
+ */
 const char *const icaltztypes[ICALTZ__MAX] = {
 	"DAYLIGHT", /* ICALTZ_DAYLIGHT */
 	"STANDARD", /* ICALTZ_STANDARD */
 };
 
+/*
+ * List of weekdays (RFC 2445, 4.3.10, "weekday").
+ */
 const char *const icalwkdays[ICALWKDAY__MAX] = {
 	NULL, /* ICALWKDAY_NONE */
 	"SU", /* ICALWKDAY_SUN */
@@ -61,6 +72,9 @@ const char *const icalwkdays[ICALWKDAY__MAX] = {
 	"SA", /* ICALWKDAY_SAT */
 };
 
+/*
+ * List of recurrence frequencies (RFC 2445, 4.3.10).
+ */
 const char *const icalfreqs[ICALFREQ__MAX] = {
 	NULL, /* ICALFREQ_NONE */
 	"SECONDLY", /* ICALFREQ_SECONDLY */
@@ -159,11 +173,10 @@ ical_free(struct ical *p)
  * Return zero on failure, non-zero on success.
  */
 static int
-ical_datetime(const struct icalparse *p, time_t *tm, const char *cp)
+ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 {
 	size_t		 sz, i;
-	unsigned 	 year, mon, mday, hour, min, sec, day;
-	int		 ly;
+	unsigned long	 m, K, J;
 	unsigned	 mdaysa[12] = {  0,  31,  59,  90, 
 				       120, 151, 181, 212, 
 				       243, 273, 304, 334 };
@@ -171,7 +184,7 @@ ical_datetime(const struct icalparse *p, time_t *tm, const char *cp)
 				        31,  30,  31,  31,
 					30,  31,  30,  31 };
 
-	year = mon = mday = hour = min = sec = 0;
+	memset(tm, 0, sizeof(struct icaltm));
 
 	/* Sanity-check the date component length and ctype. */
 	if ((sz = strlen(cp)) < 8) {
@@ -186,13 +199,12 @@ ical_datetime(const struct icalparse *p, time_t *tm, const char *cp)
 		}
 
 	/* Sanitise the year. */
-	year += 1000 * (cp[0] - 48);
-	year += 100 * (cp[1] - 48);
-	year += 10 * (cp[2] - 48);
-	year += 1 * (cp[3] - 48);
-	if (year < 1970) {
-		kerrx("%s:%zu: bad year: %u", 
-			p->file, p->line, year);
+	tm->year += 1000 * (cp[0] - 48);
+	tm->year += 100 * (cp[1] - 48);
+	tm->year += 10 * (cp[2] - 48);
+	tm->year += 1 * (cp[3] - 48);
+	if (tm->year < 1970) {
+		kerrx("%s:%zu: bad year", p->file, p->line);
 		return(0);
 	}
 
@@ -200,29 +212,28 @@ ical_datetime(const struct icalparse *p, time_t *tm, const char *cp)
 	 * Compute whether we're in a leap year.
 	 * If we are, adjust our monthly entry for February.
 	 */
-	ly = ((year & 3) == 0 && 
-		((year % 25) != 0 || (year & 15) == 0));
+	tm->ly = ((tm->year & 3) == 0 && 
+		((tm->year % 25) != 0 || (tm->year & 15) == 0));
 
-	if (ly) {
+	if (tm->ly) {
 		mdayss[1] = 29;
-		mdaysa[2] = 60;
+		for (i = 2; i < 12; i++)
+			mdaysa[i]++;
 	}
 
 	/* Sanitise the month. */
-	mon += 10 * (cp[4] - 48);
-	mon += 1 * (cp[5] - 48);
-	if (0 == mon || mon > 12) {
-		kerrx("%s:%zu: bad month: %u", 
-			p->file, p->line, mon);
+	tm->mon += 10 * (cp[4] - 48);
+	tm->mon += 1 * (cp[5] - 48);
+	if (0 == tm->mon || tm->mon > 12) {
+		kerrx("%s:%zu: bad month", p->file, p->line);
 		return(0);
 	}
 
 	/* Sanitise the day of month. */
-	mday += 10 * (cp[6] - 48);
-	mday += 1 * (cp[7] - 48);
-	if (0 == mday || mday > mdayss[mon - 1]) {
-		kerrx("%s:%zu: bad day: %u", 
-			p->file, p->line, mday);
+	tm->mday += 10 * (cp[6] - 48);
+	tm->mday += 1 * (cp[7] - 48);
+	if (0 == tm->mday || tm->mday > mdayss[tm->mon - 1]) {
+		kerrx("%s:%zu: bad day", p->file, p->line);
 		return(0);
 	}
 
@@ -246,53 +257,65 @@ ical_datetime(const struct icalparse *p, time_t *tm, const char *cp)
 			}
 
 		/* Sanitise the hour. */
-		hour += 10 * (cp[9] - 48);
-		hour += 1 * (cp[10] - 48);
-		if (hour > 24) {
-			kerrx("%s:%zu: bad hour: %u", 
-				p->file, p->line, hour);
+		tm->hour += 10 * (cp[9] - 48);
+		tm->hour += 1 * (cp[10] - 48);
+		if (tm->hour > 23) {
+			kerrx("%s:%zu: bad hour", p->file, p->line);
 			return(0);
 		}
 
 		/* Sanitise the minute. */
-		min += 10 * (cp[11] - 48);
-		min += 1 * (cp[12] - 48);
-		if (min > 60) {
-			kerrx("%s:%zu: bad minute: %u", 
-				p->file, p->line, min);
+		tm->min += 10 * (cp[11] - 48);
+		tm->min += 1 * (cp[12] - 48);
+		if (tm->min > 59) {
+			kerrx("%s:%zu: bad minute", p->file, p->line);
 			return(0);
 		}
 
 		/* Sanitise the second. */
-		sec += 10 * (cp[13] - 48);
-		sec += 1 * (cp[14] - 48);
-		if (sec > 60) {
-			kerrx("%s:%zu: bad second: %u", 
-				p->file, p->line, sec);
+		tm->sec += 10 * (cp[13] - 48);
+		tm->sec += 1 * (cp[14] - 48);
+		if (tm->sec > 59) {
+			kerrx("%s:%zu: bad second", p->file, p->line);
 			return(0);
 		}
 	}
 
 	/* The year for "struct tm" is from 1900. */
-	year -= 1900;
+	tm->year -= 1900;
 
 	/* 
 	 * Compute the day in the year.
 	 * Note that the month and day in month both begin at one, as
 	 * they were parsed that way.
 	 */
-	day = mdaysa[mon - 1] + (mday - 1);
+	tm->day = mdaysa[tm->mon - 1] + (tm->mday - 1);
 
 	/*
 	 * Now use the formula from the The Open Group, "Single Unix
 	 * Specification", Base definitions (4: General concepts), part
 	 * 15: Seconds since epoch.
 	 */
-	*tm = sec + min * 60 + hour * 3600 + 
-		day * 86400 + (year - 70) * 31536000 + 
-		((year - 69) / 4) * 86400 -
-		((year - 1) / 100) * 86400 + 
-		((year + 299) / 400) * 86400;
+	tm->tm = tm->sec + tm->min * 60 + tm->hour * 3600 + 
+		tm->day * 86400 + (tm->year - 70) * 31536000 + 
+		((tm->year - 69) / 4) * 86400 -
+		((tm->year - 1) / 100) * 86400 + 
+		((tm->year + 299) / 400) * 86400;
+
+	/*
+	 * Use Zeller's congruence to compute the weekday starting on
+	 * Saturday (zero).
+	 */
+	m = tm->mon < 3 ? tm->mon + 12 : tm->mon;
+	K = (tm->year + 1900) % 100;
+	J = floor((tm->year + 1900) / 100.0);
+	tm->wday = 
+		(tm->mday + 
+		 (unsigned long)floor((13 * (m + 1)) / 5.0) +
+		 K + 
+		 (unsigned long)floor(K / 4.0) + 
+		 (unsigned long)floor(J / 4.0) + 
+		 5 * J) % 7;
 	return(1);
 }
 
@@ -349,11 +372,11 @@ ical_tzdatetime(struct icalparse *p,
  * Return zero on failure, non-zero on success.
  */
 static int
-ical_utcdatetime(const struct icalparse *p, time_t *v, const char *cp)
+ical_utcdatetime(const struct icalparse *p, struct icaltm *v, const char *cp)
 {
 	size_t	 sz;
 
-	*v = 0;
+	memset(v, 0, sizeof(struct icaltm));
 
 	if (NULL == cp || 0 == (sz = strlen(cp))) {
 		kerrx("%s:%zu: zero-length UTC", p->file, p->line);
@@ -369,11 +392,12 @@ ical_utcdatetime(const struct icalparse *p, time_t *v, const char *cp)
 }
 
 /*
- * Parse a single signed integer.
+ * Parse a single signed, bounded integer.
  * Returns zero on success, non-zero on failure.
  */
 static int
-ical_long(const struct icalparse *p, long *v, const char *cp)
+ical_long(const struct icalparse *p, long *v, 
+	const char *cp, long min, long max)
 {
 	char	*ep;
 
@@ -384,6 +408,8 @@ ical_long(const struct icalparse *p, long *v, const char *cp)
 	else if ((*v == LONG_MAX && errno == ERANGE))
 		kerrx("%s:%zu: bad long\n", p->file, p->line);
 	else if ((*v == LONG_MIN && errno == ERANGE))
+		kerrx("%s:%zu: bad long\n", p->file, p->line);
+	else if (*v < min || *v > max) 
 		kerrx("%s:%zu: bad long\n", p->file, p->line);
 	else
 		return(1);
@@ -472,12 +498,12 @@ ical_wklist(const struct icalparse *p,
 }
 
 /*
- * Parse a comma-separated list of signed integers.
+ * Parse a comma-separated list of bounded signed integers.
  * Returns zero on success, non-zero on failure.
  */
 static int
-ical_longlist(const struct icalparse *p, 
-	long **v, size_t *vsz, char *cp)
+ical_llong(const struct icalparse *p, long **v, 
+	size_t *vsz, char *cp, long min, long max)
 {
 	char	*string, *tok;
 	long	 lval;
@@ -485,7 +511,7 @@ ical_longlist(const struct icalparse *p,
 
 	string = cp;
 	while (NULL != (tok = strsep(&string, ","))) {
-		if ( ! ical_long(p, &lval, tok))
+		if ( ! ical_long(p, &lval, tok, min, max))
 			return(0);
 		pp = reallocarray
 			(*v, *vsz + 1, sizeof(long));
@@ -506,7 +532,8 @@ ical_longlist(const struct icalparse *p,
  * Return zero on failure, non-zero on success.
  */
 static int
-ical_ulong(const struct icalparse *p, unsigned long *v, const char *cp)
+ical_ulong(const struct icalparse *p, unsigned long *v, 
+	const char *cp, unsigned long min, unsigned long max)
 {
 	char	*ep;
 
@@ -515,6 +542,8 @@ ical_ulong(const struct icalparse *p, unsigned long *v, const char *cp)
 	if (cp == ep || *ep != '\0')
 		kerrx("%s:%zu: bad ulong\n", p->file, p->line);
 	else if ((*v == ULONG_MAX && errno == ERANGE))
+		kerrx("%s:%zu: bad ulong\n", p->file, p->line);
+	else if (*v < min || *v > max) 
 		kerrx("%s:%zu: bad ulong\n", p->file, p->line);
 	else
 		return(1);
@@ -528,8 +557,8 @@ ical_ulong(const struct icalparse *p, unsigned long *v, const char *cp)
  * Return zero on failure, non-zero on success.
  */
 static int
-ical_ulonglist(const struct icalparse *p, 
-	unsigned long **v, size_t *vsz, char *cp)
+ical_lulong(const struct icalparse *p, unsigned long **v, 
+	size_t *vsz, char *cp, unsigned long min, unsigned long max)
 {
 	char		*string, *tok;
 	unsigned long	 lval;
@@ -537,7 +566,7 @@ ical_ulonglist(const struct icalparse *p,
 
 	string = cp;
 	while (NULL != (tok = strsep(&string, ","))) {
-		if ( ! ical_ulong(p, &lval, tok))
+		if ( ! ical_ulong(p, &lval, tok, min, max))
 			return(0);
 		pp = reallocarray
 			(*v, *vsz + 1, sizeof(unsigned long));
@@ -551,6 +580,76 @@ ical_ulonglist(const struct icalparse *p,
 	}
 	
 	return(1);
+}
+
+/*
+ * Parse a single parameter of an RRULE, RFC 2445, 4.3.10.
+ * Returns zero on failure, non-zero on success.
+ */
+static int
+ical_rrule_param(const struct icalparse *p,
+	struct icalrrule *vp, const char *key, char *v)
+{
+
+	if (0 == strcmp(key, "FREQ")) {
+		vp->freq = ICALFREQ_NONE + 1; 
+		for ( ; vp->freq < ICALFREQ__MAX; vp->freq++)
+			if (0 == strcmp(icalfreqs[vp->freq], v))
+				return(1);
+		kerrx("%s:%zu: bad \"FREQ\"", p->file, p->line);
+	} else if (0 == strcmp(key, "UNTIL")) {
+		if (ical_utcdatetime(p, &vp->until, v))
+			return(1);
+		kerrx("%s:%zu: bad \"UNTIL\"", p->file, p->line);
+	} else if (0 == strcmp(key, "COUNT")) {
+		if (ical_ulong(p, &vp->count, v, 0, ULONG_MAX))
+			return(1);
+		kerrx("%s:%zu: bad \"COUNT\"", p->file, p->line);
+	} else if (0 == strcmp(key, "INTERVAL")) {
+		if (ical_ulong(p, &vp->interval, v, 0, ULONG_MAX))
+			return(1);
+		kerrx("%s:%zu: bad \"INTERVAL\"", p->file, p->line);
+	} else if (0 == strcmp(key, "BYDAY")) {
+		if (ical_wklist(p, &vp->bwkd, &vp->bwkdsz, v))
+			return(1);
+		kerrx("%s:%zu: bad \"BYDAY\"", p->file, p->line);
+	} else if (0 == strcmp(key, "BYHOUR")) {
+		if (ical_lulong(p, &vp->bhr, &vp->bhrsz, v, 0, 23))
+			return(1);
+		kerrx("%s:%zu: bad \"BYHOUR\"", p->file, p->line);
+	} else if (0 == strcmp(key, "BYMINUTE")) {
+		if (ical_llong(p, &vp->bmin, &vp->bminsz, v, 0, 59))
+			return(1);
+		kerrx("%s:%zu: bad \"BYMINUTE\"", p->file, p->line);
+	} else if (0 == strcmp(key, "BYMONTH")) {
+		if (ical_lulong(p, &vp->bmon, &vp->bmonsz, v, 1, 12))
+			return(1);
+		kerrx("%s:%zu: bad \"BYMONTH\"", p->file, p->line);
+	} else if (0 == strcmp(key, "BYSECOND")) {
+		if (ical_lulong(p, &vp->bsec, &vp->bsecsz, v, 1, 59))
+			return(1);
+		kerrx("%s:%zu: bad \"BYSECOND\"", p->file, p->line);
+	} else if (0 == strcmp(key, "BYSETPOS")) {
+		if (ical_llong(p, &vp->bsp, &vp->bspsz, v, 1, 366))
+			return(1);
+		kerrx("%s:%zu: bad \"BYSETPOS\"", p->file, p->line);
+	} else if (0 == strcmp(key, "BYWEEKNO")) {
+		if (ical_llong(p, &vp->bwkn, &vp->bwknsz, v, 1, 53))
+			return(1);
+		kerrx("%s:%zu: bad \"BYWEEKNO\"", p->file, p->line);
+	} else if (0 == strcmp(key, "BYYEARDAY")) {
+		if (ical_llong(p, &vp->byrd, &vp->byrdsz, v, 1, 366))
+			return(1);
+		kerrx("%s:%zu: bad \"BYYEARDAY\"", p->file, p->line);
+	} else if (0 == strcmp(key, "WKST")) {
+		if (ical_wkday(p, &vp->wkst, v))
+			return(1);
+		kerrx("%s:%zu: bad \"WKST\"", p->file, p->line);
+	} else
+		kerrx("%s:%zu: unknown parameter", p->file, p->line);
+
+	kerrx("%s:%zu: bad RRULE configuration", p->file, p->line);
+	return(0);
 }
 
 /*
@@ -574,63 +673,26 @@ ical_rrule(const struct icalparse *p,
 	string = tofree;
 	while (NULL != (key = strsep(&string, ";"))) {
 		if (NULL == (v = strchr(key, '='))) {
-			kerrx("%s:%zu: bad RRULE parameter",
-				p->file, p->line);
+			kerrx("%s:%zu: bad RRULE", p->file, p->line);
 			break;
 		}
 		*v++ = '\0';
-		if (0 == strcmp(key, "FREQ")) {
-			vp->freq = ICALFREQ_NONE + 1; 
-			for ( ; vp->freq < ICALFREQ__MAX; vp->freq++)
-				if (0 == strcmp(icalfreqs[vp->freq], v))
-					break;
-			if (ICALFREQ__MAX == vp->freq) {
-				kerrx("%s:%zu: bad RRULE FREQ",
-					p->file, p->line);
-				break;
-			}
-		} else if (0 == strcmp(key, "UNTIL")) {
-			if ( ! ical_utcdatetime(p, &vp->until, v))
-				break;
-		} else if (0 == strcmp(key, "COUNT")) {
-			if ( ! ical_ulong(p, &vp->count, v))
-				break;
-		} else if (0 == strcmp(key, "INTERVAL")) {
-			if ( ! ical_ulong(p, &vp->interval, v))
-				break;
-		} else if (0 == strcmp(key, "BYDAY")) {
-			if ( ! ical_wklist(p, &vp->bwkd, &vp->bwkdsz, v))
-				break;
-		} else if (0 == strcmp(key, "BYHOUR")) {
-			if ( ! ical_ulonglist(p, &vp->bhr, &vp->bhrsz, v))
-				break;
-		} else if (0 == strcmp(key, "BYMINUTE")) {
-			if ( ! ical_longlist(p, &vp->bmin, &vp->bminsz, v))
-				break;
-		} else if (0 == strcmp(key, "BYMONTH")) {
-			if ( ! ical_longlist(p, &vp->bmon, &vp->bmonsz, v))
-				break;
-		} else if (0 == strcmp(key, "BYSECOND")) {
-			if ( ! ical_ulonglist(p, &vp->bsec, &vp->bsecsz, v))
-				break;
-		} else if (0 == strcmp(key, "BYSETPOS")) {
-			if ( ! ical_longlist(p, &vp->bsp, &vp->bspsz, v))
-				break;
-		} else if (0 == strcmp(key, "BYWEEKNO")) {
-			if ( ! ical_longlist(p, &vp->bwkn, &vp->bwknsz, v))
-				break;
-		} else if (0 == strcmp(key, "BYYEARDAY")) {
-			if ( ! ical_longlist(p, &vp->byrd, &vp->byrdsz, v))
-				break;
-		} else if (0 == strcmp(key, "WKST")) {
-			if ( ! ical_wkday(p, &vp->wkst, v))
-				break;
-		} else
-			kerrx("%s:%zu: unknown RRULE "
-				"parameters", p->file, p->line);
+		if ( ! ical_rrule_param(p, vp, key, v))
+			break;
 	}
 
 	free(tofree);
+
+	/* We need only a frequency. */
+	if (NULL == key) {
+		if (ICALFREQ_NONE == vp->freq ||
+			 ICALFREQ__MAX == vp->freq) {
+			kerrx("%s:%zu: missing RRULE "
+				"FREQ", p->file, p->line);
+			return(0);
+		}
+	}
+
 	return(NULL == key);
 }
 
@@ -684,23 +746,23 @@ ical_duration(const struct icalparse *p, struct icaldur *v, char *cp)
 		*cp++ = '\0';
 		switch (type) {
 		case ('D'):
-			if (ical_long(p, &v->day, start))
+			if (ical_ulong(p, &v->day, start, 0, ULONG_MAX))
 				continue;
 			break;
 		case ('W'):
-			if (ical_long(p, &v->week, start))
+			if (ical_ulong(p, &v->week, start, 0, ULONG_MAX))
 				continue;
 			break;
 		case ('H'):
-			if (ical_long(p, &v->hour, start))
+			if (ical_ulong(p, &v->hour, start, 0, ULONG_MAX))
 				continue;
 			break;
 		case ('M'):
-			if (ical_long(p, &v->min, start))
+			if (ical_ulong(p, &v->min, start, 0, ULONG_MAX))
 				continue;
 			break;
 		case ('S'):
-			if (ical_long(p, &v->sec, start))
+			if (ical_ulong(p, &v->sec, start, 0, ULONG_MAX))
 				continue;
 			break;
 		default:
@@ -1142,7 +1204,7 @@ ical_parsecomp(struct icalparse *p, enum icaltype type)
 		if (NULL == c->uid) {
 			kerrx("%s:%zu: missing UID", p->file, line);
 			return(0);
-		} else if (0 == c->dtstart.time) {
+		} else if (0 == c->dtstart.time.tm) {
 			kerrx("%s:%zu: missing DTSTART", p->file, line);
 			return(0);
 		}
@@ -1309,18 +1371,4 @@ ical_printfile(int fd, const struct ical *p)
 {
 
 	return(icalnode_print(p->first, icalnode_putc, &fd));
-}
-
-/*
- * Check whether the time "tm" (UTC) falls within the time described by
- * componet "c".
- */
-int
-ical_vevent_check(time_t tm, const struct icalcomp *c)
-{
-
-	assert(ICALTYPE_VEVENT == c->type);
-	assert(0 != c->dtstart.time);
-
-	return(1);
 }

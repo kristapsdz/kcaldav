@@ -164,13 +164,73 @@ enum	icalwkday {
  */
 struct	icalwk {
 	long	 	 wk; /* zero if not set */
-	unsigned int	 wkday;  /* ICALWKDAY_NONE if not set */
+	enum icalwkday	 wkday;  /* ICALWKDAY_NONE if not set */
 };
+
+/*
+ * Time as a YYYYMMDDTHHMMSS and broken down into the number of seconds
+ * from the epoch (not tied to any time-zone, including UTC).
+ * The "tm" value is zero if nothing has been set.
+ */
+struct	icaltm {
+	time_t		 tm; /* from epoch (not UTC) */
+	int		 ly; /* in leap year? */
+	unsigned long	 year; /* from 1900 */
+	unsigned long	 mon; /* month from 1 */
+	unsigned long	 mday; /* day of month from 1 */
+	unsigned long	 hour; /* hour (0--23) */
+	unsigned long	 min; /* minute (0--59) */
+	unsigned long	 sec; /* second (0--59) */
+	unsigned long	 day; /* day in year (from 0) */
+	unsigned long	 wday; /* day in week (0 == saturday) */
+};
+
+/*
+ * An iCalendar duration (RFC 2445, 4.3.6).
+ * If this has no values, the sign is zero.
+ * All values are counted from zero.
+ */
+struct	icaldur {
+	int		 sign; /* >0 pos, <0 neg */
+	unsigned long	 day;
+	unsigned long	 week;
+	unsigned long	 hour;
+	unsigned long	 min;
+	unsigned long	 sec;
+};
+
+#if 0
+/*
+ * An iCalendar period of time (RFC 2445, 4.3.9).
+ * This can be either explicit (bracketed time) or computed (starting
+ * bracket and a duration).
+ */
+struct	icalper {
+	struct icaltm	 tm1;
+	struct icaldur	 dur; /* if unset, then... */
+	struct icaltm	 tm2;
+};
+
+/*
+ * A repeating date (RFC 2445, 4.8.5.3) is a sequence of finite date
+ * components: dates, date-times, or bracketed date spans.
+ */
+struct	icalrdate {
+	int		 set; /* whether set */
+	struct icalcomp	*tz; /* time-zone */
+	struct icaltm	*dates; /* dates (w/timezone) */
+	size_t		 datesz; 
+	struct icaltm	*datetimes; /* date-times (w/timezone) */
+	size_t		 datesz; 
+	struct icalper	*pers; /* date spans, if applicable */
+	size_t		 persz;
+};
+#endif
 
 struct	icalrrule {
 	int		 set; /* has been set */
 	enum icalfreq	 freq; /* FREQ */
-	time_t		 until; /* UNTIL */
+	struct icaltm	 until; /* UNTIL */
 	unsigned long	 count; /* COUNT */
 	unsigned long	 interval; /* INTERVAL */
 	unsigned long	*bhr; /* BYHOUR */
@@ -179,7 +239,7 @@ struct	icalrrule {
 	size_t		 bminsz;
 	long		*bmnd; /* BYMONTHDAY */
 	size_t		 bmndsz;
-	long		*bmon; /* BYMONTH */
+	unsigned long	*bmon; /* BYMONTH */
 	size_t		 bmonsz;
 	unsigned long	*bsec; /* BYSECOND */
 	size_t		 bsecsz;
@@ -200,9 +260,9 @@ struct	icalrrule {
  */
 struct	icaltz {
 	enum icaltztype	 type;
-	int		 tzfrom;
-	int		 tzto;
-	time_t		 dtstart;
+	int		 tzfrom; /* seconds from */
+	int		 tzto; /* seconds to */
+	struct icaltm	 dtstart;
 	struct icalrrule rrule;
 };
 
@@ -215,20 +275,7 @@ struct	icaltz {
  */
 struct	icaltime {
 	struct icalcomp	*tz;
-	time_t		 time;
-};
-
-/*
- * An iCalendar duration.
- * If this has no values, the sign is zero.
- */
-struct	icaldur {
-	int		 sign; /* >0 pos, <0 neg */
-	long		 day;
-	long		 week;
-	long		 hour;
-	long		 min;
-	long		 sec;
+	struct icaltm	 time;
 };
 
 /*
@@ -241,9 +288,9 @@ struct	icaldur {
 struct	icalcomp {
 	struct icalcomp	*next;
 	enum icaltype	 type;
-	time_t		 created; /* CREATED (or zero) */
-	time_t		 lastmod; /* LASTMODIFIED (or zero) */
-	time_t		 dtstamp; /* DTSTAMP (or zero) */
+	struct icaltm	 created; /* CREATED (or zero) */
+	struct icaltm	 lastmod; /* LASTMODIFIED (or zero) */
+	struct icaltm	 dtstamp; /* DTSTAMP (or zero) */
 	struct icalrrule rrule; /* RRULE (or zeroed) */
 	struct icaltime	 dtstart; /* DTSTART (or zero) */
 	struct icaltime	 dtend; /* DTEND (or zero) */
@@ -430,7 +477,8 @@ int		  ical_parsefile_close(const char *, int);
 void		  ical_free(struct ical *);
 int		  ical_print(const struct ical *, ical_putchar, void *);
 int		  ical_printfile(int, const struct ical *);
-int		  ical_parsedatetime(time_t *, const struct icalnode *);
+
+void		 ical_rrule_generate(const struct icaltm *, const struct icalrrule *);
 
 struct caldav 	 *caldav_parse(const char *, size_t);
 void		  caldav_free(struct caldav *);
