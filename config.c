@@ -22,6 +22,9 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __linux__
+#include <bsd/string.h>
+#endif
 #include <string.h>
 #ifdef HAVE_FPARSELN
 #include <util.h>

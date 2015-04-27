@@ -26,6 +26,9 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
+#ifdef __linux__
+#include <bsd/stdlib.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>

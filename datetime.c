@@ -341,7 +341,7 @@ ical_rrule_bymonthday(const struct icaltm *cur,
 			continue;
 
 		cmp.mday = rrule->bmnd[i] < 0 ?
-			mdayss[cmp.mon - 1] + (rrule->bmnd[i] + 1) :
+			(unsigned long)(mdayss[cmp.mon - 1] + (rrule->bmnd[i] + 1)) :
 			(unsigned long)rrule->bmnd[i];
 		if ( ! ical_datetimecmp(&tm, &cmp))
 			continue;
