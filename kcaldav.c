@@ -425,9 +425,6 @@ main(int argc, char *argv[])
 			kerr("ktrace");
 	}
 #endif
-
-	verbose = 1;
-
 	kdbg("%s: %s", r.fullpath, 
 		KMETHOD__MAX == r.method ? 
 		"(unknown)" : kmethods[r.method]);

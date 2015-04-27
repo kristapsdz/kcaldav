@@ -336,13 +336,13 @@ ical_rrule_bymonthday(const struct icaltm *cur,
 		 * specify a day before the beginning of the month,
 		 * e.g., -31 for February.
 		 */
-		if (rrule->bmnd[i] < 0 && 
-			mdayss[cmp.mon - 1] < rrule->bmnd[i])
+		if (rrule->bmnd[i] < 0 && mdayss[cmp.mon - 1] < 
+			(unsigned long)abs(rrule->bmnd[i]))
 			continue;
 
 		cmp.mday = rrule->bmnd[i] < 0 ?
 			mdayss[cmp.mon - 1] + (rrule->bmnd[i] + 1) :
-			rrule->bmnd[i];
+			(unsigned long)rrule->bmnd[i];
 		if ( ! ical_datetimecmp(&tm, &cmp))
 			continue;
 		found += ical_rrule_byday(&tm, rrule);
