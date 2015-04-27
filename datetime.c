@@ -36,17 +36,6 @@
 #include "extern.h"
 #include "md5.h"
 
-/* XXX: debug */
-static	const char *const weeks[7] = {
-	"Sat",
-	"Sun",
-	"Mon",
-	"Tues",
-	"Wed",
-	"Thurs",
-	"Fri",
-};
-
 struct	icaltmcmp {
 	unsigned long	 year; /* x-1900, x>=1970 */
 	unsigned long	 mon; /* 1--12 */
@@ -141,6 +130,15 @@ static size_t
 ical_rrule_produce(const struct icaltm *cur,
 	const struct icalrrule *rrule)
 {
+	const char *const weeks[7] = {
+		"Sat",
+		"Sun",
+		"Mon",
+		"Tues",
+		"Wed",
+		"Thurs",
+		"Fri",
+	};
 
 	/* Check the UNTIL clause. */
 	/* 
@@ -174,24 +172,66 @@ static size_t
 ical_rrule_bysecond(const struct icaltm *cur,
 	const struct icalrrule *rrule)
 {
+	struct icaltmcmp cmp;
+	struct icaltm	 tm;
+	size_t		 i, found;
+	int		 have;
 
-	return(ical_rrule_bysetpos(cur, rrule));
+	ical_datetime2cmp(&cmp, cur);
+	for (found = i = 0, have = 0; i < rrule->bminsz; i++) {
+		cmp.min = rrule->bmin[i];
+		if ( ! ical_datetimecmp(&tm, &cmp))
+			continue;
+		found += ical_rrule_bysetpos(&tm, rrule);
+		have = 1;
+	}
+
+	/* If no entries, route directly through */
+	return(have ? found : ical_rrule_bysetpos(cur, rrule));
 }
 
 static size_t
 ical_rrule_byminute(const struct icaltm *cur,
 	const struct icalrrule *rrule)
 {
+	struct icaltmcmp cmp;
+	struct icaltm	 tm;
+	size_t		 i, found;
+	int		 have;
 
-	return(ical_rrule_bysecond(cur, rrule));
+	ical_datetime2cmp(&cmp, cur);
+	for (found = i = 0, have = 0; i < rrule->bminsz; i++) {
+		cmp.min = rrule->bmin[i];
+		if ( ! ical_datetimecmp(&tm, &cmp))
+			continue;
+		found += ical_rrule_bysecond(&tm, rrule);
+		have = 1;
+	}
+
+	/* If no entries, route directly through */
+	return(have ? found : ical_rrule_bysecond(cur, rrule));
 }
 
 static size_t
 ical_rrule_byhour(const struct icaltm *cur,
 	const struct icalrrule *rrule)
 {
+	struct icaltmcmp cmp;
+	struct icaltm	 tm;
+	size_t		 i, found;
+	int		 have;
 
-	return(ical_rrule_byminute(cur, rrule));
+	ical_datetime2cmp(&cmp, cur);
+	for (found = i = 0, have = 0; i < rrule->bhrsz; i++) {
+		cmp.hour = rrule->bhr[i];
+		if ( ! ical_datetimecmp(&tm, &cmp))
+			continue;
+		found += ical_rrule_byminute(&tm, rrule);
+		have = 1;
+	}
+
+	/* If no entries, route directly through */
+	return(have ? found : ical_rrule_byminute(cur, rrule));
 }
 
 /*
@@ -386,10 +426,7 @@ ical_rrule_generate(const struct icaltm *first,
 	}
 }
 
-/*
- * Check whether the time "tm" (UTC) falls within the time described by
- * componet "c".
- */
+#if 0
 time_t
 ical_time2utc(const struct icaltime *time)
 {
@@ -452,3 +489,4 @@ ical_time2utc(const struct icaltime *time)
 
 	return(minres);
 }
+#endif
