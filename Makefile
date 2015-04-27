@@ -110,6 +110,7 @@ ALLSRCS		 = Makefile \
 		   config.h.post \
 		   config.h.pre \
 		   ctag.c \
+		   datetime.c \
 		   delete.c \
 		   dynamic.c \
 		   err.c \
@@ -131,7 +132,6 @@ ALLSRCS		 = Makefile \
 		   property.c \
 		   proppatch.c \
 		   put.c \
-		   rrule.c \
 		   util.c
 OBJS		 = buf.o \
 		   caldav.o \
@@ -141,6 +141,7 @@ OBJS		 = buf.o \
 		   compat-reallocarray.o \
 		   config.o \
 		   ctag.o \
+		   datetime.o \
 		   err.o \
 		   httpauth.o \
 		   ical.o \
@@ -148,8 +149,7 @@ OBJS		 = buf.o \
 		   nonce.o \
 		   open.o \
 		   principal.o \
-		   quota.o \
-		   rrule.o
+		   quota.o
 BINOBJS		 = delete.o \
 		   dynamic.o \
 		   get.o \

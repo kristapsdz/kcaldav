@@ -48,12 +48,12 @@ static	const char *const weeks[7] = {
 };
 
 struct	icaltmcmp {
-	unsigned long	 year;
-	unsigned long	 mon;
-	unsigned long	 mday;
-	unsigned long	 hour;
-	unsigned long	 min;
-	unsigned long	 sec;
+	unsigned long	 year; /* x-1900, x>=1970 */
+	unsigned long	 mon; /* 1--12 */
+	unsigned long	 mday; /* 1--31 (depending) */
+	unsigned long	 hour; /* 0--23 */
+	unsigned long	 min; /* 0--59 */
+	unsigned long	 sec; /* 0--59 */
 };
 
 static void
@@ -137,9 +137,19 @@ ical_datetimecmp(struct icaltm *tm, const struct icaltmcmp *cmp)
 }
 
 
-static void
-ical_rrule_produce(const struct icaltm *cur)
+static size_t
+ical_rrule_produce(const struct icaltm *cur,
+	const struct icalrrule *rrule)
 {
+
+	/* Check the UNTIL clause. */
+	/* 
+	 * FIXME: UNTIL is in UTC, so we need to convert the "cur->tm"
+	 * value into UTC in order for it to be consistent.
+	 */
+	if (0 != rrule->until.tm)
+		if (cur->tm > rrule->until.tm)
+			return(0);
 
 	fprintf(stderr, "%04lu%02lu%02luT%02lu%02lu%02lu (%s)\n",
 		cur->year + 1900,
@@ -149,34 +159,62 @@ ical_rrule_produce(const struct icaltm *cur)
 		cur->min,
 		cur->sec,
 		cur->wday < 7 ? weeks[cur->wday] : "none");
+	return(1);
+}
+
+static size_t
+ical_rrule_bysetpos(const struct icaltm *cur,
+	const struct icalrrule *rrule)
+{
+
+	return(ical_rrule_produce(cur, rrule));
+}
+
+static size_t
+ical_rrule_bysecond(const struct icaltm *cur,
+	const struct icalrrule *rrule)
+{
+
+	return(ical_rrule_bysetpos(cur, rrule));
+}
+
+static size_t
+ical_rrule_byminute(const struct icaltm *cur,
+	const struct icalrrule *rrule)
+{
+
+	return(ical_rrule_bysecond(cur, rrule));
+}
+
+static size_t
+ical_rrule_byhour(const struct icaltm *cur,
+	const struct icalrrule *rrule)
+{
+
+	return(ical_rrule_byminute(cur, rrule));
 }
 
 /*
- * Recursively daily (day-in-month) component.
+ * Recursively daily (day-in-week) component.
  */
-static void
+static size_t
 ical_rrule_byday(const struct icaltm *cur,
 	const struct icalrrule *rrule)
 {
 	struct icaltmcmp cmp;
 	struct icaltm	 tm;
-	size_t		 i;
+	size_t		 i, found;
 	unsigned long	 j, wday;
 	unsigned long	 wdays[7][5];
 	size_t		 wdaysz[7];
-	int		 rc, found;
+	int		 rc, have;
 
 	memset(wdays, 0, sizeof(wdays));
 	memset(wdaysz, 0, sizeof(wdaysz));
 
-	fprintf(stderr, "%s\n", __func__);
-
 	/* Direct recursion: nothing to do here. */
-	if (0 == rrule->bwkdsz) {
-		fprintf(stderr, "(No entries: pre.)\n");
-		ical_rrule_produce(cur);
-		return;
-	}
+	if (0 == rrule->bwkdsz) 
+		return(ical_rrule_byhour(cur, rrule));
 
 	/* 
 	 * In the current month, compute the days that correspond to a
@@ -193,20 +231,19 @@ ical_rrule_byday(const struct icaltm *cur,
 		wdays[tm.wday][wdaysz[tm.wday]++] = cmp.mday;
 	}
 
-	for (found = 0, i = 0; i < rrule->bwkdsz; i++) {
+	for (found = i = 0, have = 0; i < rrule->bwkdsz; i++) {
 		assert(rrule->bwkd[i].wkday > ICALWKDAY_NONE);
 		assert(rrule->bwkd[i].wkday < ICALWKDAY__MAX);
 		wday = rrule->bwkd[i].wkday % 7;
 
 		/* All weekdays in month. */
 		if (0 == rrule->bwkd[i].wk) {
-			fprintf(stderr, "All weekdays: %s\n", weeks[wday]);
 			for (j = 0; j < wdaysz[wday]; j++) {
 				cmp.mday = wdays[wday][j];
 				rc = ical_datetimecmp(&tm, &cmp);
 				assert(rc);
-				ical_rrule_produce(&tm);
-				found = 1;
+				found += ical_rrule_byhour(&tm, rrule);
+				have = 1;
 			}
 			continue;
 		}
@@ -218,8 +255,6 @@ ical_rrule_byday(const struct icaltm *cur,
 		 * Second, see if we're counting from the end of the
 		 * month or from the beginning.
 		 */
-		fprintf(stderr, "Given weekday: %ld%s (%lu stored)\n", 
-			rrule->bwkd[i].wk, weeks[wday], wdaysz[wday]);
 		if (abs(rrule->bwkd[i].wk) - 1 >= (long)wdaysz[wday])
 			continue;
 		cmp.mday = rrule->bwkd[i].wk > 0 ?
@@ -227,52 +262,91 @@ ical_rrule_byday(const struct icaltm *cur,
 			wdays[wday][wdaysz[wday] + rrule->bwkd[i].wk];
 		if ( ! ical_datetimecmp(&tm, &cmp))
 			continue;
-		ical_rrule_produce(&tm);
-		found = 1;
+		found += ical_rrule_byhour(&tm, rrule);
+		have = 1;
 	}
 
-	/* We did nothing: recurse without setting. */
-	if ( ! found) {
-		fprintf(stderr, "(No entries: post.)\n");
-		ical_rrule_produce(cur);
+	return(have ? found : ical_rrule_byhour(cur, rrule));
+}
+
+/*
+ * Recursive day (day-in-month) component.
+ */
+static size_t
+ical_rrule_bymonthday(const struct icaltm *cur,
+	const struct icalrrule *rrule)
+{
+	struct icaltmcmp cmp;
+	struct icaltm	 tm;
+	size_t		 i, found;
+	int		 have;
+	unsigned	 mdayss[12] = { 31,  28,  31,  30, 
+				        31,  30,  31,  31,
+					30,  31,  30,  31 };
+
+	/* Leap-year February. */
+	if (cur->ly) 
+		mdayss[1] = 29;
+	ical_datetime2cmp(&cmp, cur);
+	for (found = i = 0, have = 0; i < rrule->bmndsz; i++) {
+		assert(0 != rrule->bmnd[i]);
+		assert(cmp.mon > 0 && cmp.mon < 13);
+		/*
+		 * If we're going backwards, then make sure we don't
+		 * specify a day before the beginning of the month,
+		 * e.g., -31 for February.
+		 */
+		if (rrule->bmnd[i] < 0 && 
+			mdayss[cmp.mon - 1] < rrule->bmnd[i])
+			continue;
+
+		cmp.mday = rrule->bmnd[i] < 0 ?
+			mdayss[cmp.mon - 1] + (rrule->bmnd[i] + 1) :
+			rrule->bmnd[i];
+		if ( ! ical_datetimecmp(&tm, &cmp))
+			continue;
+		found += ical_rrule_byday(&tm, rrule);
+		have = 1;
 	}
+
+	/* If no entries, route directly through */
+	return(have ? found : ical_rrule_byday(cur, rrule));
+}
+
+/*
+ * Recrusive weekly (number in year) component.
+ */
+static size_t
+ical_rrule_byweekno(const struct icaltm *cur,
+	const struct icalrrule *rrule)
+{
+
+	return(ical_rrule_bymonthday(cur, rrule));
 }
 
 /*
  * Recursive monthly component.
  */
-static void
+static size_t
 ical_rrule_bymonth(const struct icaltm *cur,
 	const struct icalrrule *rrule)
 {
 	struct icaltmcmp cmp;
 	struct icaltm	 tm;
-	size_t		 i;
-	int		 found;
-
-	fprintf(stderr, "%s\n", __func__);
-
-	/* Direct recursion: nothing to do here. */
-	if (0 == rrule->bmonsz) {
-		fprintf(stderr, "(No entries: pre.)\n");
-		ical_rrule_byday(cur, rrule);
-		return;
-	}
+	size_t		 i, found;
+	int		 have;
 
 	ical_datetime2cmp(&cmp, cur);
-	for (found = 0, i = 0; i < rrule->bmonsz; i++) {
+	for (found = i = 0, have = 0; i < rrule->bmonsz; i++) {
 		cmp.mon = rrule->bmon[i];
 		if ( ! ical_datetimecmp(&tm, &cmp))
 			continue;
-		ical_rrule_byday(&tm, rrule);
-		found = 1;
+		found += ical_rrule_byweekno(&tm, rrule);
+		have = 1;
 	}
 
-	if ( ! found) {
-		fprintf(stderr, "(No entries: post.)\n");
-		ical_rrule_byday(cur, rrule);
-		return;
-	}
+	/* If no entries, route directly through */
+	return(have ? found : ical_rrule_byweekno(cur, rrule));
 }
 
 /*
@@ -301,10 +375,9 @@ ical_rrule_generate(const struct icaltm *first,
 			cmp.year += ivl;
 			if ( ! ical_datetimecmp(&tm, &cmp))
 				continue;
-			if (0 != rrule->until.tm)
-				if (tm.tm > rrule->until.tm)
-					break;
-			ical_rrule_bymonth(&tm, rrule);
+			/* Continue til no valid occurrences. */
+			if (0 == ical_rrule_bymonth(&tm, rrule))
+				break;
 		}
 		break;
 	default:
