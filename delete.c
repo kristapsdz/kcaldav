@@ -44,7 +44,7 @@ method_delete(struct kreq *r)
 	struct dirent	*dp;
 	struct ical	*cur;
 	const char	*digest;
-	int		 errs, fd;
+	int		 fd;
 	size_t		 sz;
 	char		 buf[PATH_MAX];
 
@@ -147,7 +147,6 @@ method_delete(struct kreq *r)
 		return;
 	}
 
-	errs = 0;
 	while (NULL != dirp && NULL != (dp = readdir(dirp))) {
 		if (0 == strcmp(dp->d_name, "."))
 			continue;
