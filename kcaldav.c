@@ -16,13 +16,6 @@
  */
 #include "config.h"
 
-#include <sys/stat.h>
-#ifdef KTRACE
-#include <sys/param.h>
-#include <sys/uio.h>
-#include <sys/ktrace.h>
-#endif
-
 #include <assert.h>
 #include <ctype.h>
 #include <getopt.h>
@@ -41,6 +34,7 @@
 
 #include <kcgi.h>
 #include <kcgixml.h>
+#include <sqlite3.h>
 
 #include "extern.h"
 #include "kcaldav.h"
@@ -66,210 +60,6 @@ const char *const valids[VALID__MAX] = {
 	"pass", /* VALID_PASS */
 	"uri", /* VALID_URI */
 };
-
-/*
- * Configure all paths used in our system.
- * We do this here to prevent future mucking around with string copying,
- * concatenation, and path safety.
- * Return zero on failure and non-zero on success.
- */
-static int
-req2path(struct kreq *r, const char *caldir)
-{
-	struct state	*st = r->arg;
-	size_t	 	 sz;
-	int		 machack = 0;
-	struct stat	 s;
-	char		*cp;
-
-	st->caldir = caldir;
-
-	/* Absolutely don't let it empty paths! */
-	if (NULL == r->fullpath || '\0' == r->fullpath[0]) {
-		kerrx("zero-length request URI");
-		return(0);
-	} 
-
-	/* Don't let in paths having relative directory parts. */
-	if ('/' != r->fullpath[0]) {
-		kerrx("%s: relative path", r->fullpath);
-		return(0);
-	} else if (strstr(r->fullpath, "../") || 
-			strstr(r->fullpath, "/..")) {
-		kerrx("%s: insecure path", r->fullpath);
-		return(0);
-	} 
-
-	/* The filename component can't start with a dot. */
-	cp = strrchr(r->fullpath, '/');
-	assert(NULL != cp);
-	if ('.' == cp[1]) {
-		kerrx("%s: dotted filename", r->fullpath);
-		return(0);
-	}
-	
-	/* Check our calendar directory for security. */
-	if (strstr(caldir, "../") || strstr(caldir, "/..")) {
-		kerrx("%s: insecure path", caldir);
-		return(0);
-	} else if ('\0' == caldir[0]) {
-		kerrx("zero-length calendar root");
-		return(0);
-	}
-
-	/* Create our principal filename. */
-	sz = strlcpy(st->prncplfile, caldir, sizeof(st->prncplfile));
-	if (sz >= sizeof(st->prncplfile)) {
-		kerrx("%s: path too long", st->prncplfile);
-		return(0);
-	} else if ('/' == st->prncplfile[sz - 1])
-		st->prncplfile[sz - 1] = '\0';
-	sz = strlcat(st->prncplfile, 
-		"/kcaldav.passwd", sizeof(st->prncplfile));
-	if (sz > sizeof(st->prncplfile)) {
-		kerrx("%s: path too long", st->prncplfile);
-		return(0);
-	}
-
-	/* Create our principal filename. */
-	sz = strlcpy(st->homefile, caldir, sizeof(st->homefile));
-	if ('/' == st->homefile[sz - 1])
-		st->homefile[sz - 1] = '\0';
-	sz = strlcat(st->homefile, "/home.html", sizeof(st->homefile));
-	if (sz > sizeof(st->homefile)) {
-		kerrx("%s: path too long", st->homefile);
-		return(0);
-	}
-
-	/* Create our collection filename. */
-	sz = strlcpy(st->collectionfile, 
-		caldir, sizeof(st->collectionfile));
-	if ('/' == st->collectionfile[sz - 1])
-		st->collectionfile[sz - 1] = '\0';
-	sz = strlcat(st->collectionfile, 
-		"/collection.html", sizeof(st->collectionfile));
-	if (sz > sizeof(st->collectionfile)) {
-		kerrx("%s: path too long", st->collectionfile);
-		return(0);
-	}
-
-	/* Create our nonce filename. */
-	sz = strlcpy(st->noncefile, caldir, sizeof(st->noncefile));
-	if ('/' == st->noncefile[sz - 1])
-		st->noncefile[sz - 1] = '\0';
-	sz = strlcat(st->noncefile, 
-		"/kcaldav.nonce.db", sizeof(st->noncefile));
-	if (sz >= sizeof(st->noncefile)) {
-		kerrx("%s: path too long", st->noncefile);
-		return(0);
-	}
-
-	/* Create our file-system mapped pathname. */
-	sz = strlcpy(st->path, caldir, sizeof(st->path));
-	if ('/' == st->path[sz - 1])
-		st->path[sz - 1] = '\0';
-	sz = strlcat(st->path, r->fullpath, sizeof(st->path));
-	if (sz >= sizeof(st->path)) {
-		kerrx("%s: path too long", st->path);
-		return(0);
-	}
-
-	/* Is the request on a collection? */
-	st->isdir = '/' == st->path[sz - 1];
-
-	/*
-	 * XXX: Mac OS X iCal hack.
-	 * iCal will issue a PROPFIND for a collection and omit the
-	 * trailing slash, even when configured otherwise.
-	 * Thus, we need to make locally sure that the fullpath appended
-	 * to the caldir is a directory or not, then rewrite the request
-	 * to reflect this.
-	 * This WILL leak information between principals (what is a
-	 * directory and what isn't), but for the time being, I don't
-	 * know what else to do about it.
-	 */
-	if ( ! st->isdir && KMETHOD_PROPFIND == r->method) 
-		if (-1 != stat(st->path, &s) && S_ISDIR(s.st_mode)) {
-			kerrx("MAC OSX HACK");
-			st->isdir = 1;
-			sz = strlcat(st->path, "/", sizeof(st->path));
-			if (sz >= sizeof(st->path)) {
-				kerrx("%s: path too long", st->path);
-				return(0);
-			}
-			machack = 1;
-		}
-
-	/* Create our full pathname. */
-	sz = strlcpy(st->rpath, r->pname, sizeof(st->rpath));
-	if (sz && '/' == st->rpath[sz - 1])
-		st->rpath[sz - 1] = '\0';
-	sz = strlcat(st->rpath, r->fullpath, sizeof(st->rpath));
-	if (machack)
-		sz = strlcat(st->rpath, "/", sizeof(st->rpath));
-	if (sz > sizeof(st->rpath)) {
-		kerrx("%s: path too long", st->rpath);
-		return(0);
-	}
-
-	if ( ! st->isdir) {
-		/* Create our file-system mapped temporary pathname. */
-		strlcpy(st->temp, st->path, sizeof(st->temp));
-		cp = strrchr(st->temp, '/');
-		assert(NULL != cp);
-		assert('\0' != cp[1]);
-		cp[1] = '.';
-		cp[2] = '\0';
-		strlcat(st->temp, 
-			strrchr(st->path, '/') + 1, 
-			sizeof(st->temp));
-		sz = strlcat(st->temp, ".XXXXXXXX", sizeof(st->temp));
-		if (sz >= sizeof(st->temp)) {
-			kerrx("%s: path too long", st->temp);
-			return(0);
-		}
-	}
-
-	/* If we're not a directory, adjust our dir component. */
-	strlcpy(st->dir, st->path, sizeof(st->dir));
-	if ( ! st->isdir) {
-		cp = strrchr(st->dir, '/');
-		assert(NULL != cp);
-		cp[1] = '\0';
-	} 
-
-	/* Create our ctag filename. */
-	sz = strlcpy(st->ctagfile, st->dir, sizeof(st->ctagfile));
-	if ('/' == st->ctagfile[sz - 1])
-		st->ctagfile[sz - 1] = '\0';
-	sz = strlcat(st->ctagfile, 
-		"/kcaldav.ctag", sizeof(st->ctagfile));
-	if (sz >= sizeof(st->ctagfile)) {
-		kerrx("%s: path too long", st->ctagfile);
-		return(0);
-	}
-
-	/* Create our configuration filename. */
-	sz = strlcpy(st->configfile, st->dir, sizeof(st->configfile));
-	if ('/' == st->configfile[sz - 1])
-		st->configfile[sz - 1] = '\0';
-	sz = strlcat(st->configfile, 
-		"/kcaldav.conf", sizeof(st->configfile));
-	if (sz >= sizeof(st->configfile)) {
-		kerrx("%s: path too long", st->configfile);
-		return(0);
-	}
-
-	kdbg("path = %s", st->path);
-	kdbg("temp = %s", st->temp);
-	kdbg("dir = %s", st->dir);
-	kdbg("ctagfile = %s", st->ctagfile);
-	kdbg("configfile = %s", st->configfile);
-	kdbg("prncplfile = %s", st->prncplfile);
-	kdbg("rpath = %s", st->rpath);
-	kdbg("isdir = %d", st->isdir);
-	return(1);
-}
 
 /*
  * The HTML5 string representation of a colour is a hex RGB.
@@ -352,6 +142,33 @@ kvalid_body(struct kpair *kp)
 	}
 }
 
+static void
+state_free(struct state *st)
+{
+
+	if (NULL == st)
+		return;
+	prncpl_free(st->prncpl);
+	free(st->principal);
+	free(st->collection);
+	free(st->resource);
+	free(st);
+}
+
+/*
+ * Load our principal account into the state object, priming the
+ * database beforhand.
+ * This will load all of our collections, too.
+ */
+static int
+state_load(struct state *st, const char *name)
+{
+
+	if ( ! db_init(st->caldir, 0))
+		return(-1);
+	return(db_prncpl_load(&st->prncpl, name));
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -365,10 +182,11 @@ main(int argc, char *argv[])
 		{ kvalid_hash, valids[VALID_PASS] },
 		{ kvalid_stringne, valids[VALID_URI] } }; 
 	struct state	*st;
+	struct httpauth	 auth;
 	int		 rc;
-	size_t		 reqsz;
-	const char	*caldir, *req;
+	const char	*caldir;
 	char		*np;
+	size_t		 i, sz;
 
 	/* 
 	 * This prevents spurrious line breaks from occuring in our
@@ -379,8 +197,14 @@ main(int argc, char *argv[])
 	st = NULL;
 	caldir = NULL;
 
-	while (-1 != getopt(argc, argv, "")) 
-		/* Spin. */ ;
+	while (-1 != (rc = getopt(argc, argv, "v")))
+		switch (rc) {
+		case ('v'):
+			verbose = 1;
+			break;
+		default:
+			return(EXIT_FAILURE);
+		}
 
 	argv += optind;
 	argc -= optind;
@@ -389,45 +213,10 @@ main(int argc, char *argv[])
 	if (argc > 0)
 		caldir = argv[0];
 
-	/*
-	 * I use this from time to time to debug something going wrong
-	 * in the underlying kcgi instance bailing out in the sandbox.
-	 * You can see this when the parser is SIGKILL'd.
-	 * You really don't want to enable this unless you want it.
-	 */
-#ifdef	KTRACE
-	{
-		rc = ktrace("/tmp/kcaldav.trace", KTROP_SET,
-				KTRFAC_SYSCALL | KTRFAC_SYSRET |
-				KTRFAC_NAMEI | KTRFAC_GENIO |
-				KTRFAC_PSIG | KTRFAC_EMUL |
-				KTRFAC_CSW | KTRFAC_STRUCT |
-				KTRFAC_USER | KTRFAC_INHERIT, 
-				getpid());
-		if (-1 == rc)
-			kerr("ktrace");
-	}
-#endif
 	if (KCGI_OK != khttp_parse
 		(&r, valid, VALID__MAX, 
 		 pages, PAGE__MAX, PAGE_INDEX))
 		return(EXIT_FAILURE);
-#ifdef	KTRACE
-	{
-		rc = ktrace("/tmp/kcaldav.trace", KTROP_CLEAR,
-				KTRFAC_SYSCALL | KTRFAC_SYSRET |
-				KTRFAC_NAMEI | KTRFAC_GENIO |
-				KTRFAC_PSIG | KTRFAC_EMUL |
-				KTRFAC_CSW | KTRFAC_STRUCT |
-				KTRFAC_USER | KTRFAC_INHERIT, 
-				getpid());
-		if (-1 == rc)
-			kerr("ktrace");
-	}
-#endif
-	kdbg("%s: %s", r.fullpath, 
-		KMETHOD__MAX == r.method ? 
-		"(unknown)" : kmethods[r.method]);
 
 	/* 
 	 * Begin by disallowing bogus HTTP methods and processing the
@@ -470,91 +259,102 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	kdbg("%s: session pre-authorised: %s", 
-		r.fullpath, r.rawauth.d.digest.user);
-
-	/*
-	 * Resolve paths from the HTTP request.
-	 * This sets the many paths we care about--all of which are for
-	 * our convenience--and make sure they're secure.
-	 */
-	if ( ! req2path(&r, NULL == caldir ? CALDIR : caldir)) {
-		kerrx("%s: path configuration failure", r.fullpath);
-		http_error(&r, KHTTP_403);
-		goto out;
-	} 
-
 	/* 
 	 * Copy HTTP authorisation. 
 	 * This is just a hack to prevent kcgi(3) from being pulled into
 	 * the supporting libraries for this system.
+	 * However, while here, we also pull other information into the
+	 * structure that we'll need for authentication: the request
+	 * itself, the HTTP method, etc.
 	 */
+	memset(&auth, 0, sizeof(struct httpauth));
+
 	if (r.rawauth.d.digest.alg == KHTTPALG_MD5_SESS)
-		st->auth.alg = HTTPALG_MD5_SESS;
+		auth.alg = HTTPALG_MD5_SESS;
 	else
-		st->auth.alg = HTTPALG_MD5;
+		auth.alg = HTTPALG_MD5;
 	if (r.rawauth.d.digest.qop == KHTTPQOP_NONE)
-		st->auth.qop = HTTPQOP_NONE;
+		auth.qop = HTTPQOP_NONE;
 	else if (r.rawauth.d.digest.qop == KHTTPQOP_AUTH)
-		st->auth.qop = HTTPQOP_AUTH;
+		auth.qop = HTTPQOP_AUTH;
 	else 
-		st->auth.qop = HTTPQOP_AUTH_INT;
+		auth.qop = HTTPQOP_AUTH_INT;
 
-	st->auth.user = r.rawauth.d.digest.user;
-	st->auth.uri = r.rawauth.d.digest.uri;
-	st->auth.realm = r.rawauth.d.digest.realm;
-	st->auth.nonce = r.rawauth.d.digest.nonce;
-	st->auth.cnonce = r.rawauth.d.digest.cnonce;
-	st->auth.response = r.rawauth.d.digest.response;
-	st->auth.count = r.rawauth.d.digest.count;
-	st->auth.opaque = r.rawauth.d.digest.opaque;
+	auth.user = r.rawauth.d.digest.user;
+	auth.uri = r.rawauth.d.digest.uri;
+	auth.realm = r.rawauth.d.digest.realm;
+	auth.nonce = r.rawauth.d.digest.nonce;
+	auth.cnonce = r.rawauth.d.digest.cnonce;
+	auth.response = r.rawauth.d.digest.response;
+	auth.count = r.rawauth.d.digest.count;
+	auth.opaque = r.rawauth.d.digest.opaque;
+	auth.method = kmethods[r.method];
 
-	/* 
-	 * Get the full body of the request, if any.
-	 * We use this when we're validating the HTTP authorisation and
-	 * auth-int has been specified as the QOP.
-	 */
-	if (NULL != r.fieldmap && NULL != r.fieldmap[VALID_BODY]) {
-		req = r.fieldmap[VALID_BODY]->val;
-		reqsz = r.fieldmap[VALID_BODY]->valsz;
-	} else if (NULL != r.fieldnmap && NULL != r.fieldnmap[VALID_BODY]) {
-		req = r.fieldnmap[VALID_BODY]->val;
-		reqsz = r.fieldnmap[VALID_BODY]->valsz;
+	if (NULL != r.fieldmap && 
+		 NULL != r.fieldmap[VALID_BODY]) {
+		auth.req = r.fieldmap[VALID_BODY]->val;
+		auth.reqsz = r.fieldmap[VALID_BODY]->valsz;
+	} else if (NULL != r.fieldnmap && 
+		 NULL != r.fieldnmap[VALID_BODY]) {
+		auth.req = r.fieldnmap[VALID_BODY]->val;
+		auth.reqsz = r.fieldnmap[VALID_BODY]->valsz;
 	} else {
-		req = "";
-		reqsz = 0;
+		auth.req = "";
+		auth.reqsz = 0;
 	}
 
-	/*
-	 * Next, parse the our kcaldav.passwd(5) file and look up the
-	 * given HTTP authorisation name within the database.
-	 * This will set the principal (the system user matching the
-	 * HTTP credentials) if found.
+	/* 
+	 * First, validate our request paths.
+	 * This is just a matter of copying them over.
 	 */
-	rc = prncpl_parse(st->prncplfile, kmethods[r.method], 
-		&st->auth, &st->prncpl, req, reqsz);
+	if ( ! http_paths(r.fullpath, &st->principal,
+		 &st->collection, &st->resource))
+		goto out;
 
-	if (rc < 0) {
-		kerrx("memory failure (principal)");
+	kdbg("%s: %s: /<%s>/<%s>/<%s>", 
+		auth.user, kmethods[r.method], 
+		st->principal, st->collection, st->resource);
+
+	/* Copy over the calendar directory as well. */
+	sz = strlcpy(st->caldir, NULL == caldir ? 
+		CALDIR : caldir, sizeof(st->caldir));
+
+	if (sz >= sizeof(st->caldir)) {
+		kerrx("%s: caldir too long!", st->caldir);
+		goto out;
+	} else if ('/' == st->caldir[sz - 1])
+		st->caldir[sz - 1] = '\0';
+
+	/*
+	 * Now load the requested principal and all of its collections
+	 * and other stuff.
+	 * We'll do all the authentication afterward: this just loads.
+	 */
+	if ((rc = state_load(st, auth.user)) < 0) {
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (0 == rc) {
-		kerrx("%s: bad principal file", st->prncplfile);
-		http_error(&r, KHTTP_403);
-		goto out;
-	} else if (NULL == st->prncpl) {
-		kerrx("%s: bad principal authorisation: %s", 
-			st->prncplfile, st->auth.user);
 		http_error(&r, KHTTP_401);
 		goto out;
-	} else if (strcmp(r.rawauth.d.digest.uri, st->rpath)) {
-		kerrx("%s: bad authorisation URI: %s != %s", 
-			r.fullpath, r.rawauth.d.digest.uri, st->rpath);
+	} 
+	
+	rc = prncpl_validate(st->prncpl, &auth);
+
+	if (0 == rc) {
+		kerrx("%s: bad authorisation", auth.user);
+		http_error(&r, KHTTP_401);
+		goto out;
+	} 
+	
+#if 0
+	if (strcmp(r.rawauth.d.digest.uri, st->rpath)) {
+		kerrx("%s: bad authorisation URI", r.fullpath);
 		http_error(&r, KHTTP_401);
 		goto out;
 	}
+#endif
 
-	kdbg("%s: principal authorised: %s", st->path, st->auth.user);
+	kdbg("%s: principal validated", st->prncpl->name);
 
 	/*
 	 * Perform the steps required to check the nonce database
@@ -562,7 +362,7 @@ main(int argc, char *argv[])
 	 * If this clears, that means that the principal is real and not
 	 * replaying prior HTTP authentications.
 	 */
-	if ((rc = httpauth_nonce(st->noncefile, &st->auth, &np)) < -1) {
+	if ((rc = httpauth_nonce(&auth, &np)) < -1) {
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (rc < 0) {
@@ -581,8 +381,6 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
-	kdbg("%s: session authorised: %s", st->path, st->auth.user);
-
 	/*
 	 * If we're looking for HTML pages, then no need to load the
 	 * configuration file, as we won't use it.
@@ -600,30 +398,29 @@ main(int argc, char *argv[])
 		}
 	}
 
-	/* 
-	 * This is for CalDAV (i.e., iCalendar or XML request type), so
-	 * we require a kcaldav.conf(5) configuration file in the
-	 * directory where we've been requested to introspect, whether
-	 * in searching for resources (files) or collections themselves.
+	/*
+	 * We're looking for a resource or collection.
+	 * Load up the requested data now.
 	 */
-	rc = config_parse(st->configfile, &st->cfg, st->prncpl);
-
-	if (rc < 0) {
-		kerrx("memory failure (config)");
-		http_error(&r, KHTTP_505);
-		goto out;
-	} else if (0 == rc) {
-		kerrx("%s: bad config", st->configfile);
-		http_error(&r, KHTTP_403);
-		goto out;
-	} else if (PERMS_NONE == st->cfg->perms) {
-		kerrx("%s: principal without privilege: %s", 
-			st->path, st->prncpl->name);
-		http_error(&r, KHTTP_403);
+	if (strcmp(st->principal, st->prncpl->name)) {
+		kerrx("%s: requesting other principal "
+			"collection", st->prncpl->name);
+		http_error(&r, KHTTP_404);
 		goto out;
 	}
 
-	kdbg("%s: configuration parsed", st->path);
+	for (i = 0; i < st->prncpl->colsz; i++) {
+		if (strcmp(st->prncpl->cols[i].url, st->collection))
+			continue;
+		st->cfg = &st->prncpl->cols[i];
+		break;
+	}
+	if (NULL == st->cfg) {
+		kerrx("%s: requesting unknown "
+			"collection", st->prncpl->name);
+		http_error(&r, KHTTP_404);
+		goto out;
+	}
 
 	switch (r.method) {
 	case (KMETHOD_PUT):
@@ -642,12 +439,12 @@ main(int argc, char *argv[])
 		 * dynamic site for dynamic updates.
 		 * POST to a resource, however, gets 405'd.
 		 */
-		if (st->isdir) {
+		if ('\0' == st->resource[0]) {
 			method_dynamic_post(&r);
 			break;
 		}
 		kerrx("%s: ignoring method %s",
-			st->path, kmethods[r.method]);
+			st->prncpl->name, kmethods[r.method]);
 		http_error(&r, KHTTP_405);
 		break;
 	case (KMETHOD_GET):
@@ -657,7 +454,7 @@ main(int argc, char *argv[])
 		 * Thus, return an HTML page describing the collection.
 		 * Otherwise, use the regular WebDAV handler.
 		 */
-		if (st->isdir)
+		if ('\0' == st->resource[0])
 			method_dynamic_get(&r);
 		else
 			method_get(&r);
@@ -670,17 +467,13 @@ main(int argc, char *argv[])
 		break;
 	default:
 		kerrx("%s: ignoring method %s",
-			st->path, kmethods[r.method]);
+			st->prncpl->name, kmethods[r.method]);
 		http_error(&r, KHTTP_405);
 		break;
 	}
 
 out:
 	khttp_free(&r);
-	if (NULL != st) {
-		config_free(st->cfg);
-		prncpl_free(st->prncpl);
-		free(st);
-	}
+	state_free(st);
 	return(EXIT_SUCCESS);
 }

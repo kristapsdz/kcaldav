@@ -17,9 +17,7 @@
 #include "config.h"
 
 #include <assert.h>
-#include <dirent.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -40,129 +38,62 @@ void
 method_delete(struct kreq *r)
 {
 	struct state	*st = r->arg;
-	DIR		*dirp;
-	struct dirent	*dp;
-	struct ical	*cur;
+	int		 rc;
 	const char	*digest;
-	int		 fd;
-	size_t		 sz;
-	char		 buf[PATH_MAX];
-
-	if ( ! (PERMS_DELETE & st->cfg->perms)) {
-		kerrx("%s: principal does not "
-			"have delete acccess: %s", 
-			st->path, st->prncpl->name);
-		http_error(r, KHTTP_403);
-		return;
-	} 
+	int64_t		 tag;
+	char		*ep;
 
 	digest = NULL;
 	if (NULL != r->reqmap[KREQU_IF_MATCH]) {
 		digest = r->reqmap[KREQU_IF_MATCH]->val;
-		if (32 != (sz = strlen(digest))) {
-			kerrx("%s: \"If-Match\" digest "
-				"invalid: %zuB", st->path, sz);
-			http_error(r, KHTTP_400);
-			return;
-		}
+		tag = strtoll(digest, &ep, 10);
+		if (digest == ep || '\0' != *ep)
+			digest = NULL;
+		else if (tag == LLONG_MIN && errno == ERANGE)
+			digest = NULL;
+		else if (tag == LLONG_MAX && errno == ERANGE)
+			digest = NULL;
+		if (NULL == digest)
+			kerrx("%s: bad numeric digest", 
+				st->prncpl->name);
 	}
 
-	if (NULL != digest && ! st->isdir) {
-		cur = ical_parsefile_open(st->path, &fd);
-		if (NULL == cur) {
-			http_error(r, KHTTP_404);
-		} else if (strcmp(cur->digest, digest)) {
-			kerrx("%s: fail digest", st->path);
-			http_error(r, KHTTP_412);
-		} else if (-1 == unlink(st->path)) {
-			kerr("%s: unlink", st->path);
-			http_error(r, KHTTP_505);
+	if (NULL != digest && '\0' != st->resource[0]) {
+		rc = db_resource_delete
+			(st->resource, 
+			tag, st->cfg->id);
+		if (0 == rc) {
+			kerrx("%s: cannot deleted: %s",
+				st->prncpl->name, r->fullpath);
+			http_error(r, KHTTP_403);
 		} else {
-			ctag_update(st->ctagfile);
+			kinfo("%s: resource deleted: %s",
+				st->prncpl->name, r->fullpath);
 			http_error(r, KHTTP_204);
 		}
-		ical_parsefile_close(st->path, fd);
-		ical_free(cur);
-		kinfo("%s: resource deleted: %s",
-			st->path, st->auth.user);
 		return;
-	} else if ( ! st->isdir) {
-		kerrx("%s: WARNING: unsafe delete", st->path);
-		if (-1 != unlink(st->path))  {
-			ctag_update(st->ctagfile);
-			http_error(r, KHTTP_204);
+	} else if (NULL == digest && '\0' != st->resource[0]) {
+		rc = db_resource_remove
+			(st->resource, st->cfg->id);
+		if (0 == rc) {
+			kerrx("%s: cannot deleted: %s",
+				st->prncpl->name, r->fullpath);
+			http_error(r, KHTTP_403);
 		} else {
-			kerr("%s: unlink", st->path);
-			http_error(r, KHTTP_505);
+			kinfo("%s: resource (unsafe) deleted: %s",
+				st->prncpl->name, r->fullpath);
+			http_error(r, KHTTP_204);
 		}
-		kinfo("%s: resource deleted: %s",
-			st->path, st->auth.user);
 		return;
 	} 
 
-	/*
-	 * This is NOT safe: we're blindly removing the contents
-	 * of a collection (NOT its configuration) without any
-	 * sort of checks on the collection data.
-	 */
-	assert(st->isdir);
-	strlcpy(buf, st->path, sizeof(buf));
-	sz = strlcat(buf, "kcaldav.conf", sizeof(buf));
-	if (sz >= sizeof(buf)) {
-		kerrx("%s: path too long", buf);
+	if (0 == db_collection_remove(st->cfg->id)) {
+		kinfo("%s: cannot delete: %s", 
+			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_505);
-		return;
+	} else {
+		kinfo("%s: collection unlinked: %s", 
+			st->prncpl->name, r->fullpath);
+		http_error(r, KHTTP_204);
 	}
-
-	/*
-	 * Begin by removing the kcaldav.conf file.
-	 * We do this within an exclusive lock to protect corrupting any
-	 * other sort of work on the file.
-	 */
-	fd = open_lock_ex(buf, O_RDONLY, 0600);
-	if (-1 == fd) {
-		http_error(r, KHTTP_403);
-		return;
-	} else if (-1 == unlink(buf)) {
-		kerr("%s: unlink", buf);
-		http_error(r, KHTTP_403);
-		return;
-	} 
-	close_unlock(buf, fd);
-
-	kinfo("%s: collection unlinked: %s", buf, st->auth.user);
-	http_error(r, KHTTP_204);
-
-	/*
-	 * Now the configuration file has been removed, we remove
-	 * everything else in the collection.
-	 * Since the kcaldav.conf file doesn't exist any more, the
-	 * directory is no longer visible to kcaldav, so just return
-	 * that everything went alright.
-	 */
-	if (NULL == (dirp = opendir(st->path))) {
-		kerr("%s: opendir", st->path);
-		kinfo("%s: directory remains for unlinked "
-			"collection: %s", st->path, st->auth.user);
-		return;
-	}
-
-	while (NULL != dirp && NULL != (dp = readdir(dirp))) {
-		if (0 == strcmp(dp->d_name, "."))
-			continue;
-		if (0 == strcmp(dp->d_name, ".."))
-			continue;
-		strlcpy(buf, st->path, sizeof(buf));
-		sz = strlcat(buf, dp->d_name, sizeof(buf));
-		if (sz >= sizeof(buf))
-			kerrx("%s: path too long", buf);
-		else if (-1 == unlink(buf))
-			kerr("%s: unlink", buf);
-		else
-			kinfo("%s: deleted: %s", buf, st->auth.user);
-	}
-	if (-1 == closedir(dirp))
-		kerr("%s: closedir", st->path);
-	if (-1 == rmdir(st->path)) 
-		kerr("%s: rmdir", st->path);
 }
