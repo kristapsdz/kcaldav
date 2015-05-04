@@ -60,19 +60,13 @@ static void
 principal_calendar_home_set(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
-	size_t		 i;
 
-	for (i = 0; i < st->prncpl->colsz; i++) {
-		kxml_push(xml, XML_DAV_HREF);
-		kxml_puts(xml, xml->req->pname);
-		kxml_putc(xml, '/');
-		kxml_puts(xml, st->prncpl->name);
-		kxml_putc(xml, '/');
-		kxml_puts(xml, st->prncpl->cols[i].url);
-		if ('\0' != st->prncpl->cols[i].url[0])
-			kxml_putc(xml, '/');
-		kxml_pop(xml);
-	}
+	kxml_push(xml, XML_DAV_HREF);
+	kxml_puts(xml, xml->req->pname);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, st->prncpl->name);
+	kxml_putc(xml, '/');
+	kxml_pop(xml);
 }
 
 /*
