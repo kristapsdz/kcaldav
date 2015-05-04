@@ -17,9 +17,9 @@
 #include "config.h"
 
 #include <assert.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -36,6 +36,12 @@
 #include "extern.h"
 #include "kcaldav.h"
 
+struct	cbarg {
+	struct kxmlreq	*xml;
+	const struct caldav *dav;
+	const struct coln *c;
+};
+
 /*
  * This converts the request into a CalDav object.
  * We know that the request is a well-formed CalDav object because it
@@ -49,13 +55,13 @@ req2caldav(struct kreq *r)
 
 	if (NULL == r->fieldmap[VALID_BODY]) {
 		kerrx("%s: failed parse CalDAV XML "
-			"in client request", st->path);
+			"in client request", st->prncpl->name);
 		http_error(r, KHTTP_400);
 		return(NULL);
 	} 
 
 	if (KMIME_TEXT_XML != r->fieldmap[VALID_BODY]->ctypepos) {
-		kerrx("%s: not CalDAV MIME", st->path);
+		kerrx("%s: not CalDAV MIME", st->prncpl->name);
 		http_error(r, KHTTP_415);
 		return(NULL);
 	}
@@ -65,14 +71,11 @@ req2caldav(struct kreq *r)
 		 r->fieldmap[VALID_BODY]->valsz));
 }
 
-/*
- * Defines the PROPFIND method for a collection (directory).
- * The directory we search is always the root of the request, i.e.,
- * st->path.
- */
 static void
-propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
+propfind_collection(struct kxmlreq *xml, 
+	const struct caldav *dav, const struct coln *coln)
 {
+	struct state	*st = xml->req->arg;
 	size_t	 	 i;
 	int		 nf;
 	enum proptype	 key;
@@ -80,7 +83,12 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, xml->req->pname);
-	kxml_puts(xml, xml->req->fullpath);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, st->prncpl->name);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, coln->url);
+	if ('\0' != coln->url[0])
+		kxml_putc(xml, '/');
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_PROPSTAT);
 	kxml_push(xml, XML_DAV_PROP);
@@ -96,7 +104,7 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 		khttp_puts(xml->req, " xmlns:X=\"");
 		khttp_puts(xml->req, dav->props[i].xmlns);
 		khttp_puts(xml->req, "\">");
-		(*properties[key].cgetfp)(xml);
+		(*properties[key].cgetfp)(xml, coln);
 		khttp_puts(xml->req, "</X:");
 		khttp_puts(xml->req, dav->props[i].name);
 		khttp_putc(xml->req, '>');
@@ -135,65 +143,26 @@ propfind_collection(struct kxmlreq *xml, const struct caldav *dav)
 	kxml_pop(xml);
 }
 
-/*
- * A PROPFIND request for a specified calendar resource (file).
- */
 static void
 propfind_resource(struct kxmlreq *xml, 
-	const struct caldav *dav, const char *name)
+	const struct caldav *dav, 
+	const struct coln *c, const struct res *r)
 {
 	struct state	*st = xml->req->arg;
-	struct ical	*ical;
-	size_t		 i, sz;
+	size_t		 i;
 	int		 nf;
 	enum proptype	 key;
-	const char	*pathp;
-	char		 buf[PATH_MAX];
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, xml->req->pname);
-	kxml_puts(xml, xml->req->fullpath);
-	if (NULL != name)
-		kxml_puts(xml, name);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, st->prncpl->name);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, c->url);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, r->url);
 	kxml_pop(xml);
-
-	/* See if we must reconstitute the file to open. */
-	if (NULL != name) {
-		if (strchr(name, '/')) {
-			kerrx("%s: insecure path", name);
-			kxml_push(xml, XML_DAV_STATUS);
-			kxml_puts(xml, "HTTP/1.1 ");
-			kxml_puts(xml, khttps[KHTTP_403]);
-			kxml_pop(xml);
-			kxml_pop(xml);
-			return;
-		}
-		pathp = buf;
-		strlcpy(buf, st->path, sizeof(buf));
-		sz = strlcat(buf, name, sizeof(buf));
-		if (sz >= sizeof(buf)) {
-			kerrx("%s: path too long", buf);
-			kxml_push(xml, XML_DAV_STATUS);
-			kxml_puts(xml, "HTTP/1.1 ");
-			kxml_puts(xml, khttps[KHTTP_403]);
-			kxml_pop(xml);
-			kxml_pop(xml);
-			return;
-		}
-	} else 
-		pathp = name;
-
-	/* We can only request iCal object, so parse now. */
-	if (NULL == (ical = ical_parsefile(pathp))) {
-		kerrx("%s: fail parse iCalendar", pathp);
-		kxml_push(xml, XML_DAV_STATUS);
-		kxml_puts(xml, "HTTP/1.1 ");
-		kxml_puts(xml, khttps[KHTTP_403]);
-		kxml_pop(xml);
-		kxml_pop(xml);
-		return;
-	} 
 
 	kxml_push(xml, XML_DAV_PROPSTAT);
 	kxml_push(xml, XML_DAV_PROP);
@@ -203,13 +172,12 @@ propfind_resource(struct kxmlreq *xml,
 			continue;
 		} else if (NULL == properties[key].rgetfp) 
 			continue;
-
 		khttp_puts(xml->req, "<X:");
 		khttp_puts(xml->req, dav->props[i].name);
 		khttp_puts(xml->req, " xmlns:X=\"");
 		khttp_puts(xml->req, dav->props[i].xmlns);
 		khttp_puts(xml->req, "\">");
-		(*properties[key].rgetfp)(xml, ical);
+		(*properties[key].rgetfp)(xml, c, r);
 		khttp_puts(xml->req, "</X:");
 		khttp_puts(xml->req, dav->props[i].name);
 		khttp_putc(xml->req, '>');
@@ -246,21 +214,76 @@ propfind_resource(struct kxmlreq *xml,
 	}
 
 	kxml_pop(xml);
-	ical_free(ical);
 }
 
 static void
-propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
+propfind_resource_cb(const struct res *r, void *arg)
+{
+	struct cbarg	*d = arg;
+
+	propfind_resource(d->xml, d->dav, d->c, r);
+}
+
+static struct res *
+propfind_resource_lookup(struct kxmlreq *xml, const char *cp)
 {
 	struct state	*st = xml->req->arg;
-	size_t		 depth, sz;
-	DIR		*dirp;
-	struct dirent	*dp;
+	char		*p, *c, *r;
+	int		 rc;
+	size_t		 i, sz;
+	struct res	*res;
 
-	if ( ! st->isdir)
-		return;
+	sz = strlen(xml->req->pname);
+	if (strncmp(xml->req->pname, cp, sz)) {
+		kerrx("%s: bad script name: %s",
+			st->prncpl->name, cp);
+		return(NULL);
+	}
 
-	/* Only accept depth of 0 or 1 (not infinity). */
+	cp += sz;
+	if ( ! http_paths(cp, &p, &c, &r)) {
+		kerrx("%s: path doesn't parse: %s",
+			st->prncpl->name, cp);
+		return(NULL);
+	} else if (strcmp(st->prncpl->name, p)) {
+		kerrx("%s: bad request principal: %s", st->prncpl->name, p);
+		goto err;
+	}
+
+	for (i = 0; i < st->prncpl->colsz; i++)
+		if (0 == strcmp(st->prncpl->cols[i].url, c))
+			break;
+
+	if (i == st->prncpl->colsz) {
+		kerrx("%s: bad request collection", st->prncpl->name);
+		goto err;
+	}
+
+	rc = db_resource_load(&res, r, st->prncpl->cols[i].id);
+	if (0 == rc) {
+		kerrx("%s: bad request resource", st->prncpl->name);
+		goto err;
+	} else if (rc < 0)
+		goto err;
+  
+	free(p);
+	free(c);
+	free(r);
+	return(res);
+err:
+	free(p);
+	free(c);
+	free(r);
+	return(NULL);
+}
+
+static void
+propfind_directory(struct kxmlreq *xml, 
+	const struct caldav *dav, const struct coln *c)
+{
+	size_t		 depth;
+	struct cbarg	 carg;
+
 	if (NULL == xml->req->reqmap[KREQU_DEPTH])
 		depth = 1;
 	else if (0 == strcmp(xml->req->reqmap[KREQU_DEPTH]->val, "0"))
@@ -268,47 +291,41 @@ propfind_directory(struct kxmlreq *xml, const struct caldav *dav)
 	else
 		depth = 1;
 
+	propfind_collection(xml, dav, c);
 	if (0 == depth)
 		return;
 
-	if (NULL == (dirp = opendir(st->path))) {
-		kerr("%s: opendir", st->path);
-		return;
-	}
-
-	while (NULL != (dp = readdir(dirp))) {
-		if ('.' == dp->d_name[0])
-			continue;
-		if ((sz = strlen(dp->d_name)) < 5)
-			continue;
-		if (strcasecmp(dp->d_name + sz - 4, ".ics"))
-			continue;
-		propfind_resource(xml, dav, dp->d_name);
-	}
-
-	if (-1 == closedir(dirp))
-		kerr("%s: closedir", st->path);
+	carg.xml = xml;
+	carg.c = c;
+	carg.dav = dav;
+	db_collection_resources(propfind_resource_cb, c->id, &carg);
 }
 
 static void
 propfind_list(struct kxmlreq *xml, const struct caldav *dav)
 {
 	struct state	*st = xml->req->arg;
-	size_t		 i, sz;
-	const char	*name;
+	size_t		 i, j;
+	struct res	*res;
 
-	sz = strlen(st->rpath);
 	for (i = 0; i < dav->hrefsz; i++) {
-		name = dav->hrefs[i];
-		if (0 == strncmp(name, st->rpath, sz)) {
-			propfind_resource(xml, dav, name + sz);
+		res = propfind_resource_lookup(xml, dav->hrefs[i]);
+		if (NULL != res) {
+			for (j = 0; j < st->prncpl->colsz; j++) {
+				if (res->collection == st->prncpl->cols[j].id)
+					break;
+			}
+			assert(j < st->prncpl->colsz);
+			propfind_resource(xml, dav, &st->prncpl->cols[j], res);
+			res_free(res);
 			continue;
 		}
-		kerrx("%s: not in root: %s", st->path, name);
+		kerrx("%s: bad resource request: %s",
+			st->prncpl->name, dav->hrefs[i]);
 		kxml_push(xml, XML_DAV_RESPONSE);
 		kxml_push(xml, XML_DAV_HREF);
 		kxml_puts(xml, xml->req->pname);
-		kxml_puts(xml, name);
+		kxml_puts(xml, dav->hrefs[i]);
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_STATUS);
 		kxml_puts(xml, "HTTP/1.1 ");
@@ -324,23 +341,33 @@ method_report(struct kreq *r)
 	struct caldav	*dav;
 	struct state	*st = r->arg;
 	struct kxmlreq	 xml;
+	struct res	*res;
+	int		 rc;
 
-	if ( ! (PERMS_READ & st->cfg->perms)) {
-		kerrx("%s: principal does not "
-			"have read acccess: %s", 
-			st->path, st->prncpl->name);
-		http_error(r, KHTTP_403);
-		return;
-	} else if (NULL == (dav = req2caldav(r)))
+	if (NULL == (dav = req2caldav(r)))
 		return;
 
 	if (TYPE_CALMULTIGET != dav->type &&
 		 TYPE_CALQUERY != dav->type) {
-		kerrx("%s: unknown request type", st->path);
+		kerrx("%s: unknown request type", st->prncpl->name);
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
 		return;
 	}
+
+	if ('\0' != st->resource[0]) {
+		rc = db_resource_load(&res, st->resource, st->cfg->id);
+		if (rc < 0) {
+			kerrx("%s: failed resource", st->prncpl->name);
+			http_error(r, KHTTP_505);
+			return;
+		} else if (0 == rc) {
+			kerrx("%s: bad resource", st->prncpl->name);
+			http_error(r, KHTTP_404);
+			return;
+		}
+	} else
+		res = NULL;
 
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
@@ -354,13 +381,13 @@ method_report(struct kreq *r)
 		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
 		"xmlns:D", "DAV:", NULL);
 
-	if (st->isdir) {
+	if (NULL == res) {
 		if (TYPE_CALMULTIGET == dav->type)
 			propfind_list(&xml, dav);
 		else if (TYPE_CALQUERY == dav->type)
-			propfind_directory(&xml, dav);
+			propfind_directory(&xml, dav, st->cfg);
 	} else
-		propfind_resource(&xml, dav, NULL);
+		propfind_resource(&xml, dav, st->cfg, res);
 
 	caldav_free(dav);
 	kxml_popall(&xml);
@@ -379,22 +406,32 @@ method_propfind(struct kreq *r)
 	struct caldav	*dav;
 	struct state	*st = r->arg;
 	struct kxmlreq	 xml;
+	struct res	*res;
+	int		 rc;
 
-	if ( ! (PERMS_READ & st->cfg->perms)) {
-		kerrx("%s: principal does not "
-			"have read acccess: %s", 
-			st->path, st->prncpl->name);
-		http_error(r, KHTTP_403);
-		return;
-	} else if (NULL == (dav = req2caldav(r)))
+	if (NULL == (dav = req2caldav(r)))
 		return;
 
 	if (TYPE_PROPFIND != dav->type) {
-		kerrx("%s: unknown request type", st->path);
+		kerrx("%s: unknown request type", st->prncpl->name);
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
 		return;
 	}
+
+	if ('\0' != st->resource[0]) {
+		rc = db_resource_load(&res, st->resource, st->cfg->id);
+		if (rc < 0) {
+			kerrx("%s: failed resource", st->prncpl->name);
+			http_error(r, KHTTP_505);
+			return;
+		} else if (0 == rc) {
+			kerrx("%s: bad resource", st->prncpl->name);
+			http_error(r, KHTTP_404);
+			return;
+		}
+	} else
+		res = NULL;
 
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
@@ -408,12 +445,10 @@ method_propfind(struct kreq *r)
 		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
 		"xmlns:D", "DAV:", NULL);
 
-	/* Root of request. */
-	if (st->isdir)  {
-		propfind_collection(&xml, dav);
-		propfind_directory(&xml, dav);
-	} else
-		propfind_resource(&xml, dav, NULL);
+	if (NULL == res)
+		propfind_directory(&xml, dav, st->cfg);
+	else
+		propfind_resource(&xml, dav, st->cfg, res);
 
 	caldav_free(dav);
 	kxml_popall(&xml);

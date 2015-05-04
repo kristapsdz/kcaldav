@@ -17,31 +17,13 @@
 #ifndef KCALDAV_H
 #define KCALDAV_H
 
-/*
- * We carry this state around with us after successfully setting up our
- * environment: HTTP authorised (auth), HTTP authorisation matched with
- * a local principal (prncpl), and configuration file read for the
- * relevant directory (cfg) with permission mapped to the current
- * principal.
- * The "path" component is the subject of the HTTP query mapped to the
- * local CALDIR.
- */
 struct	state {
-	struct prncpl	*prncpl;
-	struct config	*cfg;
-	struct httpauth	 auth;
-	const char	*caldir;
-	char		 path[PATH_MAX]; /* filesystem path */
-	char		 temp[PATH_MAX]; /* temporary path */
-	char		 dir[PATH_MAX]; /* "path" directory part */
-	char		 homefile[PATH_MAX]; 
-	char		 collectionfile[PATH_MAX]; 
-	char		 ctagfile[PATH_MAX]; /* ctag filename */
-	char		 noncefile[PATH_MAX]; /* nonce db filename */
-	char		 configfile[PATH_MAX]; /* config filename */
-	char		 prncplfile[PATH_MAX]; /* passwd filename */
-	char		 rpath[PATH_MAX]; /* full request URI */
-	int		 isdir; /* request is for a directory */
+	struct prncpl	*prncpl; /* current user principal */
+	struct coln	*cfg; /* (resource in?) requested collection */
+	char		 caldir[PATH_MAX]; /* calendar root */
+	char		*principal; /* principal in request */
+	char		*collection; /* collection in request */
+	char		*resource; /* resource in request */
 };
 
 enum	xml {
@@ -83,8 +65,10 @@ enum	valid {
 	VALID__MAX
 };
 
-typedef	 void (*collectionfp)(struct kxmlreq *);
-typedef	 void (*resourcefp)(struct kxmlreq *, const struct ical *);
+typedef	 void (*collectionfp)(struct kxmlreq *, 
+		const struct coln *);
+typedef	 void (*resourcefp)(struct kxmlreq *, 
+		const struct coln *, const struct res *);
 
 /*
  * This fully describes the properties that we handle and their various
@@ -102,6 +86,7 @@ int	 xml_ical_putc(int, void *);
 int	 http_ical_putc(int, void *);
 
 void	 http_error(struct kreq *, enum khttp);
+int	 http_paths(const char *, char **, char **, char **);
 
 void	 method_delete(struct kreq *);
 void	 method_dynamic_get(struct kreq *);

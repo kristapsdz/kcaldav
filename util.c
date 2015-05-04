@@ -61,6 +61,59 @@ xml_ical_putc(int c, void *arg)
 	return(1);
 }
 
+/*
+ * Decompose a path into the principal, collection, and resource parts.
+ * We manage this as follows:
+ *   /principal/collection/resource
+ * For now, the collection can't have directories of its own.
+ * Return zero on failure (no leading slash or memory failure), non-zero
+ * on success.
+ * All pointers will be set.
+ */
+int
+http_paths(const char *in, char **pp, char **cp, char **rp)
+{
+	const char	*p;
+
+	*pp = *cp = *rp = NULL;
+
+	/* Strip leading absolute path. */
+	if ('/' != in[0])
+		return(0);
+	in++;
+
+	if (NULL != (p = strchr(in, '/'))) {
+		*pp = malloc(p - in + 1);
+		memcpy(*pp, in, p - in);
+		(*pp)[p - in] = '\0';
+		in = p + 1;
+		if (NULL != (p = strrchr(in, '/'))) {
+			*cp = malloc(p - in + 1);
+			memcpy(*cp, in, p - in);
+			(*cp)[p - in] = '\0';
+			in = p + 1;
+			*rp = strdup(in);
+		} else {
+			*cp = strdup("");
+			*rp = strdup(in);
+		}
+	} else {
+		*pp = strdup(in);
+		*cp = strdup("");
+		*rp = strdup("");
+	}
+
+	if (NULL == *pp || NULL == *cp || NULL == *rp) {
+		kerr(NULL);
+		free(*pp);
+		free(*cp);
+		free(*rp);
+		return(0);
+	}
+
+	return(1);
+}
+
 int
 http_ical_putc(int c, void *arg)
 {

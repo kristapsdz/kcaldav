@@ -41,19 +41,19 @@ PREFIX		 = /usr/local
 # Most web servers provide this; others (e.g., OpenBSD httpd(8)) don't.
 
 #### For OpenBSD:
-LIBS		 = -lexpat -lutil -lm
-STATIC		 = -static
-CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-BINLDFLAGS	 = -L/usr/local/lib
-
-#### For Mac OS X:
-#LIBS		 = -lexpat 
-#STATIC		 = 
-#CPPFLAGS	+= -I/usr/local/include 
+#LIBS		 = -lexpat -lutil -lm -lsqlite3
+#STATIC		 = -static
+#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
 #BINLDFLAGS	 = -L/usr/local/lib
 
+#### For Mac OS X:
+LIBS		 = -lexpat -lsqlite3
+STATIC		 = 
+CPPFLAGS	+= -I/usr/local/include 
+BINLDFLAGS	 = -L/usr/local/lib
+
 #### For Linux:
-#LIBS		 = -lexpat -lutil -lbsd -lm
+#LIBS		 = -lexpat -lutil -lbsd -lm -lsqlite3
 #STATIC		 = 
 #CPPFLAGS	+= -I/usr/local/include 
 #BINLDFLAGS	 = -L/usr/local/lib
@@ -64,22 +64,16 @@ BINLIBS		 = -lkcgi -lkcgixml -lkcgihtml -lz $(LIBS)
 BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-caldav \
-		   test-config \
 		   test-ical \
 		   test-nonce \
-		   test-prncpl \
 		   test-rrule
 TESTSRCS 	 = test-caldav.c \
-		   test-config.c \
 		   test-ical.c \
 		   test-nonce.c \
-		   test-prncpl.c \
 		   test-rrule.c
 TESTOBJS 	 = test-caldav.o \
-		   test-config.o \
 		   test-ical.o \
 		   test-nonce.o \
-		   test-prncpl.o \
 		   test-rrule.o
 HTMLS	 	 = index.html \
 		   kcaldav.8.html \
@@ -91,9 +85,7 @@ MANS		 = kcaldav.in.8 \
 		   kcaldav.passwd.in.1 \
 		   kcaldav.passwd.5
 CTESTSRCS	 = test-explicit_bzero.c \
-		   test-fparseln.c \
 		   test-memmem.c \
-		   test-open-lock.c \
 		   test-reallocarray.c
 ALLSRCS		 = Makefile \
 		   $(TESTSRCS) \
@@ -101,55 +93,51 @@ ALLSRCS		 = Makefile \
 		   $(MANS) \
 		   buf.c \
 		   caldav.c \
+		   collection.html \
 		   compat-explicit_bzero.c \
-		   compat-fparseln.c \
 		   compat-memmem.c \
 		   compat-reallocarray.c \
-		   config.c \
 		   configure \
 		   config.h.post \
 		   config.h.pre \
-		   ctag.c \
 		   datetime.c \
+		   db.c \
 		   delete.c \
 		   dynamic.c \
 		   err.c \
 		   extern.h \
 		   get.c \
+		   home.html \
 		   httpauth.c \
 		   ical.c \
 		   kcaldav.c \
 		   kcaldav.h \
 		   kcaldav.passwd.c \
+		   md5.js \
 		   md5.c \
 		   md5.h \
-		   nonce.c \
-		   open.c \
 		   options.c \
-		   quota.c \
 		   principal.c \
 		   propfind.c \
 		   property.c \
 		   proppatch.c \
 		   put.c \
+		   resource.c \
+		   style.css \
 		   util.c
-OBJS		 = buf.o \
+OBJS		 = db.o \
+		   buf.o \
 		   caldav.o \
 		   compat-explicit_bzero.o \
-		   compat-fparseln.o \
 		   compat-memmem.o \
 		   compat-reallocarray.o \
-		   config.o \
-		   ctag.o \
 		   datetime.o \
 		   err.o \
 		   httpauth.o \
 		   ical.o \
 		   md5.o \
-		   nonce.o \
-		   open.o \
 		   principal.o \
-		   quota.o
+		   resource.o
 BINOBJS		 = delete.o \
 		   dynamic.o \
 		   get.o \
@@ -176,7 +164,8 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_13.xml \
 		   version_0_0_14.xml \
 		   version_0_0_15.xml \
-		   version_0_0_16.xml
+		   version_0_0_16.xml \
+		   version_0_1_0.xml
 VERSION		 = 0.0.16
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
@@ -189,14 +178,13 @@ www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
 afl: all
 	install -m 0555 test-ical afl/test-ical
-	install -m 0555 test-prncpl afl/test-prncpl
 	install -m 0555 test-caldav afl/test-caldav
 
 config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 	rm -f config.log
 	CC="$(CC)" CFLAGS="$(CFLAGS)" ./configure
 
-installcgi: all
+updatecgi: all
 	mkdir -p $(CGIPREFIX)
 	mkdir -p $(HTDOCSPREFIX)
 	mkdir -p $(CALPREFIX)
@@ -250,12 +238,6 @@ test-nonce: test-nonce.o $(OBJS)
 test-caldav: test-caldav.o $(OBJS)
 	$(CC) -o $@ test-caldav.o $(OBJS) $(LIBS)
 
-test-config: test-config.o $(OBJS)
-	$(CC) -o $@ test-config.o $(OBJS) $(LIBS)
-
-test-prncpl: test-prncpl.o $(OBJS)
-	$(CC) -o $@ test-prncpl.o $(OBJS) $(LIBS)
-
 $(ALLOBJS): extern.h md5.h config.h
 
 $(BINOBJS): kcaldav.h
@@ -275,7 +257,7 @@ clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1
 	rm -rf *.dSYM
 	rm -f $(HTMLS) kcaldav.tgz kcaldav.tgz.sha512
-	rm -f test-memmem test-reallocarray test-open-lock text-explicit_bzero
+	rm -f test-memmem test-reallocarray test-explicit_bzero
 	rm -f config.h config.log
 
 .8.8.html .5.5.html .1.1.html:
