@@ -16,14 +16,11 @@
  */
 #include "config.h"
 
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/param.h>
 
 #include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,52 +32,11 @@
 #else
 #include <readpassphrase.h>
 #endif
-#include <unistd.h>
 
 #include "extern.h"
 #include "md5.h"
 
 int verbose = 0;
-
-/* Code taken directly from mkdir(1).
-
- * mkpath -- create directories.
- *	path     - path
- */
-static int
-mkpath(char *path, mode_t mode)
-{
-	struct stat sb;
-	char *slash;
-	int done = 0;
-
-	slash = path;
-
-	while (!done) {
-		slash += strspn(slash, "/");
-		slash += strcspn(slash, "/");
-
-		done = (*slash == '\0');
-		*slash = '\0';
-
-		if (stat(path, &sb)) {
-			if (errno != ENOENT || (mkdir(path, mode) &&
-			    errno != EEXIST)) {
-				kerr("%s: stat", path);
-				return (-1);
-			}
-		} else if (!S_ISDIR(sb.st_mode)) {
-			errno = ENOTDIR;
-			kerr("%s: mkpath", path);
-			return (-1);
-		}
-
-		*slash = '/';
-	}
-
-	return (0);
-}
-
 
 /*
  * Get a new password from the operator.
@@ -149,88 +105,19 @@ gethash(int new, char *digest,
 	return(1);
 }
 
-static int
-pentrynew(struct pentry *p, const char *user, 
-	const char *hash, const char *homedir, const char *email)
-{
-	size_t 	 	 sz;
-	const char	*empty = "";
-
-	memset(p, 0, sizeof(struct pentry));
-
-	if (NULL == (p->hash = strdup(hash)))
-		return(0);
-	else if (NULL == (p->user = strdup(user)))
-		return(0);
-	else if (NULL == (p->uid = strdup(empty)))
-		return(0);
-	else if (NULL == (p->gid = strdup(empty)))
-		return(0);
-	else if (NULL == (p->cls = strdup(empty)))
-		return(0);
-	else if (NULL == (p->change = strdup(empty)))
-		return(0);
-	else if (NULL == (p->expire = strdup(empty)))
-		return(0);
-	else if (NULL == (p->gecos = strdup(empty)))
-		return(0);
-
-	/*
-	 * If we don't have a home directory set, then default to the
-	 * username within the root directory, /</user>/.
-	 */
-	if (NULL == homedir) {
-		sz = strlen(user) + 3;
-		if (NULL == (p->homedir = malloc(sz))) 
-			return(0);
-		strlcpy(p->homedir, "/", sz);
-		strlcat(p->homedir, user, sz);
-		strlcat(p->homedir, "/", sz);
-	} else if (NULL == (p->homedir = strdup(homedir)))
-		return(0);
-
-	/*
-	 * If we don't have an email address, then set it to be current
-	 * username on the local host.
-	 * If there's no hostname, then use "localhost".
-	 */
-	if (NULL == email) {
-		sz = strlen(user) + MAXHOSTNAMELEN + 2;
-		if (NULL == (p->gecos = malloc(sz)))
-			return(0);
-		strlcpy(p->gecos, user, sz);
-		sz = strlcat(p->gecos, "@", sz);
-		if (-1 == gethostname(p->gecos + sz, MAXHOSTNAMELEN))
-			return(0);
-		sz = strlen(user) + MAXHOSTNAMELEN + 2;
-		if ('@' == p->gecos[strlen(p->gecos) - 1]) 
-			strlcat(p->gecos, "localhost", sz);
-	} else if (NULL == (p->gecos = strdup(email)))
-		return(0);
-
-	return(prncpl_pentry_check(p));
-}
-
 int
 main(int argc, char *argv[])
 {
-	int	 	 c, fd, create, rc, passwd, mkdir;
-	char	 	 file[PATH_MAX], udir[PATH_MAX],
-			 digestnew[MD5_DIGEST_LENGTH * 2 + 1],
-			 digestrep[MD5_DIGEST_LENGTH * 2 + 1],
-			 digestold[MD5_DIGEST_LENGTH * 2 + 1];
-	const char	*pname, *realm, *homedir, 
-	      		*altuser, *email;
+	int	 	 c, fd, create, rc, passwd;
+	char	 	 dnew[MD5_DIGEST_LENGTH * 2 + 1],
+			 drep[MD5_DIGEST_LENGTH * 2 + 1],
+			 dold[MD5_DIGEST_LENGTH * 2 + 1];
+	const char	*pname, *realm, *altuser, *dir, *email;
+	size_t		 sz;
 	uid_t		 euid;
 	gid_t		 egid;
-	size_t		 i, sz, len, line, elsz;
-	ssize_t		 found;
-	struct pentry	 eline;
-	struct pentry	*els;
-	char		*cp, *user;
-	FILE		*f;
-	void		*pp;
-	struct stat	 st;
+	struct prncpl	*p;
+	char		*user, *emailp;
 
 	euid = geteuid();
 	egid = getegid();
@@ -248,62 +135,34 @@ main(int argc, char *argv[])
 		return(EXIT_FAILURE);
 	}
 
-	/* Establish program name. */
 	if (NULL == (pname = strrchr(argv[0], '/')))
 		pname = argv[0];
 	else
 		++pname;
 
-	/* Prepare our default CALDIR/kcaldav.passwd file. */
-	sz = strlcpy(file, CALDIR, sizeof(file));
-	if (sz >= sizeof(file)) {
-		kerrx("%s: default path too long", file);
-		return(EXIT_FAILURE);
-	} 
-	strlcpy(udir, CALDIR, sizeof(udir));
-	
-	f = NULL;
+	emailp = NULL;
+	p = NULL;
+	dir = CALDIR;
 	realm = KREALM;
 	create = 0;
 	passwd = 1;
-	mkdir = 0;
+	email = NULL;
 	user = NULL;
-	els = NULL;
-	elsz = 0;
-	homedir = email = NULL;
 	rc = 0;
 	fd = -1;
 	verbose = 0;
 	altuser = NULL;
 
-	while (-1 != (c = getopt(argc, argv, "Cd:e:f:mnu:v"))) 
+	while (-1 != (c = getopt(argc, argv, "Ce:f:nu:v"))) 
 		switch (c) {
 		case ('C'):
 			create = passwd = 1;
-			break;
-		case ('d'):
-			homedir = optarg;
-			if (0 == (sz = strlen(homedir))) {
-				fprintf(stderr, "empty homedir\n");
-				goto usage;
-			} else if ('/' != homedir[sz - 1]) {
-				fprintf(stderr, "homedir without "
-					"trailing slash\n");
-				goto usage;
-			}
 			break;
 		case ('e'):
 			email = optarg;
 			break;
 		case ('f'):
-			strlcpy(udir, optarg, sizeof(udir));
-			sz = strlcpy(file, optarg, sizeof(file));
-			if (sz < sizeof(file))
-				break;
-			fprintf(stderr, "%s: path too long\n", file);
-			goto usage;
-		case ('m'):
-			mkdir = 1;
+			dir = optarg;
 			break;
 		case ('n'):
 			passwd = 0;
@@ -320,22 +179,6 @@ main(int argc, char *argv[])
 
 	assert('\0' != realm[0]);
 
-	/* Arrange our kcaldav.passwd file. */
-	if ('\0' == file[0]) {
-		fprintf(stderr, "empty path!?\n");
-		goto out;
-	} 
-	if ('/' == file[sz - 1])
-		file[sz - 1] = '\0';
-	if ('/' == udir[sz - 1])
-		udir[sz - 1] = '\0';
-
-	sz = strlcat(file, "/kcaldav.passwd", sizeof(file));
-	if (sz >= sizeof(file)) {
-		kerrx("%s: path too long", file);
-		goto out;
-	}
-
 	/* 
 	 * Assign our user name.
 	 * This is either going to be given with -u (which is a
@@ -345,6 +188,9 @@ main(int argc, char *argv[])
 	if (NULL == user) {
 		kerr(NULL);
 		goto out;
+	} else if ('\0' == user[0]) {
+		kerrx("zero-length username");
+		goto out;
 	}
 
 	/* 
@@ -352,16 +198,16 @@ main(int argc, char *argv[])
 	 * password, get the existing password. 
 	 */
 	if ( ! create && NULL == altuser)
-		if ( ! gethash(0, digestold, user, realm))
+		if ( ! gethash(0, dold, user, realm))
 			goto out;
 
 	/* If we're going to set our password, hash it now. */
 	if (passwd) {
-		if ( ! gethash(1, digestnew, user, realm)) 
+		if ( ! gethash(1, dnew, user, realm)) 
 			goto out;
-		if ( ! gethash(2, digestrep, user, realm)) 
+		if ( ! gethash(2, drep, user, realm)) 
 			goto out;
-		if (memcmp(digestnew, digestrep, sizeof(digestnew))) {
+		if (memcmp(dnew, drep, sizeof(dnew))) {
 			fprintf(stderr, "passwords do not match\n");
 			goto out;
 		}
@@ -377,13 +223,12 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * Open the file itself.
+	 * Open the database file itself.
 	 * This is a privileged operation, hence occuring with our
 	 * regained effective credentials.
+	 * We only try to create the database if "create" is specified.
 	 */
-	if (-1 == (fd = open_lock_ex(file, O_RDWR, 0)))
-		goto out;
-	else if (NULL == (f = fdopen_lock(file, fd, "r")))
+	if ( ! db_init(dir, create))
 		goto out;
 
 	/* Now drop privileges entirely! */
@@ -397,206 +242,78 @@ main(int argc, char *argv[])
 
 	/* 
 	 * Check security of privileged operations.
-	 * Root is, of course, exempt.
+	 * This will also create the database schema if the database has
+	 * been created with "create" but doesn't exist yet.
 	 */
-	if (0 != getuid() && (create || NULL != altuser)) {
-		if (-1 == fstat(fd, &st)) {
-			kerr("fstat");
-			goto out;
-		} else if (st.st_uid != getuid()) {
+	if (create || NULL != altuser) {
+		if (0 == (rc = db_owner_check_or_set(getuid()))) {
 			fprintf(stderr, "password file owner "
 				"must match the real user\n");
 			goto out;
-		}
+		} else if (rc < 0)
+			goto out;
 	}
 
-	/*
-	 * Scan the entire file into memory.
-	 * This will fill in "els" with each principal entry.
-	 * Each line is explicitly zeroed so as not to leave any
-	 * password hashes in memory.
-	 */
-	line = 0;
-	found = -1;
-	while (NULL != (cp = fgetln(f, &len))) {
-		if ( ! prncpl_line(cp, len, file, ++line, &eline)) {
-			explicit_bzero(cp, len);
-			break;
-		}
-		pp = reallocarray(els, 
-			elsz + 1, sizeof(struct pentry));
-		if (NULL == pp) {
-			kerr(NULL);
-			break;
-		} 
-		els = pp;
-		elsz++;
-		if ( ! prncpl_pentry_dup(&els[elsz - 1], &eline)) {
-			kerr(NULL);
-			explicit_bzero(cp, len);
-			break;
-		} else if (0 == strcmp(eline.user, user))
-			found = (ssize_t)(elsz - 1);
-
-		/* Next line... */
-		explicit_bzero(cp, len);
-	}
-
-	/* 
-	 * If we had errors (we didn't reach EOF), bail out. 
-	 * Bail if we can't close the file as well.
-	 */
-	if ( ! feof(f)) {
-		if (ferror(f))
-			kerr("%s: fgetln", file);
-		if (-1 == fclose(f))
-			kerr("%s: fclose", file);
-		goto out;
-	} else if (-1 == fclose(f)) {
-		kerr("%s: fclose", file);
-		goto out;
-	}
-
-	if (create && found < 0) {
-		/* 
-		 * New/empty file or new entry.
-		 * For this, we simply slap the requested new entry into
-		 * the file and that's that.
-		 */
-		pp = reallocarray
-			(els, elsz + 1, 
-			 sizeof(struct pentry));
-		if (NULL == pp) {
-			kerr(NULL);
-			goto out;
-		} 
-		els = pp;
-		i = elsz++;
-		c = pentrynew(&els[i], user, 
-			digestnew, homedir, email);
-		if (0 == c) {
-			kerr(NULL);
-			goto out;
-		} 
-	} else if (create) {
-		fprintf(stderr, "%s: principal exists\n", user);
-		goto out;
-	} else if (found >= 0) {
-		i = (size_t)found;
-		assert(i < elsz);
-		if (NULL == altuser && memcmp(els[i].hash, 
-				digestold, sizeof(digestold))) {
-			fprintf(stderr, "password mismatch\n");
-			goto out;
-		}
-		if (NULL != homedir) {
-			free(els[i].homedir);
-			els[i].homedir = strdup(homedir);
-			if (NULL == els[i].homedir) {
+	/* Now either create or update the principal. */
+	if (create) {
+		if (NULL == email) {
+			sz = strlen(user) + MAXHOSTNAMELEN + 2;
+			emailp = malloc(sz);
+			if (NULL == emailp) {
 				kerr(NULL);
 				goto out;
 			}
-		} 
-		if (passwd)
-			memcpy(els[i].hash, digestnew, sizeof(digestnew));
-		if ( ! prncpl_pentry_check(&els[i]))
+			strlcpy(emailp, user, sz);
+			strlcat(emailp, "@", sz);
+			gethostname(emailp + strlen(user) + 1, 
+				sz - strlen(user) - 1);
+			email = emailp;
+		}
+		c = db_prncpl_new(user, dnew, email);
+		if (0 == c) {
+			fprintf(stderr, "%s: principal exists\n", user);
 			goto out;
-	} else {
+		} else if (c < 0)
+			goto out;
+	} else if ((c = db_prncpl_load(&p, user)) > 0) {
+		if (NULL == altuser)
+			if (memcmp(p->hash, dold, sizeof(dold))) {
+				fprintf(stderr, "password mismatch\n");
+				goto out;
+			}
+		if (NULL != email) {
+			free(p->email);
+			p->email = strdup(email);
+			if (NULL == p->email) {
+				kerr(NULL);
+				goto out;
+			}
+		}
+		if (passwd) {
+			free(p->hash);
+			p->hash = strdup(dnew);
+			if (NULL == p->hash) {
+				kerr(NULL);
+				goto out;
+			}
+		}
+		if ( ! db_prncpl_update(p))
+			goto out;
+	} else if (0 == c) {
 		fprintf(stderr, "%s: does not "
 			"exist, use -C to add\n", user);
 		goto out;
 	}
 
-	/* Zero the existing file and reset our position. */
-	if (-1 == ftruncate(fd, 0)) {
-		kerr("%s: ftruncate", file);
-		fprintf(stderr, "%s: WARNING: FILE IN "
-			"INCONSISTENT STATE\n", file);
-		goto out;
-	} else if (-1 == lseek(fd, 0, SEEK_SET)) {
-		kerr("%s: lseek", file);
-		fprintf(stderr, "%s: WARNING: FILE IN "
-			"INCONSISTENT STATE\n", file);
-		goto out;
-	}
-
-	/* 
-	 * Flush to the open file descriptor.
-	 * If this fails at any time, we're pretty much hosed.
-	 * TODO: backup the original file and swap it back in, if
-	 * something goes wrong.
-	 */
-	for (i = 0; i < elsz; i++)
-		if ( ! prncpl_pentry_write(fd, file, &els[i])) {
-			fprintf(stderr, "%s: WARNING: FILE IN "
-				"INCONSISTENT STATE\n", file);
-			goto out;
-		}
-
-	/*
-	 * If we're going to create the new collection directory, do so
-	 * now, inheriting the mode of the parent.
-	 */
-	if (create && mkdir) {
-		if (-1 == stat(udir, &st)) {
-			kerr("%s: stat", udir);
-			goto out;
-		} else if (NULL == homedir) {
-			strlcat(udir, "/", sizeof(udir));
-			strlcat(udir, user, sizeof(udir));
-			sz = strlcat(udir, "/", sizeof(udir));
-		} else
-			sz = strlcat(udir, homedir, sizeof(udir));
-
-		/* New directory inherits mode from calendar root. */
-
-		if (sz >= sizeof(udir)) {
-			kerrx("%s: path too long", udir);
-			goto out;
-		} else if (NULL == (cp = strdup(udir))) {
-			kerr(NULL);
-			goto out;
-		} else if (-1 == mkpath(cp, st.st_mode)) {
-			kerr("%s: chmod", cp);
-			free(cp);
-			goto out;
-		} else if (-1 == chmod(udir, st.st_mode)) {
-			kerr("%s: chmod", cp);
-			free(cp);
-			goto out;
-		}
-		free(cp);
-
-		/* 
-		 * Create a simple kcaldav.conf(5) file in the new
-		 * collection directory.
-		 * We already have the trailing slash in the name.
-		 */
-		sz = strlcat(udir, "kcaldav.conf", sizeof(udir));
-		if (sz >= sizeof(udir)) {
-			kerrx("%s: path too long", udir);
-			goto out;
-		} else if (NULL == (f = fopen(udir, "w"))) {
-			kerr("%s: fopen", udir);
-			goto out;
-		}
-		fprintf(f, "displayname = %s's calendar\n", user);
-		fprintf(f, "privilege = %s ALL\n", user);
-		fclose(f);
-	}
-
 	rc = 1;
 out:
+	prncpl_free(p);
 	free(user);
-	prncpl_pentry_freelist(els, elsz);
-	if (NULL != f)
-		fclose(f);
-	close_unlock(file, fd);
+	free(emailp);
 	return(rc ? EXIT_SUCCESS : EXIT_FAILURE);
 usage:
 	fprintf(stderr, "usage: %s "
-		"[-Cmn] "
-		"[-d homedir] "
+		"[-Cn] "
 		"[-e email] "
 		"[-f file] "
 		"[-u user]\n", pname);

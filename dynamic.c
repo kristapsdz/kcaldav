@@ -17,6 +17,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -36,9 +37,6 @@ enum	templ {
 	TEMPL_BYTES_USED,
 	TEMPL_CLASS_COLLECTION_WRITABLE,
 	TEMPL_CLASS_INSECURE,
-	TEMPL_CLASS_READONLY,
-	TEMPL_CLASS_WRITABLE,
-	TEMPL_COLLECTION_WRITABLE,
 	TEMPL_COLOUR,
 	TEMPL_DESCRIPTION,
 	TEMPL_DISPLAYNAME,
@@ -66,9 +64,6 @@ static	const char *const templs[TEMPL__MAX] = {
 	"bytes-used", /* TEMPL_BYTES_USED */
 	"class-collection-writable", /* TEMPL_CLASS_COLLECTION_WRITABLE */
 	"class-insecure", /* TEMPL_CLASS_INSECURE */
-	"class-readonly", /* TEMPL_CLASS_READONLY */
-	"class-writable", /* TEMPL_CLASS_WRITABLE */
-	"collection-writable", /* TEMPL_COLLECTION_WRITABLE */
 	"colour", /* TEMPL_COLOUR */
 	"description", /* TEMPL_DESCRIPTION */
 	"displayname", /* TEMPL_DISPLAYNAME */
@@ -103,19 +98,17 @@ dotemplate(size_t key, void *arg)
 
 	switch (key) {
 	case (TEMPL_BYTES_AVAIL):
-		if (NULL == st->cfg)
-			break;
-		if (st->cfg->bytesavail > 1073741824) {
+		if (st->prncpl->quota_avail > 1073741824) {
 			snprintf(buf, sizeof(buf), "%.2f GB", 
-				st->cfg->bytesavail / 
+				st->prncpl->quota_avail / 
 				(double)1073741824);
-		} else if (st->cfg->bytesavail > 1048576) {
+		} else if (st->prncpl->quota_avail > 1048576) {
 			snprintf(buf, sizeof(buf), "%.2f GB", 
-				st->cfg->bytesavail / 
+				st->prncpl->quota_avail / 
 				(double)1048576);
 		} else {
 			snprintf(buf, sizeof(buf), "%.2f KB", 
-				st->cfg->bytesavail / 
+				st->prncpl->quota_avail / 
 				(double)1024);
 		}
 		khtml_puts(&req, buf);
@@ -123,17 +116,17 @@ dotemplate(size_t key, void *arg)
 	case (TEMPL_BYTES_USED):
 		if (NULL == st->cfg)
 			break;
-		if (st->cfg->bytesused > 1073741824) {
+		if (st->prncpl->quota_used > 1073741824) {
 			snprintf(buf, sizeof(buf), "%.2f GB", 
-				st->cfg->bytesused / 
+				st->prncpl->quota_used / 
 				(double)1073741824);
-		} else if (st->cfg->bytesused > 1048576) {
+		} else if (st->prncpl->quota_used > 1048576) {
 			snprintf(buf, sizeof(buf), "%.2f GB", 
-				st->cfg->bytesused / 
+				st->prncpl->quota_used / 
 				(double)1048576);
 		} else {
 			snprintf(buf, sizeof(buf), "%.2f KB", 
-				st->cfg->bytesused / 
+				st->prncpl->quota_used / 
 				(double)1024);
 		}
 		khtml_puts(&req, buf);
@@ -141,26 +134,12 @@ dotemplate(size_t key, void *arg)
 	case (TEMPL_CLASS_COLLECTION_WRITABLE):
 		if (NULL == st->cfg)
 			break;
-		if ( ! (PERMS_WRITE & st->cfg->perms))
-			khtml_puts(&req, "noshow");
-		else if ( ! st->cfg->writable)
-			khtml_puts(&req, "noshow");
+		/*if ( ! (PERMS_WRITE & st->cfg->perms))
+			khtml_puts(&req, "noshow");*/
 		break;
 	case (TEMPL_CLASS_INSECURE):
 		if (KSCHEME_HTTPS == r->scheme)
 			khtml_puts(&req, "noshow");
-		break;
-	case (TEMPL_CLASS_READONLY):
-		if (st->prncpl->writable)
-			khtml_puts(&req, "noshow");
-		break;
-	case (TEMPL_CLASS_WRITABLE):
-		if ( ! st->prncpl->writable)
-			khtml_puts(&req, "noshow");
-		break;
-	case (TEMPL_COLLECTION_WRITABLE):
-		khtml_puts(&req, st->cfg->writable ?
-			"writable" : "read-only");
 		break;
 	case (TEMPL_COLOUR):
 		if (NULL == st->cfg)
@@ -202,7 +181,9 @@ dotemplate(size_t key, void *arg)
 		khtml_puts(&req, "://");
 		khtml_puts(&req, r->host);
 		khtml_puts(&req, r->pname);
-		khtml_puts(&req, st->prncpl->homedir);
+		khtml_putc(&req, '/');
+		khtml_puts(&req, st->prncpl->name);
+		khtml_putc(&req, '/');
 		break;
 	case (TEMPL_PAGE_EMAIL):
 		khtml_puts(&req, r->pname);
@@ -224,16 +205,16 @@ dotemplate(size_t key, void *arg)
 	case (TEMPL_PRIVS):
 		if (NULL == st->cfg)
 			break;
-		if ( ! (PERMS_READ & st->cfg->perms))
-			break;
+		/*if ( ! (PERMS_READ & st->cfg->perms))
+			break;*/
 		khtml_puts(&req, "read");
-		if (PERMS_WRITE & st->cfg->perms &&
-			 PERMS_DELETE & st->cfg->perms)
+		/*if (PERMS_WRITE & st->cfg->perms &&
+			 PERMS_DELETE & st->cfg->perms)*/
 			khtml_puts(&req, ", write, and delete");
-		else if (PERMS_WRITE & st->cfg->perms)
+		/*else if (PERMS_WRITE & st->cfg->perms)
 			khtml_puts(&req, " and write");
 		else if (PERMS_DELETE & st->cfg->perms)
-			khtml_puts(&req, " and delete");
+			khtml_puts(&req, " and delete");*/
 		break;
 	case (TEMPL_REALM):
 		khtml_puts(&req, KREALM);
@@ -270,7 +251,9 @@ dosetcollection(struct kreq *r)
 {
 	struct state	*st = r->arg;
 	const char	*fragment = NULL;
-	struct config	 cfg;
+	struct coln	 cfg;
+	char		 colour[10];
+	size_t		 sz;
 
 	cfg = *st->cfg;
 
@@ -278,8 +261,7 @@ dosetcollection(struct kreq *r)
 	if (NULL != r->fieldmap[VALID_NAME]) {
 		cfg.displayname = (char *)
 			r->fieldmap[VALID_NAME]->parsed.s;
-		kinfo("%s: display name modified: %s",
-			st->path, st->auth.user);
+		kinfo("%s: display name modified", st->prncpl->name);
 		goto resp;
 	} else if (NULL != r->fieldnmap[VALID_NAME]) {
 		fragment = "#error";
@@ -288,10 +270,14 @@ dosetcollection(struct kreq *r)
 
 	/* Colour. */
 	if (NULL != r->fieldmap[VALID_COLOUR]) {
-		cfg.colour = (char *)
-			r->fieldmap[VALID_COLOUR]->parsed.s;
-		kinfo("%s: colour modified: %s",
-			st->path, st->auth.user);
+		sz = strlcpy(colour, 
+			r->fieldmap[VALID_COLOUR]->parsed.s, 
+			sizeof(colour));
+		/* Make sure we're RGBA. */
+		if (7 == sz)
+			strlcat(colour, "ff", sizeof(colour));
+		cfg.colour = colour;
+		kinfo("%s: colour modified", st->prncpl->name);
 		goto resp;
 	} else if (NULL != r->fieldnmap[VALID_COLOUR]) {
 		fragment = "#error";
@@ -302,8 +288,7 @@ dosetcollection(struct kreq *r)
 	if (NULL != r->fieldmap[VALID_DESCRIPTION]) {
 		cfg.description = (char *)
 			r->fieldmap[VALID_DESCRIPTION]->parsed.s;
-		kinfo("%s: description modified: %s",
-			st->path, st->auth.user);
+		kinfo("%s: description modified", st->prncpl->name);
 		goto resp;
 	} else if (NULL != r->fieldnmap[VALID_DESCRIPTION]) {
 		fragment = "#error";
@@ -320,9 +305,9 @@ resp:
 
 	if (NULL != fragment)
 		return;
-	if (config_replace(st->configfile, &cfg))
+	if (db_collection_update(&cfg))
 		return;
-	kerrx("%s: couldn't replace config file", st->configfile);
+	kerrx("%s: couldn't update collection", st->prncpl->name);
 }
 
 static void
@@ -332,13 +317,14 @@ dosetpass(struct kreq *r)
 	char		 page[PATH_MAX];
 	int		 rc;
 	struct state	*st = r->arg;
+	struct prncpl	 p;
+
+	p = *st->prncpl;
 
 	if (NULL != r->fieldmap[VALID_PASS]) {
-		rc = prncpl_replace
-			(st->prncplfile, 
-			 st->prncpl->name,
-			 r->fieldmap[VALID_PASS]->parsed.s, 
-			 NULL);
+		p.hash = (char *)r->fieldmap[VALID_PASS]->parsed.s;
+		rc = db_prncpl_update(&p);
+		kinfo("%s: password modified", st->prncpl->name);
 		snprintf(page, sizeof(page), 
 			"%s/%s.%s#%s", r->pname, 
 			pages[PAGE_INDEX], ksuffixes[r->mime],
@@ -372,13 +358,13 @@ dosetemail(struct kreq *r)
 	char		 page[PATH_MAX];
 	struct state	*st = r->arg;
 	int		 rc;
+	struct prncpl	 p;
+
+	p = *st->prncpl;
 
 	if (NULL != r->fieldmap[VALID_EMAIL]) {
-		rc = prncpl_replace
-			(st->prncplfile, 
-			 st->prncpl->name,
-			 NULL,
-			 r->fieldmap[VALID_EMAIL]->parsed.s);
+		p.email = (char *)r->fieldmap[VALID_EMAIL]->parsed.s;
+		rc = db_prncpl_update(&p);
 		snprintf(page, sizeof(page), 
 			"%s/%s.%s#%s", r->pname, 
 			pages[PAGE_INDEX], ksuffixes[r->mime],
@@ -410,6 +396,8 @@ dogetcollection(struct kreq *r)
 {
 	struct state	*st = r->arg;
 	struct ktemplate t;
+	char		 path[PATH_MAX];
+	size_t		 sz;
 
 	memset(&t, 0, sizeof(struct ktemplate));
 	t.key = templs;
@@ -417,12 +405,20 @@ dogetcollection(struct kreq *r)
 	t.arg = r;
 	t.cb = dotemplate;
 
+	strlcpy(path, st->caldir, sizeof(path));
+	sz = strlcat(path, "/collection.html", sizeof(path));
+	if (sz >= sizeof(path)) {
+		kerrx("%s: path too long", path);
+		http_error(r, KHTTP_505);
+		return;
+	}
+
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_200]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_HTML]);
 	khttp_body(r);
-	khttp_template(r, &t, st->collectionfile);
+	khttp_template(r, &t, path);
 }
 
 /*
@@ -435,6 +431,8 @@ dogetindex(struct kreq *r)
 {
 	struct state	*st = r->arg;
 	struct ktemplate t;
+	char		 path[PATH_MAX];
+	size_t		 sz;
 
 	memset(&t, 0, sizeof(struct ktemplate));
 	t.key = templs;
@@ -442,12 +440,20 @@ dogetindex(struct kreq *r)
 	t.arg = r;
 	t.cb = dotemplate;
 
+	strlcpy(path, st->caldir, sizeof(path));
+	sz = strlcat(path, "/home.html", sizeof(path));
+	if (sz >= sizeof(path)) {
+		kerrx("%s: path too long", path);
+		http_error(r, KHTTP_505);
+		return;
+	}
+
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_200]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_HTML]);
 	khttp_body(r);
-	khttp_template(r, &t, st->homefile);
+	khttp_template(r, &t, path);
 }
 
 /*
@@ -460,52 +466,22 @@ method_dynamic_get(struct kreq *r)
 {
 	struct state	*st = r->arg;
 
-	assert(KMIME_TEXT_HTML == r->mime);
-
-	switch (r->page) {
-	case (PAGE_INDEX):
+	if (PAGE_INDEX == r->page) 
 		dogetindex(r);
-		break;
-	default:
-		if (st->isdir)
-			dogetcollection(r);
-		else
-			http_error(r, KHTTP_404);
-		break;
-	}
+	else if ('\0' == st->resource[0])
+		dogetcollection(r);
+	else
+		http_error(r, KHTTP_404);
 }
 
 /*
  * If we're here, then a dynamic HTML page (method_dynamic_get()) is
  * submitted a form.
  * Process it here, but always redirect back to GET.
- * Don't let us do anything if our principal isn't writable.
  */
 void
 method_dynamic_post(struct kreq *r)
 {
-	struct state	*st = r->arg;
-
-	assert(KMIME_TEXT_HTML == r->mime);
-
-	switch (r->page) {
-	case (PAGE_SETEMAIL):
-	case (PAGE_SETPASS):
-		if (st->prncpl->writable) 
-			break;
-		kerrx("%s: POST on readonly principal "
-			"file: %s", st->path, st->auth.user);
-		http_error(r, KHTTP_403);
-		return;
-	default:
-		assert(st->isdir);
-		if (st->cfg->writable) 
-			break;
-		kerrx("%s: POST on readonly configuration "
-			"file: %s", st->path, st->auth.user);
-		http_error(r, KHTTP_403);
-		break;
-	}
 
 	switch (r->page) {
 	case (PAGE_SETEMAIL):

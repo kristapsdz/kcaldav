@@ -17,24 +17,6 @@
 extern void explicit_bzero(void *buf, size_t len);
 #endif
 
-#ifndef HAVE_FPARSELN
-#include <stdio.h>
-#define FPARSELN_UNESCESC	0x01
-#define FPARSELN_UNESCCONT	0x02
-#define FPARSELN_UNESCCOMM	0x04
-#define FPARSELN_UNESCREST	0x08
-#define FPARSELN_UNESCALL	0x0f
-extern char *fparseln
-	(FILE *stream, size_t *len, size_t *lineno, 
-	 const char delim[3], int flags);
-#endif
-
-#ifndef HAVE_STRTONUM
-extern long long strtonum
-	(const char *numstr, long long minval, 
-	 long long maxval, const char **errstrp);
-#endif
-
 #ifndef HAVE_MEMMEM
 extern void *memmem
 	(const void *l, size_t l_len, 

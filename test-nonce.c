@@ -17,6 +17,7 @@
 #include "config.h"
 
 #include <getopt.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,50 +33,40 @@ int verbose = 1;
 int
 main(int argc, char *argv[])
 {
-	char		 sfn[22];
 	char		 nonce[17];
 	char		*np;
 	size_t		 i;
-	int		 fd;
 	enum nonceerr	 er;
 
-	strlcpy(sfn, "/tmp/nonce.XXXXXXXXXX", sizeof(sfn));
-	if ((fd = mkstemp(sfn)) == -1) {
-		kerr("%s: mkstemp", sfn);
-		unlink(sfn);
+	if ( ! db_init(CALDIR, 0))
 		return(EXIT_FAILURE);
-	}
-	close(fd);
 
 	for (i = 0; i < 100; i++) {
 		snprintf(nonce, sizeof(nonce), "%016zu", i);
-		if (NONCE_ERR == (er = nonce_update(sfn, nonce, 0)))
+		if (NONCE_ERR == (er = db_nonce_update(nonce, 0)))
 			kerrx("nonce database failure");
 		else if (NONCE_NOTFOUND != er)
 			kerrx("found nonce!?");
 		else
 			continue;
-		unlink(sfn);
 		return(EXIT_FAILURE);
 	}
 
 	for (i = 0; i < 2000; i++) {
-		if ( ! nonce_new(sfn, &np))
+		if ( ! db_nonce_new(&np))
 			kerrx("nonce database failure");
-		else if (NONCE_ERR == (er = nonce_update(sfn, np, 1)))
+		else if (NONCE_ERR == (er = db_nonce_update(np, 1)))
 			kerrx("nonce database failure");
 		else if (NONCE_NOTFOUND == er)
 			kerrx("didn't find nonce!?");
-		else if (NONCE_ERR == (er = nonce_update(sfn, np, 1)))
+		else if (NONCE_ERR == (er = db_nonce_update(np, 1)))
 			kerrx("nonce database failure");
 		else if (NONCE_REPLAY != er) 
 			kerrx("replay attack!?");
 		else
 			continue;
-		unlink(sfn);
 		return(EXIT_FAILURE);
 	}
 
-	unlink(sfn);
 	return(EXIT_SUCCESS);
 }

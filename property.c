@@ -19,6 +19,7 @@
 #include <sys/types.h>
 
 #include <assert.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -36,35 +37,42 @@
  * Used by Apple's clients.
  */
 static void
-collection_calendar_colour(struct kxmlreq *xml)
+collection_calendar_colour(struct kxmlreq *xml, const struct coln *c)
 {
-	struct state	*st = xml->req->arg;
 
-	kxml_puts(xml, st->cfg->colour);
+	kxml_puts(xml, c->colour);
 }
 
 /*
  * RFC 4791, 5.2.1.
  */
 static void
-collection_calendar_description(struct kxmlreq *xml)
+collection_calendar_description(struct kxmlreq *xml, const struct coln *c)
 {
-	struct state	*st = xml->req->arg;
 
-	kxml_puts(xml, st->cfg->description);
+	kxml_puts(xml, c->description);
 }
 
 /*
  * RFC 4791, 6.2.1.
  */
 static void
-collection_calendar_home_set(struct kxmlreq *xml)
+collection_calendar_home_set(struct kxmlreq *xml, const struct coln *c)
 {
 	struct state	*st = xml->req->arg;
+	size_t		 i;
 
-	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, st->rpath);
-	kxml_pop(xml);
+	for (i = 0; i < st->prncpl->colsz; i++) {
+		kxml_push(xml, XML_DAV_HREF);
+		kxml_puts(xml, xml->req->pname);
+		kxml_putc(xml, '/');
+		kxml_puts(xml, st->prncpl->name);
+		kxml_putc(xml, '/');
+		kxml_puts(xml, st->prncpl->cols[i].url);
+		if ('\0' != st->prncpl->cols[i].url[0])
+			kxml_putc(xml, '/');
+		kxml_pop(xml);
+	}
 }
 
 /*
@@ -72,17 +80,18 @@ collection_calendar_home_set(struct kxmlreq *xml)
  * Route through to collection handler.
  */
 static void
-resource_calendar_home_set(struct kxmlreq *xml, const struct ical *p)
+resource_calendar_home_set(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
-	collection_calendar_home_set(xml);
+	collection_calendar_home_set(xml, c);
 }
 
 /*
  * RFC 6638, 2.4.1.
  */
 static void
-collection_calendar_user_address_set(struct kxmlreq *xml)
+collection_calendar_user_address_set(struct kxmlreq *xml, const struct coln *c)
 {
 	struct state	*st = xml->req->arg;
 
@@ -97,23 +106,26 @@ collection_calendar_user_address_set(struct kxmlreq *xml)
  * Route through to collection handler.
  */
 static void
-resource_calendar_user_address_set(struct kxmlreq *xml, const struct ical *p)
+resource_calendar_user_address_set(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
-	collection_calendar_user_address_set(xml);
+	collection_calendar_user_address_set(xml, c);
 }
 
 /*
  * RFC 5379, 3.
  */
 static void
-collection_current_user_principal(struct kxmlreq *xml)
+collection_current_user_principal(struct kxmlreq *xml, const struct coln *c)
 {
 	struct state	*st = xml->req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, xml->req->pname);
-	kxml_puts(xml, st->prncpl->homedir);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, st->prncpl->name);
+	kxml_putc(xml, '/');
 	kxml_pop(xml);
 }
 
@@ -122,42 +134,43 @@ collection_current_user_principal(struct kxmlreq *xml)
  * We define this over the whole collection.
  */
 static void
-resource_current_user_principal(struct kxmlreq *xml, const struct ical *p)
+resource_current_user_principal(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
-	collection_current_user_principal(xml);
+	collection_current_user_principal(xml, c);
 }
 
 /*
  * RFC 3744, 5.4.
  */
 static void
-collection_current_user_privilege_set(struct kxmlreq *xml)
+collection_current_user_privilege_set(struct kxmlreq *xml, const struct coln *c)
 {
-	struct state	*st = xml->req->arg;
+	/*struct state	*st = xml->req->arg;*/
 
 	kxml_push(xml, XML_DAV_PRIVILEGE);
 	kxml_pushnull(xml, XML_DAV_READ_CURRENT_USER_PRIVILEGE_SET);
 	kxml_pop(xml);
 
-	if (PERMS_READ & st->cfg->perms) {
+	/*if (PERMS_READ & st->cfg->perms) {*/
 		kxml_push(xml, XML_DAV_PRIVILEGE);
 		kxml_pushnull(xml, XML_DAV_READ);
 		kxml_pop(xml);
-	}
-	if (PERMS_WRITE & st->cfg->perms) {
+	/*}
+	if (PERMS_WRITE & st->cfg->perms) {*/
 		kxml_push(xml, XML_DAV_PRIVILEGE);
 		kxml_pushnull(xml, XML_DAV_WRITE);
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_PRIVILEGE);
 		kxml_pushnull(xml, XML_DAV_BIND);
 		kxml_pop(xml);
-	}
-	if (PERMS_DELETE & st->cfg->perms) {
+	/*}
+	if (PERMS_DELETE & st->cfg->perms) {*/
 		kxml_push(xml, XML_DAV_PRIVILEGE);
 		kxml_pushnull(xml, XML_DAV_UNBIND);
 		kxml_pop(xml);
-	}
+	/*}*/
 }
 
 /*
@@ -165,44 +178,46 @@ collection_current_user_privilege_set(struct kxmlreq *xml)
  * We define this over the whole collection for now.
  */
 static void
-resource_current_user_privilege_set(struct kxmlreq *xml, const struct ical *p)
+resource_current_user_privilege_set(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
-	collection_current_user_privilege_set(xml);
+	collection_current_user_privilege_set(xml, c);
 }
 
 /*
  * RFC 4918, 15.2.
  */
 static void
-collection_displayname(struct kxmlreq *xml)
+collection_displayname(struct kxmlreq *xml, const struct coln *c)
 {
-	struct state	*st = xml->req->arg;
 
-	kxml_puts(xml, st->cfg->displayname);
+	kxml_puts(xml, c->displayname);
 }
 
 /*
  * caldav-ctag-02, 4.1.
  */
 static void
-collection_getctag(struct kxmlreq *xml)
+collection_getctag(struct kxmlreq *xml, const struct coln *c)
 {
-	struct state	*st = xml->req->arg;
-	char		 ctag[65];
+	char	 buf[22];
 
-	ctag_get(st->ctagfile, ctag);
-	kxml_puts(xml, ctag);
+	snprintf(buf, sizeof(buf), "%" PRId64, c->ctag);
+	kxml_puts(xml, buf);
 }
 
 /*
  * RFC 4918, 15.6.
  */
 static void
-resource_getetag(struct kxmlreq *xml, const struct ical *p)
+resource_getetag(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
+	char	 buf[22];
 
-	kxml_puts(xml, p->digest);
+	snprintf(buf, sizeof(buf), "%" PRId64, p->etag);
+	kxml_puts(xml, buf);
 }
 
 /*
@@ -210,13 +225,15 @@ resource_getetag(struct kxmlreq *xml, const struct ical *p)
  * This only refers to locks, but provide it anyway.
  */
 static void
-collection_owner(struct kxmlreq *xml)
+collection_owner(struct kxmlreq *xml, const struct coln *c)
 {
 	struct state	*st = xml->req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, xml->req->pname);
-	kxml_puts(xml, st->prncpl->homedir);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, st->prncpl->name);
+	kxml_putc(xml, '/');
 	kxml_pop(xml);
 }
 
@@ -225,23 +242,26 @@ collection_owner(struct kxmlreq *xml)
  * This only refers to locks, but provide it anyway.
  */
 static void
-resource_owner(struct kxmlreq *xml, const struct ical *p)
+resource_owner(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
-	collection_owner(xml);
+	collection_owner(xml, c);
 }
 
 /*
  * RFC 3744, 4.2.
  */
 static void
-collection_principal_url(struct kxmlreq *xml)
+collection_principal_url(struct kxmlreq *xml, const struct coln *c)
 {
 	struct state	*st = xml->req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, xml->req->pname);
-	kxml_puts(xml, st->prncpl->homedir);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, st->prncpl->name);
+	kxml_putc(xml, '/');
 	kxml_pop(xml);
 }
 
@@ -251,10 +271,11 @@ collection_principal_url(struct kxmlreq *xml)
  * assume that it is.
  */
 static void
-resource_principal_url(struct kxmlreq *xml, const struct ical *p)
+resource_principal_url(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
-	collection_principal_url(xml);
+	collection_principal_url(xml, c);
 }
 
 /*
@@ -263,12 +284,13 @@ resource_principal_url(struct kxmlreq *xml, const struct ical *p)
  * calls through here.
  */
 static void
-collection_quota_available_bytes(struct kxmlreq *xml)
+collection_quota_available_bytes(struct kxmlreq *xml, const struct coln *c)
 {
 	struct state	*st = xml->req->arg;
 	char	 	 buf[32];
 
-	snprintf(buf, sizeof(buf), "%lld", st->cfg->bytesavail);
+	snprintf(buf, sizeof(buf), 
+		"%" PRIu64, st->prncpl->quota_avail);
 	kxml_puts(xml, buf);
 }
 
@@ -276,10 +298,11 @@ collection_quota_available_bytes(struct kxmlreq *xml)
  * RFC 4331, 3.
  */
 static void
-resource_quota_available_bytes(struct kxmlreq *xml, const struct ical *p)
+resource_quota_available_bytes(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
-	collection_quota_available_bytes(xml);
+	collection_quota_available_bytes(xml, c);
 }
 
 /*
@@ -288,12 +311,13 @@ resource_quota_available_bytes(struct kxmlreq *xml, const struct ical *p)
  * calls through here.
  */
 static void
-collection_quota_used_bytes(struct kxmlreq *xml)
+collection_quota_used_bytes(struct kxmlreq *xml, const struct coln *c)
 {
 	struct state	*st = xml->req->arg;
 	char	 	 buf[32];
 
-	snprintf(buf, sizeof(buf), "%lld", st->cfg->bytesused);
+	snprintf(buf, sizeof(buf), "%"
+		PRIu64, st->prncpl->quota_used);
 	kxml_puts(xml, buf);
 }
 
@@ -301,10 +325,11 @@ collection_quota_used_bytes(struct kxmlreq *xml)
  * RFC 4331, 4.
  */
 static void
-resource_quota_used_bytes(struct kxmlreq *xml, const struct ical *p)
+resource_quota_used_bytes(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
-	collection_quota_used_bytes(xml);
+	collection_quota_used_bytes(xml, c);
 }
 
 /*
@@ -312,7 +337,7 @@ resource_quota_used_bytes(struct kxmlreq *xml, const struct ical *p)
  * This is specific to collections; resource have their own.
  */
 static void
-collection_resourcetype(struct kxmlreq *xml)
+collection_resourcetype(struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_pushnull(xml, XML_DAV_COLLECTION);
@@ -323,7 +348,8 @@ collection_resourcetype(struct kxmlreq *xml)
  * RFC 4918, 15.9.
  */
 static void
-resource_resourcetype(struct kxmlreq *xml, const struct ical *p)
+resource_resourcetype(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
 	/* 
@@ -338,7 +364,7 @@ resource_resourcetype(struct kxmlreq *xml, const struct ical *p)
  * default value is OPAQUE.
  */
 static void
-collection_schedule_calendar_transp(struct kxmlreq *xml)
+collection_schedule_calendar_transp(struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_pushnull(xml, XML_CALDAV_OPAQUE);
@@ -348,7 +374,7 @@ collection_schedule_calendar_transp(struct kxmlreq *xml)
  * RFC 4791, 5.2.3.
  */
 static void
-collection_supported_calendar_component_set(struct kxmlreq *xml)
+collection_supported_calendar_component_set(struct kxmlreq *xml, const struct coln *c)
 {
 	enum icaltype	 i;
 
@@ -362,7 +388,7 @@ collection_supported_calendar_component_set(struct kxmlreq *xml)
  * RFC 4791, 5.2.4.
  */
 static void
-collection_supported_calendar_data(struct kxmlreq *xml)
+collection_supported_calendar_data(struct kxmlreq *xml, const struct coln *c)
 {
 
 	/* Use the canonical type. */
@@ -375,7 +401,7 @@ collection_supported_calendar_data(struct kxmlreq *xml)
  * RFC 4791, 5.2.2.
  */
 static void
-collection_calendar_timezone(struct kxmlreq *xml)
+collection_calendar_timezone(struct kxmlreq *xml, const struct coln *c)
 {
 
 	/* 
@@ -402,7 +428,7 @@ collection_calendar_timezone(struct kxmlreq *xml)
  * RFC 4791, 5.2.6.
  */
 static void
-collection_min_date_time(struct kxmlreq *xml)
+collection_min_date_time(struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_puts(xml, "19700101T000000Z");
@@ -412,10 +438,11 @@ collection_min_date_time(struct kxmlreq *xml)
  * RFC 4791, 9.6.
  */
 static void
-resource_calendar_data(struct kxmlreq *xml, const struct ical *p)
+resource_calendar_data(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
-	ical_print(p, xml_ical_putc, xml);
+	ical_print(p->ical, xml_ical_putc, xml);
 }
 
 /*
@@ -425,7 +452,7 @@ resource_calendar_data(struct kxmlreq *xml, const struct ical *p)
  * The RFC is silent on this matter.
  */
 static void
-collection_getcontenttype(struct kxmlreq *xml)
+collection_getcontenttype(struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_puts(xml, "httpd/unix-directory");
@@ -435,7 +462,8 @@ collection_getcontenttype(struct kxmlreq *xml)
  * RFC 4918, 15.5.
  */
 static void
-resource_getcontenttype(struct kxmlreq *xml, const struct ical *p)
+resource_getcontenttype(struct kxmlreq *xml, 
+	const struct coln *c, const struct res *p)
 {
 
 	kxml_puts(xml, kmimetypes[KMIME_TEXT_CALENDAR]);

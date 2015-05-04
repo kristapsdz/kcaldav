@@ -16,14 +16,11 @@
  */
 #include "config.h"
 
-#include <sys/stat.h>
-#include <sys/mman.h>
 #include <sys/time.h>
 
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <math.h>
 #include <stdarg.h>
@@ -957,84 +954,6 @@ icalnode_alloc(struct icalparse *p,
 
 	icalnode_free(np, 0);
 	return(NULL);
-}
-
-/*
- * Parses an entire file "file" into an iCalendar buffer after
- * establishing a shared advisory lock on "file".
- */
-struct ical *
-ical_parsefile(const char *file)
-{
-
-	return(ical_parsefile_open(file, NULL));
-}
-
-/*
- * Close out an ical_parsefile_open() context where "keep" was not NULL,
- * i.e., the file descriptor "fd" is valid.
- * (If "fd" is -1, this function does nothing.)
- * Returns 0 on unlock or close failure.
- * Returns 1 otherwise.
- */
-int
-ical_parsefile_close(const char *file, int fd)
-{
-
-	if (-1 == fd)
-		return(1);
-	return(close_unlock(file, fd) >= 0);
-}
-
-/*
- * Open "file" and dump its contents into an iCalendar object.
- * The type of lock we take out on "file" depends on "keep": if "keep"
- * is non-NULL, we keep the file descriptor open with an exclusive lock
- * (it must be closed with ical_parsefile_close()); otherwise, we use a
- * shared lock and free it when the routine closes.
- * Returns NULL on parse failure, read, memory, or lock failure.
- * Returns the object, otherwise.
- */
-struct ical *
-ical_parsefile_open(const char *file, int *keep)
-{
-	int	 	 fd;
-	char		*map;
-	struct stat	 st;
-	struct ical	*p;
-
-	if (NULL != keep)
-		*keep = fd = open_lock_ex(file, O_RDONLY, 0600);
-	else
-		fd = open_lock_sh(file, O_RDONLY, 0600);
-
-	if (-1 == fd)
-		return(NULL);
-
-	if (-1 == fstat(fd, &st)) {
-		kerr("%s: fstat", file);
-		ical_parsefile_close(file, fd);
-		return(NULL);
-	}
-
-	map = mmap(NULL, st.st_size, 
-		PROT_READ, MAP_SHARED, fd, 0);
-
-	if (MAP_FAILED == map) {
-		kerr("%s: mmap", file);
-		ical_parsefile_close(file, fd);
-		return(NULL);
-	} 
-
-	p = ical_parse(file, map, st.st_size);
-	if (-1 == munmap(map, st.st_size))
-		kerr("%s: munmap", file);
-
-	if (NULL == keep && ! ical_parsefile_close(file, fd)) {
-		ical_free(p);
-		p = NULL;
-	}
-	return(p);
 }
 
 /*

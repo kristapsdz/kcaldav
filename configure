@@ -28,8 +28,6 @@ runtest() {
 }
 
 cat config.h.pre
-runtest fparseln FPARSELN "-lutil"
-runtest open-lock OPEN_LOCK ""
 runtest memmem MEMMEM ""
 runtest reallocarray REALLOCARRAY ""
 cat config.h.post
