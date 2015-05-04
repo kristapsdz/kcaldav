@@ -1,0 +1,22 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.1.0</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-05-02">2015-05-02</time>
+	</header>
+	<aside>
+		Migrate to using <a
+			href="https://www.sqlite.org">SQLite</a> to
+		store everything: nonces, collections, resources,
+		configuration, and so on.
+		This completely changes the existing file-system based
+		infrastructure, which was too brittle.
+		(All those permissions...)
+		All existing functionality is preserved.
+		If you're already using <span class="nm">kcaldav</span>,
+		you'll need to upgrade by feeding your principal's
+		calendars into <a
+			href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>,
+		which allows for creating calendar entries.
+	</aside>
+</article>
