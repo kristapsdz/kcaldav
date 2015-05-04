@@ -18,59 +18,42 @@
 .Dt KCALDAV.PASSWD 1
 .Os
 .Sh NAME
-.Nm kcaldav
+.Nm kcaldav.passwd
 .Nd change kcaldav user information
 .\" .Sh LIBRARY
 .\" For sections 2, 3, and 9 only.
 .\" Not used in OpenBSD.
 .Sh SYNOPSIS
 .Nm kcaldav.passwd
-.Op Fl Cmn
-.Op Fl d Ar homedir
+.Op Fl Cn
 .Op Fl e Ar email
-.Op Fl f Ar passdir
+.Op Fl f Ar caldir
 .Op Fl u Ar user
 .Sh DESCRIPTION
 The
 .Nm
-program updates the
-.Xr kcaldav.passwd 5
-file for an instance of
+program updates the database for an instance of
 .Xr kcaldav 8 .
-By default, it changes the
-.Pa @CALDIR@/kcaldav.passwd
-password for the user with the currently logged-in username, prompting
-for the existing passwords when it does so.
+By default, it changes
+.Pa @CALDIR@/kcaldav.db
+for the user with the currently logged-in username, prompting for the
+existing passwords when it does so.
 Its arguments are as follows:
 .Bl -tag -width Ds
 .It Fl C
 Create a new user.
 The current real user (via
 .Xr getuid 2 )
-must match the password file owner to use this option, or the real user
-must be root.
+must match the password database owner to use this option, or the real
+user must be root.
 Does nothing if a user by that name already exists.
-.It Fl m
-If
-.Fl C
-has been specified, create the user directory (inheriting the mode from
-the calendar collection directory) and populate it with a simple
-.Xr kcaldav.conf 5
-file.
+If the database does not exist, creates it with the current real user
+set as the database owner.
 .It Fl n
 Do not change the user password, but only the user attributes (e.g.,
-.Fl d ) .
-.It Fl d Ar homedir
-Change the home directory (within the
-.Xr kcaldav 8
-file-system root) of the requested user.
-If unspecified and a new user is created with
-.Fl C ,
-this defaults to
-.Ar /<user>/ .
-This must be an absolute path with a trailing slash.
-.It Fl d Ar email
-Change the e-mail address (gecos field) of the requested user.
+.Fl e Ar email ) .
+.It Fl e Ar email
+Change the e-mail address of the requested user.
 This can be any email address.
 If unspecified and the new user is created with
 .Fl C ,
@@ -80,7 +63,7 @@ where the hostname is looked up with
 .Xr gethostname 3
 and defaults to localhost if there's no hostname set.
 .It Fl f Ar passdir
-Specify an alternative password directory.
+Specify an alternative database directory.
 .It Fl u Ar user
 Use an alternative username.
 The current real user (via
@@ -88,60 +71,6 @@ The current real user (via
 must match the password file owner to use this option, or the real user
 must be root.
 .El
-.Pp
-Since
-.Nm
-is designed for use in a multi-user system, and possibly one with
-multiple
-.Xr kcaldav.passwd 5
-files, special care is taken for security.
-.Bl -enum
-.It
-The
-.Xr kcaldav.passwd 5
-file is
-.Em never
-created by
-.Nm .
-You must manually create an empty password file.
-The owner of the password file should be considered the administrator
-(usually root, but local owners are ok).
-The group of the password file should be the web server process.
-The permissions should then be
-.Li 0640 .
-.It
-You can then add new users with
-.Fl C
-using
-.Xr sudo 8
-or as the owner of the file directly.
-.It
-Existing users can then modify their own passwords with
-.Xr sudo 8 .
-If, however, the set-user-ID bit is set on the
-.Nm
-binary, and the owner of the binary is the same as the owner of the password
-file, logged-in users can set their own passwords.
-.El
-.Pp
-By using this somewhat contrived scheme, a standalone instance of
-.Xr kcaldav 8
-can have a local non-privileged administrator, adding and removing users
-as she sees fit.
-.Pp
-If there's a system-wide
-.Xr kcaldav 8
-for use by logged-in users, the set-user-ID bits can be used to make
-sure that users can only change passwords on their own accounts.
-.Em Warning :
-if you have multiple
-.Xr kcaldav.passwd 5
-files with overlapping usernames, users can try to change
-.Qq their
-passwords on other password files!
-You can protect against this by having other non-system
-.Xr kcaldav.passwd 5
-files have different owners.
 .\" .Sh IMPLEMENTATION NOTES
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
@@ -151,14 +80,53 @@ files have different owners.
 .\" .Sh FILES
 .Sh EXIT STATUS
 .Ex -std
-.\" .Sh EXAMPLES
+.Sh EXAMPLES
+Since
+.Nm
+is designed for use in a multi-user system, and possibly one with
+multiple
+.Xr kcaldav 8
+instances, it assumes that
+.Nm
+has been installed with the set-user-ID (or set-group-ID) bit (see
+.Xr chmod 1 ) .
+This allows administrators to have a single database for multiple users
+that may only be accessed with
+.Nm .
+By way of example, consider a local UNIX installation with several local
+users.
+The
+.Nm
+binary is installed with the set-user-ID bit and the owner set as a
+kcaldav dummy user.
+The database is populated with
+.Pp
+.Bd -literal -offset indent
+# chown kcaldav /usr/local/bin/kcaldav.passwd
+# chmod u+s /usr/local/bin/kcaldav.passwd
+# sudo -u kcaldav kcaldav.passwd -C -u <user>
+.Ed
+.Pp
+System users may then update their passwords as follows:
+.Pp
+.D1 % kcaldav.passwd
+.Pp
+The administrator may handle non-system users:
+.Pp
+.D1 # sudo -u kcaldav kcaldav.passwd -u <user>
+.Pp
+The simple behaviour of a single user creating a database and (for
+example) modifying passwords is preserved:
+.Pp
+.Bd -literal -offset indent
+% kcaldav.passwd -C
+% kcaldav.passwd
+.Ed
 .\" .Sh DIAGNOSTICS
 .\" For sections 1, 4, 6, 7, 8, and 9 printf/stderr messages only.
 .\" .Sh ERRORS
 .\" For sections 2, 3, 4, and 9 errno settings only.
 .Sh SEE ALSO
-.Xr readpassphrase 3 ,
-.Xr kcaldav.passwd 5 ,
 .Xr kcaldav 8
 .\" .Sh STANDARDS
 .\" .Sh HISTORY

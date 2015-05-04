@@ -65,6 +65,7 @@ enum	valid {
 	VALID__MAX
 };
 
+typedef	 void (*principalfp)(struct kxmlreq *);
 typedef	 void (*collectionfp)(struct kxmlreq *, 
 		const struct coln *);
 typedef	 void (*resourcefp)(struct kxmlreq *, 
@@ -78,6 +79,7 @@ struct	property {
 	unsigned int	flags;
 	collectionfp	cgetfp;
 	resourcefp	rgetfp;
+	principalfp	pgetfp;
 };
 
 __BEGIN_DECLS

@@ -71,7 +71,12 @@ method_put(struct kreq *r)
 	char		*ep, *digest;
 	int		 rc;
 
-	if (NULL == (p = req2ical(r)))
+	if (NULL == st->cfg) {
+		kerrx("%s: PUT into non-calendar "
+			"collection", st->prncpl->name);
+		http_error(r, KHTTP_403);
+		return;
+	} else if (NULL == (p = req2ical(r)))
 		return;
 
 	/* Check if PUT is conditional upon existing etag. */

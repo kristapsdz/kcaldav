@@ -183,7 +183,7 @@ main(int argc, char *argv[])
 		{ kvalid_stringne, valids[VALID_URI] } }; 
 	struct state	*st;
 	struct httpauth	 auth;
-	int		 rc;
+	int		 rc, v;
 	const char	*caldir;
 	char		*np;
 	size_t		 i, sz;
@@ -196,11 +196,12 @@ main(int argc, char *argv[])
 
 	st = NULL;
 	caldir = NULL;
+	v = 0;
 
 	while (-1 != (rc = getopt(argc, argv, "v")))
 		switch (rc) {
 		case ('v'):
-			verbose = 1;
+			v = 1;
 			break;
 		default:
 			return(EXIT_FAILURE);
@@ -217,6 +218,8 @@ main(int argc, char *argv[])
 		(&r, valid, VALID__MAX, 
 		 pages, PAGE__MAX, PAGE_INDEX))
 		return(EXIT_FAILURE);
+
+	verbose = v;
 
 	/* 
 	 * Begin by disallowing bogus HTTP methods and processing the
@@ -344,7 +347,12 @@ main(int argc, char *argv[])
 		kerrx("%s: bad authorisation", auth.user);
 		http_error(&r, KHTTP_401);
 		goto out;
-	} 
+	} else if (strcmp(st->principal, st->prncpl->name)) {
+		kerrx("%s: requesting other principal "
+			"collection", st->prncpl->name);
+		http_error(&r, KHTTP_404);
+		goto out;
+	}
 	
 #if 0
 	if (strcmp(r.rawauth.d.digest.uri, st->rpath)) {
@@ -399,27 +407,23 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * We're looking for a resource or collection.
-	 * Load up the requested data now.
+	 * If we're going to look for a calendar collection, try to do
+	 * so now by querying the collections for our principal.
 	 */
-	if (strcmp(st->principal, st->prncpl->name)) {
-		kerrx("%s: requesting other principal "
-			"collection", st->prncpl->name);
-		http_error(&r, KHTTP_404);
-		goto out;
-	}
-
-	for (i = 0; i < st->prncpl->colsz; i++) {
-		if (strcmp(st->prncpl->cols[i].url, st->collection))
-			continue;
-		st->cfg = &st->prncpl->cols[i];
-		break;
-	}
-	if (NULL == st->cfg) {
-		kerrx("%s: requesting unknown "
-			"collection", st->prncpl->name);
-		http_error(&r, KHTTP_404);
-		goto out;
+	if ('\0' != st->collection[0]) {
+		kdbg("collection lookup = %s (%d)", st->collection, st->collection[0]);
+		for (i = 0; i < st->prncpl->colsz; i++) {
+			if (strcmp(st->prncpl->cols[i].url, st->collection))
+				continue;
+			st->cfg = &st->prncpl->cols[i];
+			break;
+		}
+		if (NULL == st->cfg) {
+			kerrx("%s: requesting unknown "
+				"collection", st->prncpl->name);
+			http_error(&r, KHTTP_404);
+			goto out;
+		}
 	}
 
 	switch (r.method) {
