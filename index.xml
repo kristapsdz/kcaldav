@@ -67,9 +67,7 @@
 				</ol>
 				<p>
 					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
-					You'll also want to read <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a>, <a
-						href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>, and <a
-						href="kcaldav.passwd.5.html">kcaldav.passwd(5)</a>.
+					You'll also want to read <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
 					If these manpages lack information or clarity, that's a bug.
 					For bug-reports and comments on usage (please let me know!), contact <a
 						href="http://kristaps.bsd.lv">Kristaps</a>.

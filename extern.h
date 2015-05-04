@@ -465,6 +465,7 @@ void		  ical_rrule_generate(const struct icaltm *,
 struct caldav 	 *caldav_parse(const char *, size_t);
 void		  caldav_free(struct caldav *);
 
+int		  db_collection_load(struct coln **, const char *, int64_t);
 int		  db_collection_new(const char *, int64_t);
 int		  db_collection_remove(int64_t);
 int		  db_collection_resources(void (*)(const struct res *, void *), int64_t, void *);

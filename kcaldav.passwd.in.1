@@ -30,6 +30,7 @@
 .Op Fl e Ar email
 .Op Fl f Ar caldir
 .Op Fl u Ar user
+.Op Ar resource...
 .Sh DESCRIPTION
 The
 .Nm
@@ -60,11 +61,14 @@ Do not change the user password, but only the user attributes (e.g.,
 Add a calendar directory for the requested user, or set the default
 directory if specified with
 .Fl C .
-If not specified with
+If not specified when
 .Fl C ,
-the directory
+is specified the directory
 .Dq calendar
 is used.
+If not using
+.Fl C
+and the collection already exists, it is a no-op.
 .It Fl e Ar email
 Change the e-mail address of the requested user.
 This can be any email address.
@@ -83,7 +87,27 @@ The current real user (via
 .Xr getuid 2 )
 must match the password file owner to use this option, or the real user
 must be root.
+.It Ar resource
+A list of iCalendar resources to add to the calendar collection
+.Fl d
+or
+.Dq calendar
+if none was specified.
+The name of the calendar is the filename component of
+.Ar resource .
 .El
+.Pp
+.Nm
+is designed for use by a single user or by a set of users on a UNIX server.
+To achieve the latter, one may use the set-user-ID or set-group-ID bits on the
+.Nm
+binary, disallowing users direct access to the file except by way of
+.Nm .
+See the
+.Sx EXAMPLES
+section for possibilities.
+.Pp
+Always remember to set the database to be read-writable by the web server!
 .\" .Sh IMPLEMENTATION NOTES
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
@@ -94,47 +118,28 @@ must be root.
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES
-Since
+To have a calendar database usable by system users, but restricted to the
 .Nm
-is designed for use in a multi-user system, and possibly one with
-multiple
-.Xr kcaldav 8
-instances, it assumes that
-.Nm
-has been installed with the set-user-ID (or set-group-ID) bit (see
-.Xr chmod 1 ) .
-This allows administrators to have a single database for multiple users
-that may only be accessed with
-.Nm .
-By way of example, consider a local UNIX installation with several local
-users.
-The
-.Nm
-binary is installed with the set-user-ID bit and the owner set as a
-kcaldav dummy user.
-The database is populated with
-.Pp
+binary, you might use a dummy
+.Dq kcaldav
+user owning the file.
 .Bd -literal -offset indent
-# chown kcaldav /usr/local/bin/kcaldav.passwd
-# chmod u+s /usr/local/bin/kcaldav.passwd
+# chown kcaldav @PREFIX@/bin/kcaldav.passwd
+# chmod u+s @PREFIX/bin/kcaldav.passwd
 # sudo -u kcaldav kcaldav.passwd -C -u <user>
 .Ed
 .Pp
-System users may then update their passwords as follows:
+System users may then run
+.Nm
+as themselves.
 .Pp
-.D1 % kcaldav.passwd
+To add calendars to a principal, try
 .Pp
-The administrator may handle non-system users:
+.Dl % kcaldav.passwd -n -d newcalendar
 .Pp
-.D1 # sudo -u kcaldav kcaldav.passwd -u <user>
+To add resources to a new calendar or existing, try
 .Pp
-The simple behaviour of a single user creating a database and (for
-example) modifying passwords is preserved:
-.Pp
-.Bd -literal -offset indent
-% kcaldav.passwd -C
-% kcaldav.passwd
-.Ed
+.Dl % kcaldav.passwd -n -d newcalendar file1.ics file2.ics
 .\" .Sh DIAGNOSTICS
 .\" For sections 1, 4, 6, 7, 8, and 9 printf/stderr messages only.
 .\" .Sh ERRORS

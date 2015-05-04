@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: April 26 2015 $
+.Dd $Mdocdate: April 27 2015 $
 .Dt KCALDAV 8
 .Os
 .Sh NAME
@@ -25,38 +25,35 @@
 .\" Not used in OpenBSD.
 .Sh SYNOPSIS
 .Nm kcaldav
+.Op v
 .Op Ar caldir
 .Sh DESCRIPTION
 The
 .Nm
 CGI program minimally implements CalDAV, with an emphasis on strong
 authorisation and simplicity.
+It has only a
+.Fl v
+option, which increases verbosity of its log messages.
 To use
 .Nm ,
-you'll need to first populate a calendar root directory
-.Ar caldir .
-This is relative to the CGI script's file-system root, defaulting to
+you'll need to first install a calendar database in the root directory
+.Ar caldir
+with
+.Xr kcaldav.passwd 1 .
+The
+.Ar caldir
+directory is relative to the CGI script's file-system root, defaulting to
 .Pa @CALDIR@ .
-This root requires a
-.Xr kcaldav.passwd 5
-password file and a
-.Xr kcaldav.conf 5
-configuration file for each calendar collection.
-.Po
-If your calendar root directory is not writable by the CGI process,
-you'll also need to create an empty nonce database
-.Pa kcaldav.nonce.db
-read-writable by the CGI process.
-.Pc
 .Pp
-Once installed, you can point your calendar client to the owned
-collection within the calendar root.
+Once installed, you can point your calendar client to owned collections
+or the calendar home (depending on the client) within the calendar root.
 .Pp
 For example, assume the script has been installed into
 .Pa /var/www/cgi-bin
 and is reachable at
 .Pp
-.D1 http://localhost/cgi-bin/kcaldav
+.Dl http://localhost/cgi-bin/kcaldav
 .Pp
 Moreover, assume your calendar root
 .Pa @CALDIR@
@@ -65,27 +62,27 @@ is based in the web server's
 in
 .Pa /var/www .
 It contains a
-.Xr kcaldav.passwd 5
-and a single collection at
-.Pa /var/www@CALDIR@/kristaps
-consisting of
-.Pa kcaldav.conf
-and some calendars.
-.Bd -unfilled -offset indent
-.Pa /var/www@CALDIR@/kcaldav.passwd
-.Pa /var/www@CALDIR@/kcaldav.nonce.db
-.Pa /var/www@CALDIR@/kristaps
-.Pa /var/www@CALDIR@/kristaps/kcaldav.conf
-.Pa /var/www@CALDIR@/kristaps/vevent-001.ics
-.Pa /var/www@CALDIR@/kristaps/vevent-002.ics
-.Ed
+.Pa kcaldav.db
+created by
+.Xr kcaldav.passwd 1
+specifying a single principal
+.Pa kristaps
+having a single calendar collection
+.Pa calendar .
+This can be created with
 .Pp
-You can then point your CalDAV client to the following:
+.Dl # kcaldav.passwd -C -u kristaps
 .Pp
-.D1 http://localhost/cgi-bin/kcaldav/kristaps/
+If your CalDAV client supports the calendar-home-set feature, you can
+point it to the principal URL:
 .Pp
-Note the trailing slash, otherwise the request is interpreted as for a
-resource (file), not a collection (directory).
+.Dl http://localhost/cgi-bin/kcaldav/kristaps/
+.Pp
+If the calendar-home-set feature is not supported by your client (e.g.,
+with Thunderbird), you may need to point directly to the managed
+calendar:
+.Pp
+.Dl http://localhost/cgi-bin/kcaldav/kristaps/calendar/
 .Pp
 A simpler setup might occur all in one directory, such as fully
 installing into the user directory,
@@ -94,22 +91,13 @@ of a given user.
 Here I assume that the directory has CGI-execute permissions set and the
 CGI script
 .Pa kcaldav.cgi
-and its data files installed into the
+and its database installed into the
 .Ar caldir ,
 .Pa /home/foo/public_html .
-Note that the nonce file still must be manually created.
-.Bd -unfilled -offset indent
-.Pa /home/foo/public_html/kcaldav.cgi
-.Pa /home/foo/public_html/kcaldav.passwd
-.Pa /home/foo/public_html/kcaldav.nonce.db
-.Pa /home/foo/public_html/kcaldav.conf
-.Pa /home/foo/public_html/vevent-001.ics
-.Pa /home/foo/public_html/vevent-002.ics
-.Ed
 .Pp
-The user can then access her calenders on
+The user can then access calenders on
 .Pp
-.D1 http://localhost/~foo/kcaldav.cgi/
+.Dl http://localhost/~foo/kcaldav.cgi/kristaps/
 .Pp
 In either case, please use HTTPS!
 Although
@@ -126,13 +114,10 @@ a directory within the CGI script's
 file-system,
 which is read-writable by the CGI script running as user www.
 Let the dummy user kcaldav be the owner of kcaldav files.
-First, initialise
-.Xr kcaldav.passwd 5
-to the appropriate permissions, then make
+First make
 .Xr kcaldav.passwd 1
 set-user-ID for modifying the file.
 .Bd -literal -offset indent
-# install -m 0640 -o kcaldav -g www /dev/null /caldav/kcaldav.passwd
 # chown kcaldav @PREFIX@/bin/kcaldav.passwd
 # chmod u+s @PREFIX@/bin/kcaldav.passwd
 .Ed
@@ -155,15 +140,7 @@ be
 .Pa /home/foo/caldav ,
 which is readable by the web server running as user www and
 read-writable by the logged-in user.
-First, create the
-.Xr kcaldav.passwd 5
-as any user, then add principals as necessary.
-.Bd -literal -offset indent
-% install -m 640 /dev/null /home/foo/caldav/kcaldav.passwd
-# chgrp www /home/foo/caldav/kcaldav.passwd
-.Ed
-.Pp
-Then, create and modify principals as follows:
+First, create the database and add principals as necessary.
 .Pp
 .Dl % kcaldav.passwd -C -u <user> -f /home/foo/caldav
 .\" .Sh CONTEXT
@@ -172,32 +149,15 @@ Then, create and modify principals as follows:
 .Nm
 has built-in support for web-based administration by logged-in
 principals.
-The functionality depends on the CGI process's access to the
-.Xr kcaldav.passwd 5
-and/or
-.Xr kcaldav.conf 5
-databases.
-.Pp
-If the
-.Xr kcaldav.passwd 5
-database is writable, principals can change their e-mail addresses and
-passwords.
-Otherwise, they can only view some limited information.
 Principals can access the server root,
 .Pp
-.D1 http://localhost/cgi-bin/kcaldav/
+.Dl http://localhost/cgi-bin/kcaldav/
 .Pp
 in our above example, to see their configuration.
 .Pp
-If the
-.Xr kcaldav.conf 5
-database is writable and the principal has write privileges, the
-principal can modify collection information online, e.g.,
+The principal can modify collection information online, e.g.,
 .Pp
-.D1 http://localhost/cgi-bin/kcaldav/<user>/
-.Pp
-If the principal has read privileges or the database is not writable,
-then the principal can only view this information.
+.Dl http://localhost/cgi-bin/kcaldav/<user>/calendar/
 .Sh HTTP METHODS
 In this section, I describe each HTTP method supported.
 .Ss DELETE
@@ -318,89 +278,6 @@ system is fairly complicated, though as simple as it can be.
 It focusses on safety and security throughout.
 In this section, I describe several important topics regarding
 implementation.
-.Ss Locking and Consistency
-Internally,
-.Nm
-maintains iCalendar file
-.Pq Dq resource
-consistency by using file locks and temporary files.
-New resources are written into a unique temporary file, which is the
-existing filename with a leading dot, e.g., resource
-.Pa 64496c38-7123-d242-9eba-e030f77a03f3.ics
-has a temporary file of
-.Pa .64496c38-7123-d242-9eba-e030f77a03f3.ics
-in the same directory.
-All leading-dot files are ignored when accessing files and disallowed
-in the filename of submitted resources.
-.Pp
-By writing into a temporary file,
-.Nm
-safely checks for file-system limits.
-.Pp
-After writing the temporary file, the requested resource is opened and
-exclusively locked, replaced with the temporary file, then unlocked.
-.Pp
-If the requested resource exists and is meant for overwrite, the
-existing resource is opened and exclusively locked, its digest checked
-against the requested digest
-.Pq Dq etag ,
-then the new resource replaced before unlocking.
-.Pp
-Resource read access is simpler: files are opened with shared advisory
-locks.
-This allows simultaneous read access whilst protecting resource
-modification.
-.Pp
-Deletion of resources follows the same logic of creating new resources,
-except the resource is unlinked whilst locked.
-Collection deletions initially remove the
-.Xr kcaldav.conf 5
-file, rendering the collection opaque to
-.Nm ,
-then removing remaining files.
-Recursive deletions are
-.Em not
-supported.
-.Pp
-The locking and consistency behaviour depends upon standards-defined
-behaviour of
-.Xr open 2
-with
-.Dv O_EXCL ,
-.Dv O_SHLOCK
-and
-.Dv O_EXLOCK ;
-.Xr flock 2
-with
-.Dv LOCK_EX
-and
-.Dv LOCK_SH ;
-and
-.Xr rename 2 .
-.Nm
-provides a compatibility layer for systems not supporting
-.Dv O_SHLOCK
-and
-.Dv O_EXLOCK ,
-such as Linux.
-.Ss File-system Security
-Each collection managed by
-.Nm
-must be within the predefined server root.
-These collections are defined within
-.Xr kcaldav.passwd 5 ,
-relative to the server root.
-Collections cannot contain path components (e.g.,
-.Dq \&.. ) ,
-guaranteeing that collections must exist within the root.
-(Symbolic links are allowed for administrative ease.)
-A collection is not considered as such unless it contains a well-formed
-.Xr kcaldav.conf 5
-file.
-.Pp
-Resource access is checked to be within a valid collection and not
-contain any path-escaping characters.
-Resources are not allowed to be symbolic links.
 .Ss Authentication
 .Nm
 requires HTTP
@@ -476,33 +353,7 @@ accomodate for arbitrarily-complicated repeat rules.
 .\" For sections 2, 3, and 9 function return values only.
 .\" .Sh ENVIRONMENT
 .\" For sections 1, 6, 7, and 8 only.
-.Sh FILES
-The following files are required in the calendar root directory.
-.Bl -tag -width Ds
-.It Pa /kcaldav.passwd
-Authorisation for all principals.
-See
-.Xr kcaldav.passwd 5 .
-.It Pa /<collection>/kcaldav.conf
-Given a directory path
-.Pa <collection> ,
-the
-.Pa kcaldav.conf
-file defines the collection properties.
-See
-.Xr kcaldav.conf 5 .
-.El
-.Pp
-The following files may be created during runtime:
-.Bl -tag -width Ds
-.It Pa /kcaldav.nonce.db
-A binary database of HTTP nonce values, their respective nonce counts,
-and the age of the nonce value.
-This database protects against authentication replay attacks.
-.It Pa /<collection>/kcaldav.ctag
-A cache file for the collection's ctag (entity tag for the collection).
-This is automatically created and updated.
-.El
+.\" .Sh FILES
 .\" .Sh EXIT STATUS
 .\" For sections 1, 6, and 8 only.
 .\" .Sh EXAMPLES
@@ -510,8 +361,8 @@ This is automatically created and updated.
 .\" For sections 1, 4, 6, 7, 8, and 9 printf/stderr messages only.
 .\" .Sh ERRORS
 .\" For sections 2, 3, 4, and 9 errno settings only.
-.\" .Sh SEE ALSO
-.\" .Xr foobar 1
+.Sh SEE ALSO
+.Xr kcaldav.passwd 1
 .Sh STANDARDS
 The
 .Nm
@@ -540,11 +391,7 @@ Available and used bytes in the collection file-system via
 .El
 .\" .Sh HISTORY
 .\" .Sh AUTHORS
-.Sh CAVEATS
-Quotas (via
-.Xr quotactl 2 )
-are not yet supported because the library interface is too damn
-complicated.
+.\" .Sh CAVEATS
 .\" .Sh BUGS
 .\" .Sh SECURITY CONSIDERATIONS
 .\" Not used in OpenBSD.
