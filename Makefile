@@ -77,10 +77,8 @@ TESTOBJS 	 = test-caldav.o \
 		   test-rrule.o
 HTMLS	 	 = index.html \
 		   kcaldav.8.html \
-		   kcaldav.conf.5.html \
 		   kcaldav.passwd.1.html
 MANS		 = kcaldav.in.8 \
-		   kcaldav.conf.5 \
 		   kcaldav.passwd.in.1
 CTESTSRCS	 = test-explicit_bzero.c \
 		   test-memmem.c \
@@ -194,10 +192,8 @@ updatecgi: all
 install: all
 	mkdir -p $(PREFIX)/bin
 	mkdir -p $(PREFIX)/man/man8
-	mkdir -p $(PREFIX)/man/man5
 	mkdir -p $(PREFIX)/man/man1
 	install -m 0555 kcaldav.passwd $(PREFIX)/bin
-	install -m 0444 kcaldav.conf.5 $(PREFIX)/man/man5
 	install -m 0444 kcaldav.passwd.1 $(PREFIX)/man/man1
 	install -m 0444 kcaldav.8 $(PREFIX)/man/man8
 

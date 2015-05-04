@@ -19,6 +19,7 @@
 #include <sys/param.h>
 
 #include <assert.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -37,6 +38,65 @@
 #include "md5.h"
 
 int verbose = 0;
+
+/*
+ * Read the file "name" into the returned buffer.
+ * Set "url" to be a pointer to the file-name 
+ */
+static char *
+read_whole_file(const char *name)
+{
+	int		 fd;
+	char		*p;
+	void		*pp;
+	char		 buf[BUFSIZ];
+	ssize_t		 ssz;
+	size_t		 sz;
+	struct ical	*ical;
+
+	/*
+	 * Open the file readonly and read it in BUFSIZ at a time til
+	 * we've read the whole file.
+	 * Nil-terminate always.
+	 */
+	if (-1 == (fd = open(name, O_RDONLY, 0))) {
+		perror(name);
+		return(NULL);
+	}
+	ical = NULL;
+	p = NULL;
+	sz = 0;
+	while ((ssz = read(fd, buf, sizeof(buf))) > 0) {
+		pp = realloc(p, sz + ssz + 1);
+		if (NULL == pp) {
+			perror(NULL);
+			goto err;
+		}
+		p = pp;
+		memcpy(&p[sz], buf, ssz);
+		p[sz + ssz] = '\0';
+		sz += ssz;
+	}
+	if (ssz < 0) {
+		perror(name);
+		goto err;
+	}
+	close(fd);
+	fd = -1;
+
+	/* Parse as an iCalendar. */
+	if (NULL == (ical = ical_parse(name, p, sz))) 
+		goto err;
+
+	ical_free(ical);
+	return(p);
+err:
+	ical_free(ical);
+	free(p);
+	if (-1 != fd)
+		close(fd);
+	return(NULL);
+}
 
 /*
  * Get a new password from the operator.
@@ -113,12 +173,13 @@ main(int argc, char *argv[])
 			 drep[MD5_DIGEST_LENGTH * 2 + 1],
 			 dold[MD5_DIGEST_LENGTH * 2 + 1];
 	const char	*pname, *realm, *altuser, *dir, 
-	      		*email, *directory;
-	size_t		 sz;
+	      		*email, *coln, *uid;
+	size_t		 i, sz;
 	uid_t		 euid;
 	gid_t		 egid;
 	struct prncpl	*p;
-	char		*user, *emailp;
+	struct coln	*col;
+	char		*user, *emailp, *res;
 
 	euid = geteuid();
 	egid = getegid();
@@ -144,7 +205,7 @@ main(int argc, char *argv[])
 	emailp = NULL;
 	p = NULL;
 	dir = CALDIR;
-	directory = NULL;
+	coln = NULL;
 	realm = KREALM;
 	create = 0;
 	passwd = 1;
@@ -161,7 +222,7 @@ main(int argc, char *argv[])
 			create = passwd = 1;
 			break;
 		case ('d'):
-			directory = optarg;
+			coln = optarg;
 			break;
 		case ('e'):
 			email = optarg;
@@ -182,12 +243,15 @@ main(int argc, char *argv[])
 			goto usage;
 		}
 
+	argv += optind;
+	argc -= optind;
+
 	assert('\0' != realm[0]);
 
-	if (NULL != directory && '\0' == directory[0]) {
+	if (NULL != coln && '\0' == coln[0]) {
 		kerrx("zero-length directory");
 		goto out;
-	} else if (NULL != directory && NULL != strchr(directory, '/')) {
+	} else if (NULL != coln && NULL != strchr(coln, '/')) {
 		kerrx("invalid directory");
 		goto out;
 	}
@@ -283,20 +347,19 @@ main(int argc, char *argv[])
 			email = emailp;
 		}
 		c = db_prncpl_new(user, dnew, email, 
-			NULL == directory ? "calendar" : directory);
+			NULL == coln ? "calendar" : coln);
 		if (0 == c) {
 			fprintf(stderr, "%s: principal exists\n", user);
 			goto out;
 		} else if (c < 0)
 			goto out;
+		printf("principal created: %s\n", user);
 	} else if ((c = db_prncpl_load(&p, user)) > 0) {
-		if (NULL != directory) {
-			rc = db_collection_new(directory, p->id);
-			if (0 == rc) {
-				fprintf(stderr, "collection exists: "
-					"%s\n", directory);
-				goto out;
-			} else if (rc < 0)
+		if (NULL != coln) {
+			rc = db_collection_new(coln, p->id);
+			if (rc > 0)
+				printf("collection added: %s\n", coln);
+			else if (rc < 0)
 				goto out;
 		}
 		if (NULL == altuser)
@@ -322,10 +385,74 @@ main(int argc, char *argv[])
 		}
 		if ( ! db_prncpl_update(p))
 			goto out;
+		printf("user modified: %s\n", user);
 	} else if (0 == c) {
 		fprintf(stderr, "%s: does not "
 			"exist, use -C to add\n", user);
 		goto out;
+	}
+
+	/*
+	 * Success.
+	 * If we have no resources on the command line, exit.
+	 */
+	if (0 == argc) {
+		rc = 1;
+		goto out;
+	}
+
+	/*
+	 * We need to laod some resources.
+	 * Now re-load our principal, which will have its new
+	 * directories contain therein.
+	 */
+	prncpl_free(p);
+	p = NULL;
+	if (0 == (c = db_prncpl_load(&p, user))) {
+		fprintf(stderr, "user disappeared: %s\n", user);
+		goto out;
+	} else if (c < 0)
+		goto out;
+
+	/* 
+	 * Search for the new collection, defaulting to the standard
+	 * calendar name if we didn't provide on.
+	 */
+	if (NULL == coln)
+		coln = "calendar";
+	for (col = NULL, i = 0; i < p->colsz; i++) 
+		if (0 == strcmp(p->cols[i].url, coln)) {
+			col = &p->cols[i];
+			break;
+		}
+
+	if (NULL == col) {
+		fprintf(stderr, "collection "
+			"disappeared: %s\n", coln);
+		goto out;
+	}
+
+	/*
+	 * Now go through each file on the command line, load it, then
+	 * push it into the collection.
+	 */
+	for (i = 0; i < (size_t)argc; i++) {
+		res = read_whole_file(argv[i]);
+		if (NULL == res)
+			goto out;
+		if (NULL == (uid = strrchr(argv[i], '/')))
+			uid = argv[i];
+		else
+			uid++;
+		rc = db_resource_new(res, uid, col->id);
+		free(res);
+		if (0 == rc) {
+			fprintf(stderr, "resource "
+				"exists: %s\n", argv[i]);
+			goto out;
+		} else if (rc < 0)
+			goto out;
+		printf("resource added: %s\n", argv[i]);
 	}
 
 	rc = 1;
@@ -340,6 +467,7 @@ usage:
 		"[-d directory] "
 		"[-e email] "
 		"[-f caldir] "
-		"[-u user]\n", pname);
+		"[-u user] [resource...]\n", 
+		pname);
 	return(EXIT_FAILURE);
 }

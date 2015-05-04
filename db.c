@@ -580,6 +580,58 @@ err:
 }
 
 int
+db_collection_load(struct coln **pp, const char *url, int64_t id)
+{
+	const char	*sql;
+	sqlite3_stmt	*stmt;
+	int	 	 rc;
+
+	sql = "SELECT url,displayname,colour,description,ctag,id "
+		"FROM collection WHERE principal=? AND url=?";
+	if (NULL == (stmt = db_prepare(sql)))
+		goto err;
+	else if ( ! db_bindint(stmt, 1, id))
+		goto err;
+	else if ( ! db_bindtext(stmt, 2, url))
+		goto err;
+
+	if (SQLITE_ROW == (rc = db_step(stmt))) {
+		*pp = calloc(1, sizeof(struct coln));
+		if (NULL == *pp) {
+			kerr(NULL);
+			goto err;
+		}
+		(*pp)->url = strdup
+			((char *)sqlite3_column_text(stmt, 0));
+		(*pp)->displayname = strdup
+			((char *)sqlite3_column_text(stmt, 1));
+		(*pp)->colour = strdup
+			((char *)sqlite3_column_text(stmt, 2));
+		(*pp)->description = strdup
+			((char *)sqlite3_column_text(stmt, 3));
+		(*pp)->ctag = sqlite3_column_int64(stmt, 4);
+		(*pp)->id = sqlite3_column_int64(stmt, 5);
+
+		if (NULL == (*pp)->url ||
+			 NULL == (*pp)->displayname ||
+			 NULL == (*pp)->colour ||
+			 NULL == (*pp)->description) {
+			kerr(NULL);
+			goto err;
+		}
+		db_finalise(&stmt);
+		return(1);
+	} else if (SQLITE_DONE == rc) {
+		db_finalise(&stmt);
+		return(0);
+	} 
+err:
+	db_finalise(&stmt);
+	kerrx("%s: %s: failure", dbname, __func__);
+	return(-1);
+}
+
+int
 db_prncpl_load(struct prncpl **pp, const char *name)
 {
 	struct prncpl	*p;
