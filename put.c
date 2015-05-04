@@ -27,6 +27,7 @@
 #include <unistd.h>
 #ifdef __linux__
 #include <bsd/stdlib.h>
+#include <bsd/string.h>
 #endif
 
 #include <kcgi.h>

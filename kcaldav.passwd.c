@@ -169,7 +169,7 @@ gethash(int new, char *digest,
 int
 main(int argc, char *argv[])
 {
-	int	 	 c, fd, create, rc, passwd;
+	int	 	 c, create, rc, passwd;
 	char	 	 dnew[MD5_DIGEST_LENGTH * 2 + 1],
 			 drep[MD5_DIGEST_LENGTH * 2 + 1],
 			 dold[MD5_DIGEST_LENGTH * 2 + 1];
@@ -213,7 +213,6 @@ main(int argc, char *argv[])
 	email = NULL;
 	user = NULL;
 	rc = 0;
-	fd = -1;
 	verbose = 0;
 	altuser = NULL;
 
