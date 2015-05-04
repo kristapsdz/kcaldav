@@ -19,21 +19,21 @@
 
 # Use this for installing into a single directory.
 # I use this on my Mac OS X laptop (no chroot(2)).
-#CALDIR		 = /Users/kristaps/Sites
-#HTDOCS	 	 = /~kristaps
-#CALPREFIX	 = /Users/kristaps/Sites
-#CGIPREFIX	 = /Users/kristaps/Sites
-#HTDOCSPREFIX	 = /Users/kristaps/Sites
-#PREFIX		 = /usr/local
+CALDIR		 = /Users/kristaps/Sites
+HTDOCS	 	 = /~kristaps
+CALPREFIX	 = /Users/kristaps/Sites
+CGIPREFIX	 = /Users/kristaps/Sites
+HTDOCSPREFIX	 = /Users/kristaps/Sites
+PREFIX		 = /usr/local
 
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
-CALDIR		 = /caldav
-HTDOCS	 	 = /kcaldav
-CALPREFIX	 = /var/www/caldav
-CGIPREFIX	 = /var/www/cgi-bin
-HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
-PREFIX		 = /usr/local
+#CALDIR		 = /caldav
+#HTDOCS	 	 = /kcaldav
+#CALPREFIX	 = /var/www/caldav
+#CGIPREFIX	 = /var/www/cgi-bin
+#HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
+#PREFIX		 = /usr/local
 
 # Add any special dependency directives here.
 # The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
@@ -78,12 +78,10 @@ TESTOBJS 	 = test-caldav.o \
 HTMLS	 	 = index.html \
 		   kcaldav.8.html \
 		   kcaldav.conf.5.html \
-		   kcaldav.passwd.1.html \
-		   kcaldav.passwd.5.html
+		   kcaldav.passwd.1.html
 MANS		 = kcaldav.in.8 \
 		   kcaldav.conf.5 \
-		   kcaldav.passwd.in.1 \
-		   kcaldav.passwd.5
+		   kcaldav.passwd.in.1
 CTESTSRCS	 = test-explicit_bzero.c \
 		   test-memmem.c \
 		   test-reallocarray.c
@@ -201,7 +199,6 @@ install: all
 	install -m 0555 kcaldav.passwd $(PREFIX)/bin
 	install -m 0444 kcaldav.conf.5 $(PREFIX)/man/man5
 	install -m 0444 kcaldav.passwd.1 $(PREFIX)/man/man1
-	install -m 0444 kcaldav.passwd.5 $(PREFIX)/man/man5
 	install -m 0444 kcaldav.8 $(PREFIX)/man/man8
 
 installwww: www

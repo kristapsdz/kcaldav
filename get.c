@@ -50,6 +50,11 @@ method_get(struct kreq *r)
 		kerrx("%s: GET for collection", st->prncpl->name);
 		http_error(r, KHTTP_404);
 		return;
+	} else if (NULL == st->cfg) {
+		kerrx("%s: GET from non-calendar "
+			"collection", st->prncpl->name);
+		http_error(r, KHTTP_403);
+		return;
 	}
 
 	rc = db_resource_load(&p, st->resource, st->cfg->id);

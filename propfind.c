@@ -278,6 +278,75 @@ err:
 }
 
 static void
+propfind_principal(struct kxmlreq *xml, const struct caldav *dav)
+{
+	struct state	*st = xml->req->arg;
+	size_t	 	 i;
+	int		 nf;
+	enum proptype	 key;
+
+	kxml_push(xml, XML_DAV_RESPONSE);
+	kxml_push(xml, XML_DAV_HREF);
+	kxml_puts(xml, xml->req->pname);
+	kxml_putc(xml, '/');
+	kxml_puts(xml, st->prncpl->name);
+	kxml_putc(xml, '/');
+	kxml_pop(xml);
+	kxml_push(xml, XML_DAV_PROPSTAT);
+	kxml_push(xml, XML_DAV_PROP);
+
+	for (nf = 0, i = 0; i < dav->propsz; i++) {
+		if (PROP__MAX == (key = dav->props[i].key)) {
+			nf = 1;
+			continue;
+		} else if (NULL == properties[key].pgetfp)
+			continue;
+		khttp_puts(xml->req, "<X:");
+		khttp_puts(xml->req, dav->props[i].name);
+		khttp_puts(xml->req, " xmlns:X=\"");
+		khttp_puts(xml->req, dav->props[i].xmlns);
+		khttp_puts(xml->req, "\">");
+		(*properties[key].pgetfp)(xml);
+		khttp_puts(xml->req, "</X:");
+		khttp_puts(xml->req, dav->props[i].name);
+		khttp_putc(xml->req, '>');
+	}
+	kxml_pop(xml);
+	kxml_push(xml, XML_DAV_STATUS);
+	kxml_puts(xml, "HTTP/1.1 ");
+	kxml_puts(xml, khttps[KHTTP_200]);
+	kxml_pop(xml);
+	kxml_pop(xml);
+
+	if (nf) {
+		kxml_push(xml, XML_DAV_PROPSTAT);
+		kxml_push(xml, XML_DAV_PROP);
+		for (i = 0; i < dav->propsz; i++) {
+			if (PROP__MAX != dav->props[i].key)
+				continue;
+			khttp_puts(xml->req, "<X:");
+			khttp_puts(xml->req, dav->props[i].name);
+			khttp_puts(xml->req, " xmlns:X=\"");
+			khttp_puts(xml->req, dav->props[i].xmlns);
+			khttp_puts(xml->req, "\" />");
+		}
+		kxml_pop(xml);
+		kxml_push(xml, XML_DAV_STATUS);
+		kxml_puts(xml, "HTTP/1.1 ");
+		kxml_puts(xml, khttps[KHTTP_404]);
+		kxml_pop(xml);
+		kxml_pop(xml);
+	}
+
+	kxml_pop(xml);
+}
+
+/*
+ * Given a "directory" (i.e., a calendar collection), get all the
+ * properties for the collection and, if a "depth" is specified, the
+ * properties of all contained resources.
+ */
+static void
 propfind_directory(struct kxmlreq *xml, 
 	const struct caldav *dav, const struct coln *c)
 {
@@ -301,6 +370,11 @@ propfind_directory(struct kxmlreq *xml,
 	db_collection_resources(propfind_resource_cb, c->id, &carg);
 }
 
+/*
+ * Given a list of collections or resources in the "href" object of the
+ * XML request, get their properties.
+ * This occurs within a multi-response.
+ */
 static void
 propfind_list(struct kxmlreq *xml, const struct caldav *dav)
 {
@@ -335,6 +409,10 @@ propfind_list(struct kxmlreq *xml, const struct caldav *dav)
 	}
 }
 
+/*
+ * The REPORT method is for calendar collections and reosurces.
+ * It's defined by RFC 4791, section 7.1.
+ */
 void
 method_report(struct kreq *r)
 {
@@ -344,7 +422,13 @@ method_report(struct kreq *r)
 	struct res	*res;
 	int		 rc;
 
-	if (NULL == (dav = req2caldav(r)))
+	if (NULL == st->cfg) {
+		/* Disallow non-calendar collection. */
+		kerrx("%s: REPORT of non-calendar "
+			"collection", st->prncpl->name);
+		http_error(r, KHTTP_403);
+		return;
+	} else if (NULL == (dav = req2caldav(r)))
 		return;
 
 	if (TYPE_CALMULTIGET != dav->type &&
@@ -371,6 +455,7 @@ method_report(struct kreq *r)
 
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
+	/* FIXME: remove this? */
 	khttp_head(r, "DAV", "1, access-control, calendar-access");
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
@@ -395,10 +480,10 @@ method_report(struct kreq *r)
 }
 
 /*
- * PROPFIND is used to define properties for calendar collections (i.e.,
- * directories consisting of calendar resources) or resources
- * themselves.
- * Switch on that behaviour here.
+ * PROPFIND is defined by RFC 4918, section 9.1.
+ * We accept PROPFIND for resources (calendar resources), collections
+ * (calendar collections), and the base principal URL (non-calendar
+ * collection).
  */
 void
 method_propfind(struct kreq *r)
@@ -417,26 +502,28 @@ method_propfind(struct kreq *r)
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
 		return;
-	}
-
-	if ('\0' != st->resource[0]) {
+	} else if (st->cfg && st->resource[0]) {
+		/* Try to load the resource from the database. */
 		rc = db_resource_load(&res, st->resource, st->cfg->id);
 		if (rc < 0) {
-			kerrx("%s: failed resource", st->prncpl->name);
-			http_error(r, KHTTP_505);
+			http_error(r, KHTTP_403);
 			return;
 		} else if (0 == rc) {
-			kerrx("%s: bad resource", st->prncpl->name);
 			http_error(r, KHTTP_404);
 			return;
 		}
-	} else
+	} else if (NULL == st->cfg && st->resource[0]) {
+		/* Resource in non-calendar collection. */
+		http_error(r, KHTTP_403);
+		return;
+	} else 
 		res = NULL;
 
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
+	/* FIXME: is this necessary? */
 	khttp_head(r, "DAV", "1, access-control, calendar-access");
 	khttp_body(r);
 	kxml_open(&xml, r, xmls, XML__MAX);
@@ -445,10 +532,12 @@ method_propfind(struct kreq *r)
 		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
 		"xmlns:D", "DAV:", NULL);
 
-	if (NULL == res)
+	if (NULL == res && NULL != st->cfg)
 		propfind_directory(&xml, dav, st->cfg);
-	else
+	else if (NULL != res && NULL != st->cfg)
 		propfind_resource(&xml, dav, st->cfg, res);
+	else 
+		propfind_principal(&xml, dav);
 
 	caldav_free(dav);
 	kxml_popall(&xml);
