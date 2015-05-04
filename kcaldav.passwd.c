@@ -315,7 +315,7 @@ usage:
 	fprintf(stderr, "usage: %s "
 		"[-Cn] "
 		"[-e email] "
-		"[-f file] "
+		"[-f caldir] "
 		"[-u user]\n", pname);
 	return(EXIT_FAILURE);
 }

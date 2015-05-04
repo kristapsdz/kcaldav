@@ -57,7 +57,7 @@ collection_calendar_description(struct kxmlreq *xml, const struct coln *c)
  * RFC 4791, 6.2.1.
  */
 static void
-collection_calendar_home_set(struct kxmlreq *xml, const struct coln *c)
+principal_calendar_home_set(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
 	size_t		 i;
@@ -77,21 +77,32 @@ collection_calendar_home_set(struct kxmlreq *xml, const struct coln *c)
 
 /*
  * RFC 4791, 6.2.1.
- * Route through to collection handler.
+ * Route through to principal handler.
+ */
+static void
+collection_calendar_home_set(struct kxmlreq *xml, const struct coln *c)
+{
+
+	principal_calendar_home_set(xml);
+}
+
+/*
+ * RFC 4791, 6.2.1.
+ * Route through to principal handler.
  */
 static void
 resource_calendar_home_set(struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
-	collection_calendar_home_set(xml, c);
+	principal_calendar_home_set(xml);
 }
 
 /*
  * RFC 6638, 2.4.1.
  */
 static void
-collection_calendar_user_address_set(struct kxmlreq *xml, const struct coln *c)
+principal_calendar_user_address_set(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
 
@@ -101,23 +112,33 @@ collection_calendar_user_address_set(struct kxmlreq *xml, const struct coln *c)
 	kxml_pop(xml);
 }
 
+
 /*
  * RFC 6638, 2.4.1.
- * Route through to collection handler.
+ */
+static void
+collection_calendar_user_address_set(struct kxmlreq *xml, const struct coln *c)
+{
+
+	principal_calendar_user_address_set(xml);
+}
+
+/*
+ * RFC 6638, 2.4.1.
  */
 static void
 resource_calendar_user_address_set(struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
-	collection_calendar_user_address_set(xml, c);
+	principal_calendar_user_address_set(xml);
 }
 
 /*
  * RFC 5379, 3.
  */
 static void
-collection_current_user_principal(struct kxmlreq *xml, const struct coln *c)
+principal_current_user_principal(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
 
@@ -131,14 +152,23 @@ collection_current_user_principal(struct kxmlreq *xml, const struct coln *c)
 
 /*
  * RFC 5379, 3.
- * We define this over the whole collection.
+ */
+static void
+collection_current_user_principal(struct kxmlreq *xml, const struct coln *c)
+{
+
+	principal_current_user_principal(xml);
+}
+
+/*
+ * RFC 5379, 3.
  */
 static void
 resource_current_user_principal(struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
-	collection_current_user_principal(xml, c);
+	principal_current_user_principal(xml);
 }
 
 /*
@@ -253,7 +283,7 @@ resource_owner(struct kxmlreq *xml,
  * RFC 3744, 4.2.
  */
 static void
-collection_principal_url(struct kxmlreq *xml, const struct coln *c)
+principal_principal_url(struct kxmlreq *xml)
 {
 	struct state	*st = xml->req->arg;
 
@@ -267,6 +297,16 @@ collection_principal_url(struct kxmlreq *xml, const struct coln *c)
 
 /*
  * RFC 3744, 4.2.
+ */
+static void
+collection_principal_url(struct kxmlreq *xml, const struct coln *c)
+{
+
+	principal_principal_url(xml);
+}
+
+/*
+ * RFC 3744, 4.2.
  * Note that this doesn't specify that this property is on resources, so
  * assume that it is.
  */
@@ -275,7 +315,7 @@ resource_principal_url(struct kxmlreq *xml,
 	const struct coln *c, const struct res *p)
 {
 
-	collection_principal_url(xml, c);
+	principal_principal_url(xml);
 }
 
 /*
@@ -330,6 +370,16 @@ resource_quota_used_bytes(struct kxmlreq *xml,
 {
 
 	collection_quota_used_bytes(xml, c);
+}
+
+/*
+ * RFC 4918, 15.9.
+ */
+static void
+principal_resourcetype(struct kxmlreq *xml)
+{
+
+	kxml_pushnull(xml, XML_DAV_COLLECTION);
 }
 
 /*
@@ -452,6 +502,17 @@ resource_calendar_data(struct kxmlreq *xml,
  * The RFC is silent on this matter.
  */
 static void
+principal_getcontenttype(struct kxmlreq *xml)
+{
+
+	kxml_puts(xml, "httpd/unix-directory");
+}
+
+/*
+ * RFC 4918, 15.5.
+ * See principal_getcontenttype()
+ */
+static void
 collection_getcontenttype(struct kxmlreq *xml, const struct coln *c)
 {
 
@@ -473,85 +534,106 @@ const struct property properties[PROP__MAX] = {
 	{ /* PROP_CALENDAR_COLOR */
 	  0, 
 	  collection_calendar_colour, 
+	  NULL,
 	  NULL }, 
 	{ /* PROP_CALENDAR_DATA */
 	  0, 
 	  NULL, 
-	  resource_calendar_data }, 
+	  resource_calendar_data,
+	  NULL }, 
 	{ /* PROP_CALENDAR_DESCRIPTION */
 	  0, 
 	  collection_calendar_description, 
+	  NULL,
 	  NULL }, 
 	{ /* PROP_CALENDAR_HOME_SET */
 	  0, 
 	  collection_calendar_home_set, 
-	  resource_calendar_home_set }, 
+	  resource_calendar_home_set,
+	  principal_calendar_home_set }, 
 	{ /* PROP_CALENDAR_MIN_DATE_TIME */
 	  0, 
 	  collection_min_date_time, 
+	  NULL,
 	  NULL }, 
 	{ /* PROP_CALENDAR_TIMEZONE */
 	  0, 
 	  collection_calendar_timezone, 
+	  NULL,
 	  NULL }, 
 	{ /* PROP_CALENDAR_USER_ADDRESS_SET */
 	  0, 
 	  collection_calendar_user_address_set, 
-	  resource_calendar_user_address_set }, 
+	  resource_calendar_user_address_set,
+	  principal_calendar_user_address_set }, 
 	{ /* PROP_CURRENT_USER_PRINCIPAL */
 	  0, 
 	  collection_current_user_principal, 
-	  resource_current_user_principal }, 
+	  resource_current_user_principal,
+	  principal_current_user_principal }, 
 	{ /* PROP_CURRENT_USER_PRIVILEGE_SET */
   	  0, 
 	  collection_current_user_privilege_set, 
-	  resource_current_user_privilege_set }, 
+	  resource_current_user_privilege_set,
+	  NULL }, 
 	{ /* PROP_DISPLAYNAME */
 	  0, 
 	  collection_displayname, 
+	  NULL,
 	  NULL }, 
 	{ /* PROP_GETCONTENTTYPE */
 	  0, 
 	  collection_getcontenttype, 
-	  resource_getcontenttype }, 
+	  resource_getcontenttype,
+	  principal_getcontenttype }, 
 	{ /* PROP_GETCTAG */
 	  0, 
 	  collection_getctag, 
+	  NULL,
 	  NULL }, 
 	{ /* PROP_GETETAG */
 	  0, 
 	  NULL, 
-	  resource_getetag }, 
+	  resource_getetag,
+	  NULL }, 
 	{ /* PROP_OWNER */
 	  0, 
 	  collection_owner, 
-	  resource_owner }, 
+	  resource_owner,
+	  NULL }, 
 	{ /* PROP_PRINCIPAL_URL */
 	  0, 
 	  collection_principal_url, 
-	  resource_principal_url }, 
+	  resource_principal_url,
+	  principal_principal_url }, 
 	{ /* PROP_QUOTA_AVAILABLE_BYTES */
 	  0, 
 	  collection_quota_available_bytes, 
-	  resource_quota_available_bytes }, 
+	  resource_quota_available_bytes,
+	  NULL }, 
 	{ /* PROP_QUOTA_USED_BYTES */
 	  0, 
 	  collection_quota_used_bytes, 
-	  resource_quota_used_bytes }, 
+	  resource_quota_used_bytes,
+	  NULL }, 
 	{ /* PROP_RESOURCETYPE */
 	  0, 
 	  collection_resourcetype, 
-	  resource_resourcetype }, 
+	  resource_resourcetype,
+	  principal_resourcetype }, 
 	{ /* PROP_SCHEDULE_CALENDAR_TRANSP */
 	  0, 
 	  collection_schedule_calendar_transp, 
+	  NULL,
 	  NULL }, 
 	{ /* PROP_SUPPORTED_CALENDAR_COMPONENT_SET */
 	  0, 
 	  collection_supported_calendar_component_set, 
+	  NULL,
 	  NULL }, 
 	{ /* PROP_SUPPORTED_CALENDAR_DATA */
 	  0, 
 	  collection_supported_calendar_data, 
+	  NULL,
 	  NULL }, 
 };

@@ -43,6 +43,13 @@ method_delete(struct kreq *r)
 	int64_t		 tag;
 	char		*ep;
 
+	if (NULL == st->cfg) {
+		kerrx("%s: DELETE from non-calendar "
+			"collection", st->prncpl->name);
+		http_error(r, KHTTP_403);
+		return;
+	}
+
 	digest = NULL;
 	if (NULL != r->reqmap[KREQU_IF_MATCH]) {
 		digest = r->reqmap[KREQU_IF_MATCH]->val;

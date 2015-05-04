@@ -466,6 +466,13 @@ method_dynamic_get(struct kreq *r)
 {
 	struct state	*st = r->arg;
 
+	if (NULL == st->cfg) {
+		kerrx("%s: GET of non-calendar "
+			"collection", st->prncpl->name);
+		http_error(r, KHTTP_403);
+		return;
+	}
+
 	if (PAGE_INDEX == r->page) 
 		dogetindex(r);
 	else if ('\0' == st->resource[0])
@@ -482,6 +489,14 @@ method_dynamic_get(struct kreq *r)
 void
 method_dynamic_post(struct kreq *r)
 {
+	struct state	*st = r->arg;
+
+	if (NULL == st->cfg) {
+		kerrx("%s: POST into non-calendar "
+			"collection", st->prncpl->name);
+		http_error(r, KHTTP_403);
+		return;
+	}
 
 	switch (r->page) {
 	case (PAGE_SETEMAIL):

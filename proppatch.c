@@ -79,15 +79,20 @@ method_proppatch(struct kreq *r)
 	int		 accepted[PROP__MAX + 1];
 	struct coln	 cfg;
 
+	if (NULL == st->cfg) {
+		kerrx("%s: PROPPATCH for non-calendar "
+			"collection", st->prncpl->name);
+		http_error(r, KHTTP_403);
+		return;
+	} else if (NULL == (dav = req2caldav(r)))
+		return;
+
 	cfg = *st->cfg;
 
 	memset(accepted, 0, sizeof(accepted));
 	accepted[PROP_CALENDAR_COLOR] = 1;
 	accepted[PROP_CALENDAR_DESCRIPTION] = 1;
 	accepted[PROP_DISPLAYNAME] = 1;
-
-	if (NULL == (dav = req2caldav(r)))
-		return;
 
 	if (TYPE_PROPERTYUPDATE != dav->type) {
 		kerrx("%s: unknown request type", st->prncpl->name);
