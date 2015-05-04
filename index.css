@@ -24,7 +24,7 @@ h2			{ font-size: inherit; }
 			  color: #000; }
 .nm			{ font-style: italic; }
 .file			{ font-style: italic; }
-pre, code		{ font-size: 13pt; }
+pre, code		{ font-size: 12.5pt; }
 nav[data-sblg-nav] ul	{ list-style-type: none; 
 			  font-size: 13pt;
 			  color: #333;
