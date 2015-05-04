@@ -17,7 +17,6 @@
 #include "config.h"
 
 #include <assert.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -49,13 +48,13 @@ req2caldav(struct kreq *r)
 
 	if (NULL == r->fieldmap[VALID_BODY]) {
 		kerrx("%s: failed parse CalDAV XML "
-			"in client request", st->path);
+			"in client request", st->prncpl->name);
 		http_error(r, KHTTP_400);
 		return(NULL);
 	} 
 
 	if (KMIME_TEXT_XML != r->fieldmap[VALID_BODY]->ctypepos) {
-		kerrx("%s: not CalDAV MIME", st->path);
+		kerrx("%s: not CalDAV MIME", st->prncpl->name);
 		http_error(r, KHTTP_415);
 		return(NULL);
 	}
@@ -78,7 +77,7 @@ method_proppatch(struct kreq *r)
 	struct kxmlreq	 xml;
 	size_t		 nf, df, bf, i;
 	int		 accepted[PROP__MAX + 1];
-	struct config	 cfg;
+	struct coln	 cfg;
 
 	cfg = *st->cfg;
 
@@ -87,26 +86,11 @@ method_proppatch(struct kreq *r)
 	accepted[PROP_CALENDAR_DESCRIPTION] = 1;
 	accepted[PROP_DISPLAYNAME] = 1;
 
-	/*
-	 * We need to have write permissions on the level of the
-	 * principal and write permissions by the web server.
-	 */
-	if ( ! (PERMS_WRITE & st->cfg->perms)) {
-		kerrx("%s: principal does not "
-			"have write acccess: %s", 
-			st->path, st->prncpl->name);
-		http_error(r, KHTTP_403);
-		return;
-	} else if ( ! st->cfg->writable) {
-		kerrx("%s: configuration is not"
-			"writable by process", st->path);
-		http_error(r, KHTTP_403);
-		return;
-	} else if (NULL == (dav = req2caldav(r)))
+	if (NULL == (dav = req2caldav(r)))
 		return;
 
 	if (TYPE_PROPERTYUPDATE != dav->type) {
-		kerrx("%s: unknown request type", st->path);
+		kerrx("%s: unknown request type", st->prncpl->name);
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
 		return;
@@ -145,18 +129,18 @@ method_proppatch(struct kreq *r)
 		switch (dav->props[i].key) {
 		case (PROP_DISPLAYNAME):
 			cfg.displayname = dav->props[i].val;
-			kinfo("%s: display name modified: %s",
-				st->path, st->auth.user);
+			kinfo("%s: display name modified",
+				st->prncpl->name);
 			break;
 		case (PROP_CALENDAR_COLOR):
 			cfg.colour = dav->props[i].val;
-			kinfo("%s: colour modified: %s",
-				st->path, st->auth.user);
+			kinfo("%s: colour modified",
+				st->prncpl->name);
 			break;
 		case (PROP_CALENDAR_DESCRIPTION):
 			cfg.description = dav->props[i].val;
-			kinfo("%s: description modified: %s",
-				st->path, st->auth.user);
+			kinfo("%s: description modified",
+				st->prncpl->name);
 			break;
 		default:
 			abort();
@@ -226,11 +210,12 @@ method_proppatch(struct kreq *r)
 	 * We do this post-factum to avoid long requests clogging up the
 	 * configuration file in exclusive write mode.
 	 */
-	if (0 == df || config_replace(st->configfile, &cfg)) {
+	if (0 == df || db_collection_update(&cfg)) {
 		caldav_free(dav);
 		return;
 	}
+
 	caldav_free(dav);
-	kerrx("%s: couldn't replace config file", st->configfile);
+	kerrx("%s: couldn't update collection", st->prncpl->name);
 }
 

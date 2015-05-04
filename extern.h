@@ -381,6 +381,27 @@ struct	httpauth {
 	const char	*response;
 	size_t		 count;
 	const char	*opaque;
+	const char	*req;
+	size_t		 reqsz;
+	const char	*method;
+};
+
+struct	res {
+	char		*data;
+	struct ical	*ical;
+	int64_t		 etag;
+	char		*url;
+	int64_t		 collection;
+	int64_t		 id;
+};
+
+struct	coln {
+	char		*url; /* name of collection */
+	char		*displayname; /* displayname of collection */
+	char		*colour; /* colour (RGBA) */
+	char		*description; /* free-form description */
+	int64_t		 ctag; /* collection tag */
+	int64_t		 id; /* unique identifier */
 };
 
 /*
@@ -389,65 +410,28 @@ struct	httpauth {
  * of principals when the password file is read.
  */
 struct	prncpl {
-	int		 writable; /* can write to principal file */
 	char		*name; /* username */
-	char		*homedir; /* within calendar root */
+	char		*hash; /* MD5 of name, realm, and password */
+	uint64_t	 quota_used; /* quota (VFS) */
+	uint64_t	 quota_avail; /* quota (VFS) */
 	char		*email; /* email address */
+	struct coln	*cols; /* owned collections */
+	size_t		 colsz; /* number of owned collections */
+	int64_t		 id; /* unique identifier */
 };
 
 /*
- * Principal entry.
- * These are parsed out of the principal file.
+ * Return codes for nonce operations.
  */
-struct	pentry {
-	char	*hash; /* MD5(username:realm:pass) */
-	char	*user; /* username */
-	char	*uid; /* (not used) */
-	char	*gid; /* (not used) */
-	char 	*cls;  /* (not used) */
-	char	*change; /* (not used) */
-	char	*expire;  /* (not used) */
-	char	*gecos; /* (not used) */
-	char	*homedir; /* principal home */
-};
-
-struct	priv {
-	char		*prncpl;
-	unsigned int	 perms;
-#define	PERMS_NONE	 0x00
-#define	PERMS_READ	 0x01
-#define	PERMS_WRITE	 0x02
-#define	PERMS_DELETE	 0x04
-#define	PERMS_ALL	(0x04|0x02|0x01)
-};
-
-/*
- * A collection configuration.
- * A principal (struct prncpl) is matched against the configuration list
- * to produce the permissions.
- */
-struct	config {
-	int		  writable; /* can write to config file */
-	long long	  bytesused;
-	long long	  bytesavail;
-	char		 *displayname;
-	char		 *colour;
-	char		 *description;
-	unsigned int	  perms; /* current principal perms */
-	struct priv	 *privs;
-	size_t		  privsz;
-};
-
 enum	nonceerr {
-	NONCE_ERR,
-	NONCE_NOTFOUND,
-	NONCE_REPLAY,
-	NONCE_OK
+	NONCE_ERR, /* generic error */
+	NONCE_NOTFOUND, /* nonce entry not found */
+	NONCE_REPLAY, /* replay attack detected! */
+	NONCE_OK /* nonce checks out */
 };
 
 __BEGIN_DECLS
 
-/* Logging functions. */
 void		  kvdbg(const char *, size_t, const char *, ...)
 			__attribute__((format(printf, 3, 4)));
 void		  kvinfo(const char *, size_t, const char *, ...)
@@ -471,51 +455,40 @@ void 		  bufappend(struct buf *, const char *, size_t);
 void		  bufreset(struct buf *);
 
 struct ical 	 *ical_parse(const char *, const char *, size_t sz);
-struct ical 	 *ical_parsefile(const char *);
-struct ical 	 *ical_parsefile_open(const char *, int *);
-int		  ical_parsefile_close(const char *, int);
 void		  ical_free(struct ical *);
 int		  ical_print(const struct ical *, ical_putchar, void *);
 int		  ical_printfile(int, const struct ical *);
-
-void		 ical_rrule_generate(const struct icaltm *, const struct icalrrule *);
+		  /* Experimental... */
+void		  ical_rrule_generate(const struct icaltm *, 
+			const struct icalrrule *);
 
 struct caldav 	 *caldav_parse(const char *, size_t);
 void		  caldav_free(struct caldav *);
 
-void		  ctag_get(const char *, char *);
-int		  ctag_update(const char *);
+int		  db_collection_remove(int64_t);
+int		  db_collection_resources(void (*)(const struct res *, void *), int64_t, void *);
+int		  db_collection_update(const struct coln *);
+int		  db_init(const char *, int);
+int		  db_nonce_new(char **);
+enum nonceerr	  db_nonce_update(const char *, size_t);
+enum nonceerr	  db_nonce_validate(const char *, size_t);
+int		  db_owner_check_or_set(int64_t);
+int		  db_prncpl_load(struct prncpl **, const char *);
+int		  db_prncpl_new(const char *, const char *, const char *);
+int		  db_prncpl_update(const struct prncpl *);
+int		  db_resource_delete(const char *, int64_t, int64_t);
+int		  db_resource_remove(const char *, int64_t);
+int		  db_resource_load(struct res **, const char *, int64_t);
+int		  db_resource_new(const char *, const char *, int64_t);
+int		  db_resource_update(const char *, const char *, int64_t, int64_t);
 
-int		  httpauth_nonce(const char *, const struct httpauth *, char **);
+int		  httpauth_nonce(const struct httpauth *, char **);
 
-int		  nonce_new(const char *, char **);
-enum nonceerr	  nonce_update(const char *, const char *, size_t);
-enum nonceerr	  nonce_validate(const char *, const char *, size_t);
-
-void		  config_free(struct config *);
-int		  config_parse(const char *, struct config **, const struct prncpl *);
-int		  config_replace(const char *, const struct config *);
-
-FILE		 *fdopen_lock(const char *, int, const char *);
-int		  fclose_unlock(const char *, FILE *, int);
-int		  open_lock_ex(const char *, int, mode_t);
-int		  open_lock_sh(const char *, int, mode_t);
-int		  close_unlock(const char *, int);
-int		  quota(const char *, int, long long *, long long *);
-
-int		  prncpl_replace(const char *, const char *,
-			const char *, const char *);
-int		  prncpl_parse(const char *, const char *,
-		        const struct httpauth *, struct prncpl **,
-			const char *, size_t);
 void		  prncpl_free(struct prncpl *);
-int		  prncpl_line(char *, size_t, 
-			const char *, size_t, struct pentry *);
-int		  prncpl_pentry_check(const struct pentry *);
-int		  prncpl_pentry_dup(struct pentry *, const struct pentry *);
-void		  prncpl_pentry_free(struct pentry *);
-void		  prncpl_pentry_freelist(struct pentry *, size_t);
-int		  prncpl_pentry_write(int, const char *, const struct pentry *);
+int		  prncpl_validate(const struct prncpl *, 
+			const struct httpauth *);
+
+void		  res_free(struct res *);
 
 extern const enum proptype calprops[CALELEM__MAX];
 extern const enum calelem calpropelems[PROP__MAX];

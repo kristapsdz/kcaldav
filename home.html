@@ -27,13 +27,8 @@
 				Welcome, @@name@@.
 				This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a>
 				(version @@version@@) installation.
-				<span class="@@class-readonly@@">
-					The database is <strong>read-only</strong>, so you won't be able to change anything.
-				</span>
-				<span class="@@class-writable@@">
-					<span class="@@class-insecure@@">
-						This connection is <strong>not secure</strong>, so consider that your password hash is being sent in the clear!
-					</span>
+				<span class="@@class-insecure@@">
+					This connection is <strong>not secure</strong>, so consider that your password hash is being sent in the clear!
 				</span>
 			</p>
 			<div class="error" id="error">
@@ -58,17 +53,14 @@
 				<div class="error" id="setemail-ok">
 					Your e-mail address has been reset.
 				</div>
-				<form action="@@page-email@@" method="post" class="@@class-writable@@">
+				<form action="@@page-email@@" method="post">
 					<div class="input double">
 						<input value="@@email@@" name="@@valid-email@@" type="email"/>
 						<input value="Change E-mail" type="submit"/>
 					</div>
 				</form>
-				<div class="input single @@class-readonly@@">
-					<input value="@@email@@" readonly="readonly" type="email"/>
-				</div>
 			</section>
-			<section class="@@class-writable@@">
+			<section>
 				<h2>
 					Your Password
 				</h2>

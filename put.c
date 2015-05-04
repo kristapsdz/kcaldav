@@ -41,14 +41,13 @@ req2ical(struct kreq *r)
 	struct state	*st = r->arg;
 
 	if (NULL == r->fieldmap[VALID_BODY]) {
-		kerrx("%s: failed parse iCalendar "
-			"in client request", st->path);
+		kerrx("%s: failed iCalendar parse", st->prncpl->name);
 		http_error(r, KHTTP_400);
 		return(NULL);
 	} 
 	
 	if (KMIME_TEXT_CALENDAR != r->fieldmap[VALID_BODY]->ctypepos) {
-		kerrx("%s: not iCalendar MIME", st->path);
+		kerrx("%s: bad iCalendar MIME", st->prncpl->name);
 		http_error(r, KHTTP_415);
 		return(NULL);
 	}
@@ -59,199 +58,98 @@ req2ical(struct kreq *r)
 }
 
 /*
- * Try creating a unique lock-file.
- * This involves taking the "temp" file in our state, filling the last 8
- * bytes with random alnums, then trying to create a unique filename.
- * Returns the new fd or -1 if something really goes wrong.
- */
-static int
-req2temp(struct kreq *r)
-{
-	struct state	*st = r->arg;
-	size_t		 sz, i;
-	int 		 fd;
-
-	assert( ! st->isdir);
-	sz = strlen(st->temp);
-	assert(sz > 9);
-	sz -= 8;
-	assert('.' == st->temp[sz - 1]);
-
-	do {
-		for (i = 0; i < 8; i++)
-			snprintf(&st->temp[sz + i], 3, 
-				"%.1X", arc4random_uniform(128));
-		fd = open(st->temp, O_RDWR | O_CREAT | O_EXCL, 0600);
-		if (fd < 0 && EEXIST != errno) {
-			kerr("%s: open", st->temp);
-			return(-1);
-		}
-	} while (-1 == fd);
-
-	return(fd);
-}
-
-/*
  * Satisfy RFC 4791, 5.3.2, PUT.
  */
 void
 method_put(struct kreq *r)
 {
-	struct ical	*p, *cur;
+	struct ical	*p;
 	struct state	*st = r->arg;
-	const char	*digest;
+	char		 buf[22];
 	size_t		 sz;
-	int		 fd, er;
+	int64_t		 tag;
+	char		*ep, *digest;
+	int		 rc;
 
-	/* Need write-content or bind permissions. */
-	if ( ! (PERMS_WRITE & st->cfg->perms)) {
-		kerrx("%s: principal does not "
-			"have write acccess: %s", 
-			st->path, st->prncpl->name);
-		http_error(r, KHTTP_403);
-		return;
-	} else if (NULL == (p = req2ical(r)))
+	if (NULL == (p = req2ical(r)))
 		return;
 
 	/* Check if PUT is conditional upon existing etag. */
 	digest = NULL;
 	if (NULL != r->reqmap[KREQU_IF_MATCH]) {
-		digest = r->reqmap[KREQU_IF_MATCH]->val;
-		if (32 != (sz = strlen(digest))) {
-			kerrx("%s: \"If-Match\" digest "
-				"invalid: %zuB", st->path, sz);
+		sz = strlcpy(buf, 
+			r->reqmap[KREQU_IF_MATCH]->val,
+			sizeof(buf));
+		if (sz >= sizeof(buf)) {
+			kerrx("%s: bad \"If-Match\" buf", 
+				st->prncpl->name);
 			http_error(r, KHTTP_400);
 			ical_free(p);
 			return;
 		}
+		digest = buf;
 	} else if (NULL != r->reqmap[KREQU_IF]) {
-		digest = r->reqmap[KREQU_IF]->val;
-		if (36 != (sz = strlen(digest)) ||
-			 '(' != digest[0] || '[' != digest[1] ||
-			 ']' != digest[34] || ')' != digest[35]) {
-			kerrx("%s: \"If\" digest "
-				"invalid: %zuB", st->path, sz);
+		sz = strlcpy(buf, 
+			r->reqmap[KREQU_IF_MATCH]->val,
+			sizeof(buf));
+		if (sz >= sizeof(buf)) {
+			kerrx("%s: bad \"If\" digest", 
+				st->prncpl->name);
 			http_error(r, KHTTP_400);
 			ical_free(p);
 			return;
 		}
-		digest += 2;
-	}
-
-	/*
-	 * Begin by writing into a temporary file.
-	 * We use the same scheme for all temporary files (start the
-	 * file with a dot), so no worries about pollution.
-	 */
-	if (-1 == (fd = req2temp(r))) {
-		http_error(r, KHTTP_505);
-		ical_free(p);
-		return;
-	} else if (0 == ical_printfile(fd, p)) {
-		er = errno;
-		kerr("%s: ical_printfile", st->temp);
-		http_error(r, (EDQUOT == er ||
-			ENOSPC == er || EFBIG == er) ?
-			KHTTP_507 : KHTTP_505);
-		if (-1 == close(fd))
-			kerr("%s: close", st->temp);
-		ical_free(p);
-		if (-1 == unlink(st->temp))
-			kerr("%s: unlink", st->temp);
-		return;
-	} else if (-1 == close(fd)) 
-		kerr("%s: close", st->temp);
-
-	/*
-	 * If we have a digest, then we want to replace an existing
-	 * file.
-	 * First check if the destination file is a match, then rename
-	 * into the real file (all while the real file is locked).
-	 */
-	if (NULL != digest) {
-		/* 
-		 * We now have our new iCal "p" stored in the temporary
-		 * file st->temp.
-		 * Now we want to lock the old file (st->path) and flip
-		 * the temporary into the new file.
-		 */
-		cur = ical_parsefile_open(st->path, &fd);
-		if (NULL == cur) {
-			http_error(r, KHTTP_415);
+		if ('(' != buf[0] || '[' != buf[1] ||
+			 ']' != buf[sz - 2] || ')' != buf[sz - 1]) {
+			kerrx("%s: bad \"If\" digest", 
+				st->prncpl->name);
+			http_error(r, KHTTP_400);
 			ical_free(p);
-			if (-1 == unlink(st->temp)) 
-				kerr("%s: unlink", st->temp);
-			return;
-		} else if (-1 == rename(st->temp, st->path)) {
-			er = errno;
-			kerr("%s: rename: %s", st->temp, st->path);
-			http_error(r, KHTTP_505);
-			ical_parsefile_close(st->path, fd);
-			ical_free(p);
-			ical_free(cur);
-			ctag_update(st->ctagfile);
-			if (-1 == unlink(st->temp) && ENOENT != er)
-				kerr("%s: unlink", st->temp);
 			return;
 		}
-		/* It worked! */
-		ctag_update(st->ctagfile);
-		khttp_head(r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_201]);
-		khttp_head(r, kresps[KRESP_ETAG], 
-			"%s", p->digest);
-		khttp_body(r);
-		ical_parsefile_close(st->path, fd);
-		ical_free(p);
-		ical_free(cur);
-		kinfo("%s: resource modified: %s",
-			st->path, st->auth.user);
-		return;
+		buf[sz - 2] = '\0';
+		buf[sz - 1] = '\0';
+		digest = &buf[2];
 	}
 
-	/*
-	 * We don't have a digest, thus, we're trying to write into a
-	 * new destination file.
-	 * Make sure that this doesn't exist: create a new unique file,
-	 * lock it, then swap into it.
-	 */
-	fd = open_lock_ex(st->path, O_CREAT | O_EXCL | O_RDWR, 0600);
+	if (NULL != digest)  {
+		tag = strtoll(digest, &ep, 10);
+		if (digest == ep || '\0' != *ep)
+			digest = NULL;
+		else if (tag == LLONG_MIN && errno == ERANGE)
+			digest = NULL;
+		else if (tag == LLONG_MAX && errno == ERANGE)
+			digest = NULL;
+		if (NULL == digest)
+			kerrx("%s: bad numeric digest", 
+				st->prncpl->name);
+	}
 
-	if (-1 == fd) {
-		er = errno;
-		if (EDQUOT == er || ENOSPC == er)
-			http_error(r, KHTTP_507);
-		else if (EEXIST == er)
-			http_error(r, KHTTP_412);
-		else
-			http_error(r, KHTTP_505);
-		ical_free(p);
-		if (-1 == unlink(st->temp)) 
-			kerr("%s: unlink", st->temp);
-		return;
-	} else if (-1 == rename(st->temp, st->path)) {
-		er = errno;
-		kerr("%s: rename: %s", st->temp, st->path);
+	if (NULL == digest) 
+		rc = db_resource_new
+			(r->fieldmap[VALID_BODY]->val, 
+			 st->resource, st->cfg->id);
+	else
+		rc = db_resource_update
+			(r->fieldmap[VALID_BODY]->val, 
+			 st->resource, tag, st->cfg->id);
+
+	if (rc < 0) {
+		kerrx("%s: failed creation: %s", 
+			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_505);
-		if (-1 == unlink(st->temp) && ENOENT != er) 
-			kerr("%s: unlink", st->temp);
-		if (-1 == unlink(st->path)) 
-			kerr("%s: unlink", st->path);
-		close_unlock(st->path, fd);
-		ical_free(p);
-		ctag_update(st->ctagfile);
-		return;
+	} else if (0 == rc) {
+		kerrx("%s: duplicate resource: %s", 
+			st->prncpl->name, r->fullpath);
+		http_error(r, KHTTP_403);
+	} else {
+		kinfo("%s: resource %s: %s",
+			st->prncpl->name, 
+			NULL == digest ? "created" : "updated",
+			r->fullpath);
+		http_error(r, KHTTP_201);
 	}
 
-	khttp_head(r, kresps[KRESP_STATUS], 
-		"%s", khttps[KHTTP_201]);
-	khttp_head(r, kresps[KRESP_ETAG], 
-		"%s", p->digest);
-	khttp_body(r);
-	close_unlock(st->path, fd);
 	ical_free(p);
-	ctag_update(st->ctagfile);
-	kinfo("%s: resource created: %s",
-		st->path, st->auth.user);
 }
 

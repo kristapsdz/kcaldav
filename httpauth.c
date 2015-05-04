@@ -40,7 +40,7 @@
  * Return -2 on system failure, -1 on replay, 0 on stale, 1 on ok.
  */
 int
-httpauth_nonce(const char *fname, const struct httpauth *auth, char **np)
+httpauth_nonce(const struct httpauth *auth, char **np)
 {
 	enum nonceerr	 er;
 
@@ -51,10 +51,10 @@ httpauth_nonce(const char *fname, const struct httpauth *auth, char **np)
 	 * (or random nonce values) over and over again in the hopes of
 	 * filling up our nonce database.
 	 */
-	er = nonce_validate(fname, auth->nonce, auth->count);
+	er = db_nonce_validate(auth->nonce, auth->count);
 
 	if (NONCE_ERR == er) {
-		kerrx("%s: nonce database failure", fname);
+		kerrx("%s: nonce database failure", auth->user);
 		return(-2);
 	} else if (NONCE_NOTFOUND == er) {
 		/*
@@ -64,13 +64,13 @@ httpauth_nonce(const char *fname, const struct httpauth *auth, char **np)
 		 * earlier session.
 		 * Tell them to retry with a new nonce.
 		 */
-		if ( ! nonce_new(fname, np)) {
-			kerrx("%s: nonce database failure", fname);
+		if ( ! db_nonce_new(np)) {
+			kerrx("%s: nonce database failure", auth->user);
 			return(-2);
 		}
 		return(0);
 	} else if (NONCE_REPLAY == er) {
-		kerrx("%s: REPLAY ATTACK: %s\n", fname, auth->user);
+		kerrx("%s: REPLAY ATTACK\n", auth->user);
 		return(-1);
 	} 
 
@@ -78,20 +78,20 @@ httpauth_nonce(const char *fname, const struct httpauth *auth, char **np)
 	 * Now we actually update our nonce file.
 	 * We only get here if the nonce value exists and is fresh.
 	 */
-	er = nonce_update(fname, auth->nonce, auth->count);
+	er = db_nonce_update(auth->nonce, auth->count);
 
 	if (NONCE_ERR == er) {
-		kerrx("%s: nonce database failure", fname);
+		kerrx("%s: nonce database failure", auth->user);
 		return(-2);
 	} else if (NONCE_NOTFOUND == er) {
-		kerrx("%s: nonce update not found?", fname);
-		if ( ! nonce_new(fname, np)) {
-			kerrx("%s: nonce database failure", fname);
+		kerrx("%s: nonce update not found?", auth->user);
+		if ( ! db_nonce_new(np)) {
+			kerrx("%s: nonce database failure", auth->user);
 			return(-2);
 		}
 		return(0);
 	} else if (NONCE_REPLAY == er) {
-		kerrx("%s: REPLAY ATTACK: %s\n", fname, auth->user);
+		kerrx("%s: REPLAY ATTACK\n", auth->user);
 		return(-1);
 	} 
 

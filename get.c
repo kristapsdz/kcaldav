@@ -18,7 +18,7 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -40,42 +40,45 @@
 void
 method_get(struct kreq *r)
 {
-	struct ical	*p;
+	struct res	*p;
 	struct state	*st = r->arg;
 	const char	*cp;
+	char		 etag[22];
+	int		 rc;
 
-	if ( ! (PERMS_READ & st->cfg->perms)) {
-		kerrx("%s: principal does not "
-			"have read acccess: %s", 
-			st->path, st->prncpl->name);
-		http_error(r, KHTTP_403);
-		return;
-	} else if (st->isdir) {
-		kerrx("%s: GET for collection", st->path);
+	if ('\0' == st->resource[0]) {
+		kerrx("%s: GET for collection", st->prncpl->name);
 		http_error(r, KHTTP_404);
 		return;
-	} else if (NULL == (p = ical_parsefile(st->path))) {
-		kerrx("%s: fail parse CalDAV XML "
-			"in client request", st->path);
+	}
+
+	rc = db_resource_load(&p, st->resource, st->cfg->id);
+	if (rc < 0) {
+		kerrx("%s: failed load resource", st->prncpl->name);
+		http_error(r, KHTTP_505);
+		return;
+	} else if (0 == rc) {
+		kerrx("%s: unknown resource", st->prncpl->name);
 		http_error(r, KHTTP_404);
 		return;
 	}
 
 	/* 
 	 * If we request with the If-None-Match header (see RFC 2068,
-	 * 14.26), then see if the ETag (MD5 hash) is consistent.
+	 * 14.26), then see if the ETag is consistent.
 	 * If it is, then indicate that the remote cache is ok.
 	 * If not, resend the data.
 	 */
 	if (NULL != r->reqmap[KREQU_IF_NONE_MATCH]) {
+		snprintf(etag, sizeof(etag), "%" PRId64, p->etag);
 		cp = r->reqmap[KREQU_IF_NONE_MATCH]->val;
-		if (0 == strcmp(p->digest, cp)) {
+		if (0 == strcmp(etag, cp)) {
 			khttp_head(r, kresps[KRESP_STATUS], 
 				"%s", khttps[KHTTP_304]);
 			khttp_head(r, kresps[KRESP_ETAG], 
-				"%s", p->digest);
+				"%" PRId64, p->etag);
 			khttp_body(r);
-			ical_free(p);
+			res_free(p);
 			return;
 		} 
 	} 
@@ -84,9 +87,9 @@ method_get(struct kreq *r)
 		"%s", khttps[KHTTP_200]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_CALENDAR]);
-	khttp_head(r, kresps[KRESP_ETAG], "%s", p->digest);
+	khttp_head(r, kresps[KRESP_ETAG], "%" PRId64, p->etag);
 	khttp_body(r);
-	ical_print(p, http_ical_putc, r);
-	ical_free(p);
+	ical_print(p->ical, http_ical_putc, r);
+	res_free(p);
 }
 

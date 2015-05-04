@@ -16,8 +16,6 @@
  */
 #include "config.h"
 
-#include <sys/stat.h>
-#include <sys/mman.h>
 #include <sys/time.h>
 
 #include <assert.h>
