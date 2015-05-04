@@ -21,24 +21,24 @@
 			<section>
 				<p>
 					<span class="nm">kcaldav</span> is a simple, safe, and minimal CalDav server depending only on <a
-						href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a> and <a
+						href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a>, <a
+						href="https://www.sqlite.org">SQLite</a>, and <a
 						href="http://expat.sourceforge.net/">expat(3)</a>.
 					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
 					For the time being, it works only for <strong>simple</strong> setups, for example, a calendar collection
 					shared between <a href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>, Mac OS
 					X iCal, and iOS7 (iPhone4) clients.
-					It compiles and runs on <a href="http://www.openbsd.org">OpenBSD</a>, Linux, and Mac OS X.
-					Setting up <span class="nm">kcaldav</span> is bumpy because each system will have different requirements
-					(user directories, full-system, virtual hosts, etc.).
-					The <span class="file">Makefile</span> contains a number of examples.
+					It compiles and runs on <a href="http://www.openbsd.org">OpenBSD</a>, Linux, and Mac OS X: see the <span
+						class="file">Makefile</span> for examples.
 					To begin within, download the <a href="snapshots/kcaldav.tgz">sources</a> and verify the <a
 						href="snapshots/kcaldav.tgz.sha512">fingerprint</a>.
 				</p>
 				<ol>
 					<li>
 						Install dependencies <a href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a>, <a
-							href="http://expat.sourceforge.net">expat(3)</a> (usually part of the operating system),
-						and <a href="http://libbsd.freedesktop.org/wiki/">bsd(3)</a> if using Linux.
+							href="https://www.sqlite.org">SQLite</a>, <a
+							href="http://expat.sourceforge.net">expat(3)</a>, and <a
+							href="http://libbsd.freedesktop.org/wiki/">bsd(3)</a> if using Linux.
 						<span class="nm">kcaldav</span> and <a href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a> are often
 						developed in tandem, so make sure you're up to date with both.
 					</li>
@@ -77,8 +77,8 @@
 				<h2>Recent Release History</h2>
 				<nav data-sblg-nav="1" data-sblg-navsz="6" data-sblg-navcontent="1">
 					<time datetime="${sblg-date}">${sblg-date}</time>
-					(version <span class="version">${sblg-title}</span>):
-					${sblg-aside}
+					(version <span class="version">${sblg-title}</span>)
+					<div>${sblg-aside}</div>
 				</nav>
 			</section>
 		</article>

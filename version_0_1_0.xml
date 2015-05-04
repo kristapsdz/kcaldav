@@ -10,9 +10,10 @@
 			and so on.
 			This completely replaces the existing file-system based infrastructure, which was too brittle, with a single database file.
 			All existing functionality is preserved, but there are some changes to be aware of if you're already using <span class="nm">kcaldav</span>.
-			Foremost, you can now have multiple calendars.
-			You can add calendar collections with <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
-			iOS and iCal clients deal with this in the usual way, but Thunderbird will need to point directly to the calendar collection.
+			Foremost, you can now have multiple calendars, for now via <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
+			To effect this change, all user calendars are now within subdirectories of the calendar root, e.g.,
+			<code>/cgi-bin/kcaldav/kristaps/calendar/</code> instead of directly in <code>.../kristaps/</code>.
+			iOS and iCal clients deal with this properly, but Thunderbird will need to point directly to the calendar collection.
 		</div>
 		<div>
 			To migrate an existing installation, you'll need to create a new database file with <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
