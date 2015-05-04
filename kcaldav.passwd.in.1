@@ -26,6 +26,7 @@
 .Sh SYNOPSIS
 .Nm kcaldav.passwd
 .Op Fl Cn
+.Op Fl d Ar directory
 .Op Fl e Ar email
 .Op Fl f Ar caldir
 .Op Fl u Ar user
@@ -41,7 +42,10 @@ existing passwords when it does so.
 Its arguments are as follows:
 .Bl -tag -width Ds
 .It Fl C
-Create a new user.
+Create a new user with a default email (see
+.Fl e )
+and calendar (see
+.Fl d ) .
 The current real user (via
 .Xr getuid 2 )
 must match the password database owner to use this option, or the real
@@ -52,6 +56,15 @@ set as the database owner.
 .It Fl n
 Do not change the user password, but only the user attributes (e.g.,
 .Fl e Ar email ) .
+.It Fl d Ar directory
+Add a calendar directory for the requested user, or set the default
+directory if specified with
+.Fl C .
+If not specified with
+.Fl C ,
+the directory
+.Dq calendar
+is used.
 .It Fl e Ar email
 Change the e-mail address of the requested user.
 This can be any email address.

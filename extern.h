@@ -465,6 +465,7 @@ void		  ical_rrule_generate(const struct icaltm *,
 struct caldav 	 *caldav_parse(const char *, size_t);
 void		  caldav_free(struct caldav *);
 
+int		  db_collection_new(const char *, int64_t);
 int		  db_collection_remove(int64_t);
 int		  db_collection_resources(void (*)(const struct res *, void *), int64_t, void *);
 int		  db_collection_update(const struct coln *);
@@ -474,7 +475,7 @@ enum nonceerr	  db_nonce_update(const char *, size_t);
 enum nonceerr	  db_nonce_validate(const char *, size_t);
 int		  db_owner_check_or_set(int64_t);
 int		  db_prncpl_load(struct prncpl **, const char *);
-int		  db_prncpl_new(const char *, const char *, const char *);
+int		  db_prncpl_new(const char *, const char *, const char *, const char *);
 int		  db_prncpl_update(const struct prncpl *);
 int		  db_resource_delete(const char *, int64_t, int64_t);
 int		  db_resource_remove(const char *, int64_t);
