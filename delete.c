@@ -98,7 +98,7 @@ method_delete(struct kreq *r)
 		kinfo("%s: cannot delete: %s", 
 			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_505);
-	} else {
+	} else { 
 		kinfo("%s: collection unlinked: %s", 
 			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_204);

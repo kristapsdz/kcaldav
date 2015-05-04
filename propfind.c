@@ -342,15 +342,18 @@ propfind_principal(struct kxmlreq *xml, const struct caldav *dav)
 }
 
 /*
- * Given a "directory" (i.e., a calendar collection), get all the
- * properties for the collection and, if a "depth" is specified, the
- * properties of all contained resources.
+ * Given a "directory" (i.e., a collection), get all the properties for
+ * the collection and, if a "depth" is specified, the properties of all
+ * contained resources.
+ * This can handle both calendar collections, which contain calendar
+ * resources, and principal collections that contain calendars.
  */
 static void
 propfind_directory(struct kxmlreq *xml, 
 	const struct caldav *dav, const struct coln *c)
 {
-	size_t		 depth;
+	size_t		 i, depth;
+	struct state	*st = xml->req->arg;
 	struct cbarg	 carg;
 
 	if (NULL == xml->req->reqmap[KREQU_DEPTH])
@@ -360,14 +363,23 @@ propfind_directory(struct kxmlreq *xml,
 	else
 		depth = 1;
 
-	propfind_collection(xml, dav, c);
+	if (NULL == c)
+		propfind_principal(xml, dav);
+	else
+		propfind_collection(xml, dav, c);
+
 	if (0 == depth)
 		return;
 
-	carg.xml = xml;
-	carg.c = c;
-	carg.dav = dav;
-	db_collection_resources(propfind_resource_cb, c->id, &carg);
+	if (NULL != c) {
+		carg.xml = xml;
+		carg.c = c;
+		carg.dav = dav;
+		db_collection_resources(propfind_resource_cb, c->id, &carg);
+	} else {
+		for (i = 0; i < st->prncpl->colsz; i++)
+			propfind_collection(xml, dav, &st->prncpl->cols[i]);
+	}
 }
 
 /*
@@ -537,7 +549,7 @@ method_propfind(struct kreq *r)
 	else if (NULL != res && NULL != st->cfg)
 		propfind_resource(&xml, dav, st->cfg, res);
 	else 
-		propfind_principal(&xml, dav);
+		propfind_directory(&xml, dav, NULL);
 
 	caldav_free(dav);
 	kxml_popall(&xml);

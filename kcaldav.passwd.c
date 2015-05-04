@@ -112,7 +112,8 @@ main(int argc, char *argv[])
 	char	 	 dnew[MD5_DIGEST_LENGTH * 2 + 1],
 			 drep[MD5_DIGEST_LENGTH * 2 + 1],
 			 dold[MD5_DIGEST_LENGTH * 2 + 1];
-	const char	*pname, *realm, *altuser, *dir, *email;
+	const char	*pname, *realm, *altuser, *dir, 
+	      		*email, *directory;
 	size_t		 sz;
 	uid_t		 euid;
 	gid_t		 egid;
@@ -143,6 +144,7 @@ main(int argc, char *argv[])
 	emailp = NULL;
 	p = NULL;
 	dir = CALDIR;
+	directory = NULL;
 	realm = KREALM;
 	create = 0;
 	passwd = 1;
@@ -153,10 +155,13 @@ main(int argc, char *argv[])
 	verbose = 0;
 	altuser = NULL;
 
-	while (-1 != (c = getopt(argc, argv, "Ce:f:nu:v"))) 
+	while (-1 != (c = getopt(argc, argv, "Cd:e:f:nu:v"))) 
 		switch (c) {
 		case ('C'):
 			create = passwd = 1;
+			break;
+		case ('d'):
+			directory = optarg;
 			break;
 		case ('e'):
 			email = optarg;
@@ -178,6 +183,14 @@ main(int argc, char *argv[])
 		}
 
 	assert('\0' != realm[0]);
+
+	if (NULL != directory && '\0' == directory[0]) {
+		kerrx("zero-length directory");
+		goto out;
+	} else if (NULL != directory && NULL != strchr(directory, '/')) {
+		kerrx("invalid directory");
+		goto out;
+	}
 
 	/* 
 	 * Assign our user name.
@@ -269,13 +282,23 @@ main(int argc, char *argv[])
 				sz - strlen(user) - 1);
 			email = emailp;
 		}
-		c = db_prncpl_new(user, dnew, email);
+		c = db_prncpl_new(user, dnew, email, 
+			NULL == directory ? "calendar" : directory);
 		if (0 == c) {
 			fprintf(stderr, "%s: principal exists\n", user);
 			goto out;
 		} else if (c < 0)
 			goto out;
 	} else if ((c = db_prncpl_load(&p, user)) > 0) {
+		if (NULL != directory) {
+			rc = db_collection_new(directory, p->id);
+			if (0 == rc) {
+				fprintf(stderr, "collection exists: "
+					"%s\n", directory);
+				goto out;
+			} else if (rc < 0)
+				goto out;
+		}
 		if (NULL == altuser)
 			if (memcmp(p->hash, dold, sizeof(dold))) {
 				fprintf(stderr, "password mismatch\n");
@@ -314,6 +337,7 @@ out:
 usage:
 	fprintf(stderr, "usage: %s "
 		"[-Cn] "
+		"[-d directory] "
 		"[-e email] "
 		"[-f caldir] "
 		"[-u user]\n", pname);

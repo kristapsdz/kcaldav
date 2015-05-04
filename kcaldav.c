@@ -411,7 +411,6 @@ main(int argc, char *argv[])
 	 * so now by querying the collections for our principal.
 	 */
 	if ('\0' != st->collection[0]) {
-		kdbg("collection lookup = %s (%d)", st->collection, st->collection[0]);
 		for (i = 0; i < st->prncpl->colsz; i++) {
 			if (strcmp(st->prncpl->cols[i].url, st->collection))
 				continue;
