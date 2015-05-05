@@ -27,6 +27,7 @@
 				Welcome, @@name@@.
 				This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a>
 				(version @@version@@) installation.
+				You have @@bytes-used@@ used and @@bytes-avail@@ available.
 				<span class="@@class-insecure@@">
 					This connection is <strong>not secure</strong>, so consider that your password hash is being sent in the clear!
 				</span>
@@ -39,9 +40,31 @@
 				<h2>
 					Your CalDAV Address
 				</h2>
-				<div class="input single principaluri">
-					<input readonly="readonly" type="text" value="@@uri@@" onclick="location.href='@@uri@@';" />
+				<ul class="calendars">
+					<li><a href="@@uri@@">@@uri@@</a></li>
+				</ul>
+				<aside>
+					Note: some clients (e.g., <a href="https://www.mozilla.org/thunderbird/">Mozilla Thunderbird</a>) may
+					not be able to use this address.  Instead, you'll need to specify the full URL of each individual
+					calendar.
+				</aside>
+			</section>
+			<section>
+				<h2>
+					Your CalDAV Calendars
+				</h2>
+				<ul class="calendars">
+					@@calendars@@
+				</ul>
+				<div class="error" id="newcoln-error">
+					Collection name must be a valid path component.
 				</div>
+				<form action="@@page-coln@@" method="post">
+					<div class="input double">
+						<input name="@@valid-path@@" type="text" required="required" />
+						<input value="Add Calendar" type="submit"/>
+					</div>
+				</form>
 			</section>
 			<section>
 				<h2>
@@ -64,6 +87,9 @@
 				<h2>
 					Your Password
 				</h2>
+				<div class="error" id="setpass-ok">
+					Your password has been reset.
+				</div>
 				<div class="input single">
 					<input placeholder="Enter Password" type="password" onkeyup="updatehash(this);" />
 				</div>
@@ -75,15 +101,12 @@
 					<script>
 						document.write('...will be hashed into the input box below.');
 					</script>
-					No passwords are stored on <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> servers.
+					(No passwords are stored on the server.)
 					You'll be logged out if you change your password.
 				</div>
 				<div class="error" id="setpass-error">
 					If you call that a password, I've a bridge to sell you.
 					Try again.
-				</div>
-				<div class="error" id="setpass-ok">
-					Your password has been reset.
 				</div>
 				<form action="@@page-pass@@" method="post">
 					<div class="input double">

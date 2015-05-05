@@ -10,7 +10,7 @@ footer					{ padding: 4ex 10%;
 					  font-size: 12pt;
 					  color: #aaa; }
 a					{ text-decoration: none; 
-					  color: #fff; }
+					  color: #0ff; }
 footer a				{ color: #ddd; }
 article					{ width: 80%;
 					  margin-left: auto;
@@ -79,7 +79,8 @@ kbd					{ font-size: 13pt; }
 					  color: #ffd452; }
 .error:target				{ display: block; }
 .noshow					{ display: none; }
-div.principaluri input			{ cursor: pointer; }
+ul.calendars				{ list-style-type: none;
+					  padding: 0; }
 @media only screen and (max-width: 768px), only screen and (max-device-width: 768px) {
 h1					{ font-size: 22pt; 
 					  text-align: center; }

@@ -19,6 +19,7 @@
 #include <sys/param.h>
 
 #include <assert.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <inttypes.h>
@@ -39,6 +40,46 @@
 #include "md5.h"
 
 int verbose = 0;
+
+/*
+ * See http_safe_string() in util.c.
+ * This isn't included directly because it's in the kcaldav front-end library.
+ */
+static int
+check_safe_string(const char *cp)
+{
+
+	if ('\0' == *cp)
+		return(0);
+	else if (0 == strcmp(cp, ".") || 0 == strcmp(cp, ".."))
+		return(0);
+
+	for (; '\0' != *cp; cp++)
+		switch (*cp) {
+		case ('.'):
+		case ('-'):
+		case ('_'):
+		case ('~'):
+		case ('!'):
+		case ('$'):
+		case ('('):
+		case (')'):
+		case ('*'):
+		case ('+'):
+		case (','):
+		case (';'):
+		case ('='):
+		case (':'):
+		case ('@'):
+			break;
+		default:
+			if (isalnum(*cp))
+				break;
+			return(0);
+		}
+
+	return(1);
+}
 
 /*
  * Read the file "name" into the returned buffer.
@@ -248,13 +289,10 @@ main(int argc, char *argv[])
 
 	assert('\0' != realm[0]);
 
-	if (NULL != coln && '\0' == coln[0]) {
-		kerrx("zero-length directory");
+	if (NULL != coln && ! check_safe_string(coln)) {
+		kerrx("unsafe directory string");
 		goto out;
-	} else if (NULL != coln && NULL != strchr(coln, '/')) {
-		kerrx("invalid directory");
-		goto out;
-	}
+	} 
 
 	/* 
 	 * Assign our user name.
@@ -265,8 +303,8 @@ main(int argc, char *argv[])
 	if (NULL == user) {
 		kerr(NULL);
 		goto out;
-	} else if ('\0' == user[0]) {
-		kerrx("zero-length username");
+	} else if ( ! check_safe_string(user)) {
+		kerrx("unsafe username string");
 		goto out;
 	}
 
@@ -444,6 +482,13 @@ main(int argc, char *argv[])
 			uid = argv[i];
 		else
 			uid++;
+
+		if ( ! check_safe_string(uid)) {
+			fprintf(stderr, "unsafe resource name\n");
+			free(res);
+			goto out;
+		}
+
 		rc = db_resource_new(res, uid, col->id);
 		free(res);
 		if (0 == rc) {

@@ -38,6 +38,7 @@
 enum	templ {
 	TEMPL_BYTES_AVAIL,
 	TEMPL_BYTES_USED,
+	TEMPL_CALENDARS,
 	TEMPL_CLASS_COLLECTION_WRITABLE,
 	TEMPL_CLASS_INSECURE,
 	TEMPL_COLOUR,
@@ -48,6 +49,7 @@ enum	templ {
 	TEMPL_HTURI,
 	TEMPL_NAME,
 	TEMPL_URI,
+	TEMPL_PAGE_COLN,
 	TEMPL_PAGE_EMAIL,
 	TEMPL_PAGE_HOME,
 	TEMPL_PAGE_PASS,
@@ -58,6 +60,7 @@ enum	templ {
 	TEMPL_VALID_EMAIL,
 	TEMPL_VALID_NAME,
 	TEMPL_VALID_PASS,
+	TEMPL_VALID_PATH,
 	TEMPL_VERSION,
 	TEMPL__MAX
 };
@@ -65,6 +68,7 @@ enum	templ {
 static	const char *const templs[TEMPL__MAX] = {
 	"bytes-avail", /* TEMPL_BYTES_AVAIL */
 	"bytes-used", /* TEMPL_BYTES_USED */
+	"calendars", /* TEMPL_CALENDARS */
 	"class-collection-writable", /* TEMPL_CLASS_COLLECTION_WRITABLE */
 	"class-insecure", /* TEMPL_CLASS_INSECURE */
 	"colour", /* TEMPL_COLOUR */
@@ -75,6 +79,7 @@ static	const char *const templs[TEMPL__MAX] = {
 	"hturi", /* TEMPL_HTURI */
 	"name", /* TEMPL_NAME */
 	"uri", /* TEMPL_URI */
+	"page-coln", /* TEMPL_PAGE_COLN */
 	"page-email", /* TEMPL_PAGE_EMAIL */
 	"page-home", /* TEMPL_PAGE_HOME */
 	"page-pass", /* TEMPL_PAGE_PASS */
@@ -85,6 +90,7 @@ static	const char *const templs[TEMPL__MAX] = {
 	"valid-email", /* TEMPL_VALID_EMAIL */
 	"valid-name", /* TEMPL_VALID_NAME */
 	"valid-pass", /* TEMPL_VALID_PASS */
+	"valid-path", /* TEMPL_VALID_PATH */
 	"version", /* TEMPL_VERSION */
 };
 
@@ -95,6 +101,7 @@ dotemplate(size_t key, void *arg)
 	struct khtmlreq  req;
 	struct state	*st = r->arg;
 	char		 buf[32];
+	char		*url;
 	size_t		 i;
 
 	khtml_open(&req, r);
@@ -117,8 +124,6 @@ dotemplate(size_t key, void *arg)
 		khtml_puts(&req, buf);
 		break;
 	case (TEMPL_BYTES_USED):
-		if (NULL == st->cfg)
-			break;
 		if (st->prncpl->quota_used > 1073741824) {
 			snprintf(buf, sizeof(buf), "%.2f GB", 
 				st->prncpl->quota_used / 
@@ -133,6 +138,34 @@ dotemplate(size_t key, void *arg)
 				(double)1024);
 		}
 		khtml_puts(&req, buf);
+		break;
+	case (TEMPL_CALENDARS):
+		/*
+		 * Note: we know the principal name and collection URL
+		 * are both well-formed because of how they strings are
+		 * sanity-checked in kcaldav.passwd(1).
+		 */
+		for (i = 0; i < st->prncpl->colsz; i++) {
+			kasprintf(&url, "%s/%s/%s/",
+				r->pname, st->prncpl->name, 
+				st->prncpl->cols[i].url);
+			khtml_elem(&req, KELEM_LI);
+			khtml_attr(&req, KELEM_A,
+				KATTR_HREF, url, KATTR__MAX);
+			khtml_puts(&req, kschemes[r->scheme]);
+			khtml_puts(&req, "://");
+			khtml_puts(&req, r->host);
+			khtml_puts(&req, r->pname);
+			khtml_putc(&req, '/');
+			khtml_puts(&req, st->prncpl->name);
+			khtml_putc(&req, '/');
+			khtml_puts(&req, st->prncpl->cols[i].url);
+			khtml_putc(&req, '/');
+			khtml_closeelem(&req, 2);
+			free(url);
+		}
+		if (0 == st->prncpl->colsz)
+			khtml_puts(&req, "No calendars.");
 		break;
 	case (TEMPL_CLASS_COLLECTION_WRITABLE):
 		if (NULL == st->cfg)
@@ -188,6 +221,12 @@ dotemplate(size_t key, void *arg)
 		khtml_puts(&req, st->prncpl->name);
 		khtml_putc(&req, '/');
 		break;
+	case (TEMPL_PAGE_COLN):
+		khtml_puts(&req, r->pname);
+		khtml_putc(&req, '/');
+		khtml_puts(&req, pages[PAGE_NEWCOLN]);
+		khtml_puts(&req, ".html");
+		break;
 	case (TEMPL_PAGE_EMAIL):
 		khtml_puts(&req, r->pname);
 		khtml_putc(&req, '/');
@@ -204,6 +243,7 @@ dotemplate(size_t key, void *arg)
 		khtml_puts(&req, r->pname);
 		khtml_putc(&req, '/');
 		khtml_puts(&req, pages[PAGE_SETPASS]);
+		khtml_puts(&req, ".html");
 		break;
 	case (TEMPL_PRIVS):
 		if (NULL == st->cfg)
@@ -237,6 +277,9 @@ dotemplate(size_t key, void *arg)
 	case (TEMPL_VALID_PASS):
 		khtml_puts(&req, valids[VALID_PASS]);
 		break;
+	case (TEMPL_VALID_PATH):
+		khtml_puts(&req, valids[VALID_PATH]);
+		break;
 	case (TEMPL_VERSION):
 		khtml_puts(&req, VERSION);
 		break;
@@ -264,7 +307,6 @@ dosetcollection(struct kreq *r)
 	if (NULL != r->fieldmap[VALID_NAME]) {
 		cfg.displayname = (char *)
 			r->fieldmap[VALID_NAME]->parsed.s;
-		kinfo("%s: display name modified", st->prncpl->name);
 		goto resp;
 	} else if (NULL != r->fieldnmap[VALID_NAME]) {
 		fragment = "#error";
@@ -280,7 +322,6 @@ dosetcollection(struct kreq *r)
 		if (7 == sz)
 			strlcat(colour, "ff", sizeof(colour));
 		cfg.colour = colour;
-		kinfo("%s: colour modified", st->prncpl->name);
 		goto resp;
 	} else if (NULL != r->fieldnmap[VALID_COLOUR]) {
 		fragment = "#error";
@@ -291,7 +332,6 @@ dosetcollection(struct kreq *r)
 	if (NULL != r->fieldmap[VALID_DESCRIPTION]) {
 		cfg.description = (char *)
 			r->fieldmap[VALID_DESCRIPTION]->parsed.s;
-		kinfo("%s: description modified", st->prncpl->name);
 		goto resp;
 	} else if (NULL != r->fieldnmap[VALID_DESCRIPTION]) {
 		fragment = "#error";
@@ -301,97 +341,107 @@ dosetcollection(struct kreq *r)
 resp:
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_303]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+		"%s", kmimetypes[r->mime]);
 	khttp_head(r, kresps[KRESP_LOCATION], "%s://%s%s%s%s", 
 		kschemes[r->scheme], r->host, r->pname, 
 		r->fullpath, NULL != fragment ? fragment : "");
 	khttp_body(r);
+	khttp_puts(r, "Redirecting...");
 
 	if (NULL != fragment)
 		return;
-	if (db_collection_update(&cfg))
-		return;
-	kerrx("%s: couldn't update collection", st->prncpl->name);
+	db_collection_update(&cfg);
 }
 
 static void
 dosetpass(struct kreq *r)
 {
-	char		*url;
-	char		 page[PATH_MAX];
-	int		 rc;
 	struct state	*st = r->arg;
+	const char	*fragment;
 	struct prncpl	 p;
 
 	p = *st->prncpl;
+	fragment = NULL;
 
-	if (NULL != r->fieldmap[VALID_PASS]) {
+	if (NULL != r->fieldmap[VALID_PASS]) { 
 		p.hash = (char *)r->fieldmap[VALID_PASS]->parsed.s;
-		rc = db_prncpl_update(&p);
-		kinfo("%s: password modified", st->prncpl->name);
-		snprintf(page, sizeof(page), 
-			"%s/%s.%s#%s", r->pname, 
-			pages[PAGE_INDEX], ksuffixes[r->mime],
-			rc ? "setpass-ok" : "error");
-	} else if (NULL == r->fieldnmap[VALID_PASS]) {
-		snprintf(page, sizeof(page), 
-			"%s/%s.%s", r->pname, 
-			pages[PAGE_INDEX], ksuffixes[r->mime]);
-	} else if (r->fieldnmap[VALID_PASS]->valsz) {
-		snprintf(page, sizeof(page), 
-			"%s/%s.%s#setpass-error", r->pname, 
-			pages[PAGE_INDEX], ksuffixes[r->mime]);
-	} else
-		snprintf(page, sizeof(page), 
-			"%s/%s.%s", r->pname, 
-			pages[PAGE_INDEX], ksuffixes[r->mime]);
+		if ( ! db_prncpl_update(&p))
+			fragment = "#error";
+		else
+			fragment = "#setpass-ok";
+	} else if (NULL != r->fieldnmap[VALID_PASS])
+		if (r->fieldnmap[VALID_PASS]->valsz)
+			fragment = "#setpass-error";
 
-	kasprintf(&url, "%s://%s%s", 
-		kschemes[r->scheme], r->host, page);
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_303]);
-	khttp_head(r, kresps[KRESP_LOCATION], "%s", url);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+		"%s", kmimetypes[r->mime]);
+	khttp_head(r, kresps[KRESP_LOCATION], "%s://%s%s/%s.%s%s", 
+		kschemes[r->scheme], r->host, r->pname,
+		pages[PAGE_INDEX], ksuffixes[r->mime],
+		NULL == fragment ? "" : fragment);
 	khttp_body(r);
-	free(url);
+	khttp_puts(r, "Redirecting...");
+}
+
+static void
+donewcoln(struct kreq *r)
+{
+	struct state	*st = r->arg;
+	const char	*fragment;
+
+	fragment = NULL;
+	if (NULL != r->fieldmap[VALID_PATH]) {
+		if (db_collection_new
+			 (r->fieldmap[VALID_PATH]->parsed.s, 
+			  st->prncpl->id) < 0)
+			fragment = "#error";
+	} else if (NULL != r->fieldnmap[VALID_PATH])
+		if (r->fieldnmap[VALID_PATH]->valsz) 
+			fragment = "#newcoln-error";
+
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_303]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+		"%s", kmimetypes[r->mime]);
+	khttp_head(r, kresps[KRESP_LOCATION], "%s://%s%s/%s.%s%s", 
+		kschemes[r->scheme], r->host, r->pname,
+		pages[PAGE_INDEX], ksuffixes[r->mime],
+		NULL == fragment ? "" : fragment);
+	khttp_body(r);
+	khttp_puts(r, "Redirecting...");
 }
 
 static void
 dosetemail(struct kreq *r)
 {
-	char		*url;
-	char		 page[PATH_MAX];
 	struct state	*st = r->arg;
-	int		 rc;
 	struct prncpl	 p;
+	const char	*fragment;
 
 	p = *st->prncpl;
+	fragment = NULL;
 
 	if (NULL != r->fieldmap[VALID_EMAIL]) {
 		p.email = (char *)r->fieldmap[VALID_EMAIL]->parsed.s;
-		rc = db_prncpl_update(&p);
-		snprintf(page, sizeof(page), 
-			"%s/%s.%s#%s", r->pname, 
-			pages[PAGE_INDEX], ksuffixes[r->mime],
-			rc ? "setemail-ok" : "error");
-	} else if (NULL == r->fieldnmap[VALID_EMAIL]) {
-		snprintf(page, sizeof(page), 
-			"%s/%s.%s", r->pname, 
-			pages[PAGE_INDEX], ksuffixes[r->mime]);
-	} else if (r->fieldnmap[VALID_EMAIL]->valsz) {
-		snprintf(page, sizeof(page), 
-			"%s/%s.%s#setemail-error", r->pname, 
-			pages[PAGE_INDEX], ksuffixes[r->mime]);
-	} else 
-		snprintf(page, sizeof(page), 
-			"%s/%s.%s", r->pname, 
-			pages[PAGE_INDEX], ksuffixes[r->mime]);
+		if ( ! db_prncpl_update(&p))
+			fragment = "#error";
+		else
+			fragment = "#setemail-ok";
+	} else if (NULL != r->fieldnmap[VALID_EMAIL]) 
+		if (r->fieldnmap[VALID_EMAIL]->valsz) 
+			fragment = "#setemail-error";
 
-	kasprintf(&url, "%s://%s%s", 
-		kschemes[r->scheme], r->host, page);
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_303]);
-	khttp_head(r, kresps[KRESP_LOCATION], "%s", url);
+	khttp_head(r, kresps[KRESP_LOCATION], "%s://%s%s/%s.%s%s", 
+		kschemes[r->scheme], r->host, r->pname,
+		pages[PAGE_INDEX], ksuffixes[r->mime],
+		NULL == fragment ? "" : fragment);
 	khttp_body(r);
-	free(url);
+	khttp_puts(r, "Redirecting...");
 }
 
 static void
@@ -469,19 +519,26 @@ method_dynamic_get(struct kreq *r)
 {
 	struct state	*st = r->arg;
 
-	if (NULL == st->cfg) {
-		kerrx("%s: GET of non-calendar "
-			"collection", st->prncpl->name);
-		http_error(r, KHTTP_403);
+	if (PAGE_INDEX == r->page) {
+		dogetindex(r);
+		return;
+	} else if (NULL == st->cfg) {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_303]);
+		khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+			"%s", kmimetypes[r->mime]);
+		khttp_head(r, kresps[KRESP_LOCATION], 
+			"%s://%s%s/", kschemes[r->scheme],
+			r->host, r->pname);
+		khttp_body(r);
+		khttp_puts(r, "Redirecting...");
+		return;
+	} else if ('\0' == st->resource[0]) {
+		dogetcollection(r);
 		return;
 	}
 
-	if (PAGE_INDEX == r->page) 
-		dogetindex(r);
-	else if ('\0' == st->resource[0])
-		dogetcollection(r);
-	else
-		http_error(r, KHTTP_404);
+	http_error(r, KHTTP_404);
 }
 
 /*
@@ -494,14 +551,10 @@ method_dynamic_post(struct kreq *r)
 {
 	struct state	*st = r->arg;
 
-	if (NULL == st->cfg) {
-		kerrx("%s: POST into non-calendar "
-			"collection", st->prncpl->name);
-		http_error(r, KHTTP_403);
-		return;
-	}
-
 	switch (r->page) {
+	case (PAGE_NEWCOLN):
+		donewcoln(r);
+		break;
 	case (PAGE_SETEMAIL):
 		dosetemail(r);
 		break;
@@ -509,7 +562,12 @@ method_dynamic_post(struct kreq *r)
 		dosetpass(r);
 		break;
 	default:
-		dosetcollection(r);
+		if (NULL == st->cfg) {
+			kerrx("%s: POST into non-calendar "
+				"collection", st->prncpl->name);
+			http_error(r, KHTTP_403);
+		} else
+			dosetcollection(r);
 		break;
 	}
 }
