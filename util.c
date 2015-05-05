@@ -114,6 +114,49 @@ http_paths(const char *in, char **pp, char **cp, char **rp)
 	return(1);
 }
 
+/*
+ * Check the safety of the string according to RFC 3986, section 3.3.
+ * Note that we don't allow percent-encodings, `&', and the apostrophe.
+ * This ensures that all words that will show up as path components
+ * (e.g., the principal name) are in fact already well-formed and
+ * needn't be re-encoded.
+ */
+int
+http_safe_string(const char *cp)
+{
+
+	if ('\0' == *cp)
+		return(0);
+	else if (0 == strcmp(cp, ".") || 0 == strcmp(cp, ".."))
+		return(0);
+
+	for (; '\0' != *cp; cp++)
+		switch (*cp) {
+		case ('.'):
+		case ('-'):
+		case ('_'):
+		case ('~'):
+		case ('!'):
+		case ('$'):
+		case ('('):
+		case (')'):
+		case ('*'):
+		case ('+'):
+		case (','):
+		case (';'):
+		case ('='):
+		case (':'):
+		case ('@'):
+			break;
+		default:
+			if (isalnum(*cp))
+				break;
+			return(0);
+		}
+
+	return(1);
+}
+
 int
 http_ical_putc(int c, void *arg)
 {
