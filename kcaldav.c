@@ -47,6 +47,7 @@ int verbose = 0;
 
 const char *const pages[PAGE__MAX] = {
 	"index", /* PAGE_INDEX */
+	"newcoln", /* PAGE_NEWCOLN */
 	"setemail", /* PAGE_SETEMAIL */
 	"setpass", /* PAGE_SETPASS */
 };
@@ -58,8 +59,37 @@ const char *const valids[VALID__MAX] = {
 	"email", /* VALID_EMAIL */
 	"name", /* VALID_NAME */
 	"pass", /* VALID_PASS */
-	"uri", /* VALID_URI */
+	"path", /* VALID_PATH */
 };
+
+/*
+ * The description of a calendar.
+ * Make sure this is less than 4K.
+ */
+static int
+kvalid_description(struct kpair *kp)
+{
+
+	if ( ! kvalid_stringne(kp))
+		return(0);
+	return (kp->valsz < 4096);
+}
+
+/*
+ * The name of a calendar collection.
+ * First, make sure that this is a safe, non-empty string.
+ * Second, make sure that it's less than 256B.
+ */
+static int
+kvalid_path(struct kpair *kp)
+{
+
+	if ( ! kvalid_stringne(kp))
+		return(0);
+	else if (kp->valsz > 256)
+		return(0);
+	return(http_safe_string(kp->val));
+}
 
 /*
  * The HTML5 string representation of a colour is a hex RGB.
@@ -176,11 +206,11 @@ main(int argc, char *argv[])
 	struct kvalid	 valid[VALID__MAX] = {
 		{ kvalid_body, valids[VALID_BODY] },
 		{ kvalid_colour, valids[VALID_COLOUR] },
-		{ kvalid_string, valids[VALID_DESCRIPTION] },
+		{ kvalid_description, valids[VALID_DESCRIPTION] },
 		{ kvalid_email, valids[VALID_EMAIL] },
 		{ kvalid_string, valids[VALID_NAME] },
 		{ kvalid_hash, valids[VALID_PASS] },
-		{ kvalid_stringne, valids[VALID_URI] } }; 
+		{ kvalid_path, valids[VALID_PATH] } }; 
 	struct state	*st;
 	struct httpauth	 auth;
 	int		 rc, v;
@@ -347,12 +377,7 @@ main(int argc, char *argv[])
 		kerrx("%s: bad authorisation", auth.user);
 		http_error(&r, KHTTP_401);
 		goto out;
-	} else if (strcmp(st->principal, st->prncpl->name)) {
-		kerrx("%s: requesting other principal "
-			"collection", st->prncpl->name);
-		http_error(&r, KHTTP_404);
-		goto out;
-	}
+	} 
 	
 #if 0
 	if (strcmp(r.rawauth.d.digest.uri, st->rpath)) {
@@ -406,6 +431,12 @@ main(int argc, char *argv[])
 		}
 	}
 
+	if (strcmp(st->principal, st->prncpl->name)) {
+		kerrx("%s: requesting other principal "
+			"collection", st->prncpl->name);
+		http_error(&r, KHTTP_404);
+		goto out;
+	}
 	/*
 	 * If we're going to look for a calendar collection, try to do
 	 * so now by querying the collections for our principal.

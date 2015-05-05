@@ -49,6 +49,7 @@ enum	xml {
 
 enum	page {
 	PAGE_INDEX = 0,
+	PAGE_NEWCOLN,
 	PAGE_SETEMAIL,
 	PAGE_SETPASS,
 	PAGE__MAX
@@ -61,7 +62,7 @@ enum	valid {
 	VALID_EMAIL,
 	VALID_NAME,
 	VALID_PASS,
-	VALID_URI,
+	VALID_PATH,
 	VALID__MAX
 };
 
@@ -89,6 +90,7 @@ int	 http_ical_putc(int, void *);
 
 void	 http_error(struct kreq *, enum khttp);
 int	 http_paths(const char *, char **, char **, char **);
+int	 http_safe_string(const char *);
 
 void	 method_delete(struct kreq *);
 void	 method_dynamic_get(struct kreq *);

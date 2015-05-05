@@ -19,21 +19,21 @@
 
 # Use this for installing into a single directory.
 # I use this on my Mac OS X laptop (no chroot(2)).
-#CALDIR		 = /Users/kristaps/Sites
-#HTDOCS	 	 = /~kristaps
-#CALPREFIX	 = /Users/kristaps/Sites
-#CGIPREFIX	 = /Users/kristaps/Sites
-#HTDOCSPREFIX	 = /Users/kristaps/Sites
-#PREFIX		 = /usr/local
+CALDIR		 = /Users/kristaps/Sites
+HTDOCS	 	 = /~kristaps
+CALPREFIX	 = /Users/kristaps/Sites
+CGIPREFIX	 = /Users/kristaps/Sites
+HTDOCSPREFIX	 = /Users/kristaps/Sites
+PREFIX		 = /usr/local
 
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
-CALDIR		 = /caldav
-HTDOCS	 	 = /kcaldav
-CALPREFIX	 = /var/www/caldav
-CGIPREFIX	 = /var/www/cgi-bin
-HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
-PREFIX		 = /usr/local
+#CALDIR		 = /caldav
+#HTDOCS	 	 = /kcaldav
+#CALPREFIX	 = /var/www/caldav
+#CGIPREFIX	 = /var/www/cgi-bin
+#HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
+#PREFIX		 = /usr/local
 
 # Add any special dependency directives here.
 # The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
@@ -47,16 +47,16 @@ PREFIX		 = /usr/local
 #BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-#LIBS		 = -lexpat -lsqlite3
-#STATIC		 = 
-#CPPFLAGS	+= -I/usr/local/include 
-#BINLDFLAGS	 = -L/usr/local/lib
-
-#### For Linux:
-LIBS		 = -lexpat -lutil -lbsd -lm -lsqlite3
+LIBS		 = -lexpat -lsqlite3
 STATIC		 = 
 CPPFLAGS	+= -I/usr/local/include 
 BINLDFLAGS	 = -L/usr/local/lib
+
+#### For Linux:
+#LIBS		 = -lexpat -lutil -lbsd -lm -lsqlite3
+#STATIC		 = 
+#CPPFLAGS	+= -I/usr/local/include 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 # You probably don't want to change anything after this point.
 
@@ -162,7 +162,7 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_15.xml \
 		   version_0_0_16.xml \
 		   version_0_1_0.xml
-VERSION		 = 0.0.16
+VERSION		 = 0.1.0
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
