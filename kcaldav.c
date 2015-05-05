@@ -16,6 +16,13 @@
  */
 #include "config.h"
 
+#if 0
+#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/uio.h>
+#include <sys/ktrace.h>
+#endif
+
 #include <assert.h>
 #include <ctype.h>
 #include <getopt.h>
@@ -248,7 +255,20 @@ main(int argc, char *argv[])
 		(&r, valid, VALID__MAX, 
 		 pages, PAGE__MAX, PAGE_INDEX))
 		return(EXIT_FAILURE);
-
+#if 0
+	ktrace("/tmp/kcaldav.trace", KTROP_SET,
+		KTRFAC_SYSCALL |
+		KTRFAC_SYSRET |
+		KTRFAC_NAMEI |
+		KTRFAC_GENIO |
+		KTRFAC_PSIG |
+		KTRFAC_EMUL |
+		KTRFAC_CSW |
+		KTRFAC_STRUCT |
+		KTRFAC_USER |
+		KTRFAC_INHERIT, 
+		getpid());
+#endif
 	verbose = v;
 
 	/* 
