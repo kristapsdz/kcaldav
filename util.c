@@ -17,6 +17,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
