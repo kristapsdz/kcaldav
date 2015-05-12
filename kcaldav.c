@@ -45,6 +45,7 @@
 
 #include "extern.h"
 #include "kcaldav.h"
+#include "md5.h"
 
 #ifndef CALDIR
 #error "CALDIR token not defined!"
@@ -68,6 +69,173 @@ const char *const valids[VALID__MAX] = {
 	"pass", /* VALID_PASS */
 	"path", /* VALID_PATH */
 };
+
+/*
+ * Run a series of checks for the nonce validity.
+ * This requires us to first open the nonce database read-only and see
+ * if we've seen the nonce or not.
+ * If we have and it's a replay--bam.
+ * Otherwise, re-open the database read-writable and check again.
+ * If we find it and it's a replay--bam.
+ * If we find it and it's not, update the nonce count.
+ * If we don't find it, start over.
+ * Return -2 on system failure, -1 on replay, 0 on stale, 1 on ok.
+ */
+static int
+nonce_validate(const struct httpauth *auth, char **np)
+{
+	enum nonceerr	 er;
+
+	/*
+	 * Now we see whether our nonce lookup fails.
+	 * This is still occuring over a read-only database, as an
+	 * adversary could be playing us by submitting replay attacks
+	 * (or random nonce values) over and over again in the hopes of
+	 * filling up our nonce database.
+	 */
+	er = db_nonce_validate(auth->nonce, auth->count);
+
+	if (NONCE_ERR == er) {
+		kerrx("%s: nonce database failure", auth->user);
+		return(-2);
+	} else if (NONCE_NOTFOUND == er) {
+		/*
+		 * We don't have the nonce.
+		 * This means that the client has either used one of our
+		 * bogus initial nonces or is using one from a much
+		 * earlier session.
+		 * Tell them to retry with a new nonce.
+		 */
+		if ( ! db_nonce_new(np)) {
+			kerrx("%s: nonce database failure", auth->user);
+			return(-2);
+		}
+		return(0);
+	} else if (NONCE_REPLAY == er) {
+		kerrx("%s: REPLAY ATTACK\n", auth->user);
+		return(-1);
+	} 
+
+	/*
+	 * Now we actually update our nonce file.
+	 * We only get here if the nonce value exists and is fresh.
+	 */
+	er = db_nonce_update(auth->nonce, auth->count);
+
+	if (NONCE_ERR == er) {
+		kerrx("%s: nonce database failure", auth->user);
+		return(-2);
+	} else if (NONCE_NOTFOUND == er) {
+		kerrx("%s: nonce update not found?", auth->user);
+		if ( ! db_nonce_new(np)) {
+			kerrx("%s: nonce database failure", auth->user);
+			return(-2);
+		}
+		return(0);
+	} else if (NONCE_REPLAY == er) {
+		kerrx("%s: REPLAY ATTACK\n", auth->user);
+		return(-1);
+	} 
+
+	return(1);
+}
+
+/*
+ * Hash validation.
+ * This takes the HTTP digest fields in "auth", constructs the
+ * "response" field given the information at hand, then compares the
+ * response fields to see if they're different.
+ * Depending on the HTTP options, this might involve a lot.
+ * RFC 2617 has a handy source code guide on how to do this.
+ */
+static int
+httpauth_validate(const struct prncpl *prncpl, 
+	const struct httpauth *auth)
+{
+	MD5_CTX	 	 ctx;
+	char		*hash;
+	unsigned char	 ha1[MD5_DIGEST_LENGTH],
+			 ha2[MD5_DIGEST_LENGTH],
+			 ha3[MD5_DIGEST_LENGTH];
+	char		 skey1[MD5_DIGEST_LENGTH * 2 + 1],
+			 skey2[MD5_DIGEST_LENGTH * 2 + 1],
+			 skey3[MD5_DIGEST_LENGTH * 2 + 1],
+			 count[9];
+	size_t		 i;
+
+	hash = prncpl->hash;
+
+	/*
+	 * MD5-sess hashes the nonce and client nonce as well as the
+	 * existing hash (user/real/pass).
+	 * Note that the existing hash is MD5_DIGEST_LENGTH * 2 as
+	 * validated by prncpl_pentry_check().
+	 */
+	if (HTTPALG_MD5_SESS == auth->alg) {
+		MD5Init(&ctx);
+		MD5Update(&ctx, hash, strlen(hash));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->cnonce, strlen(auth->cnonce));
+		MD5Final(ha1, &ctx);
+		for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
+			snprintf(&skey1[i * 2], 3, "%02x", ha1[i]);
+	} else 
+		strlcpy(skey1, hash, sizeof(skey1));
+
+	if (HTTPQOP_AUTH_INT == auth->qop) {
+		MD5Init(&ctx);
+		MD5Update(&ctx, auth->method, strlen(auth->method));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->uri, strlen(auth->uri));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->req, auth->reqsz);
+		MD5Final(ha2, &ctx);
+	} else {
+		MD5Init(&ctx);
+		MD5Update(&ctx, auth->method, strlen(auth->method));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->uri, strlen(auth->uri));
+		MD5Final(ha2, &ctx);
+	}
+
+	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
+		snprintf(&skey2[i * 2], 3, "%02x", ha2[i]);
+
+	if (HTTPQOP_AUTH_INT == auth->qop || HTTPQOP_AUTH == auth->qop) {
+		snprintf(count, sizeof(count), "%08lx", auth->count);
+		MD5Init(&ctx);
+		MD5Update(&ctx, skey1, MD5_DIGEST_LENGTH * 2);
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, count, strlen(count));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->cnonce, strlen(auth->cnonce));
+		MD5Update(&ctx, ":", 1);
+		if (HTTPQOP_AUTH_INT == auth->qop)
+			MD5Update(&ctx, "auth-int", 8);
+		else
+			MD5Update(&ctx, "auth", 4);
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, skey2, MD5_DIGEST_LENGTH * 2);
+		MD5Final(ha3, &ctx);
+	} else {
+		MD5Init(&ctx);
+		MD5Update(&ctx, skey1, MD5_DIGEST_LENGTH * 2);
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
+		MD5Update(&ctx, ":", 1);
+		MD5Update(&ctx, skey2, MD5_DIGEST_LENGTH * 2);
+		MD5Final(ha3, &ctx);
+	}
+
+	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
+		snprintf(&skey3[i * 2], 3, "%02x", ha3[i]);
+
+	return(0 == strcmp(auth->response, skey3));
+}
 
 /*
  * The description of a calendar.
@@ -391,9 +559,7 @@ main(int argc, char *argv[])
 		goto out;
 	} 
 	
-	rc = prncpl_validate(st->prncpl, &auth);
-
-	if (0 == rc) {
+	if (0 == (rc = httpauth_validate(st->prncpl, &auth))) {
 		kerrx("%s: bad authorisation", auth.user);
 		http_error(&r, KHTTP_401);
 		goto out;
@@ -415,7 +581,7 @@ main(int argc, char *argv[])
 	 * If this clears, that means that the principal is real and not
 	 * replaying prior HTTP authentications.
 	 */
-	if ((rc = httpauth_nonce(&auth, &np)) < -1) {
+	if ((rc = nonce_validate(&auth, &np)) < -1) {
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (rc < 0) {
