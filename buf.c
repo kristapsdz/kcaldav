@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "extern.h"
+#include "libkcaldav.h"
 
 void
 bufreset(struct buf *p)

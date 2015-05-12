@@ -28,7 +28,7 @@
 
 #include <expat.h>
 
-#include "extern.h"
+#include "libkcaldav.h"
 
 #define APPLENS		"http://apple.com/ns/ical/:"
 #define CALDAVNS	"urn:ietf:params:xml:ns:caldav:"
