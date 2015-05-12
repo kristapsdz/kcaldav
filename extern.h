@@ -19,46 +19,11 @@
 
 #include "libkcaldav.h"
 
-/*
- * Algorithm for HTTP digest.
- */
-enum	httpalg {
-	HTTPALG_MD5 = 0,
-	HTTPALG_MD5_SESS,
-	HTTPALG__MAX
-};
-
-/*
- * Quality of protection (QOP) for HTTP digest.
- */
-enum	httpqop {
-	HTTPQOP_NONE = 0,
-	HTTPQOP_AUTH,
-	HTTPQOP_AUTH_INT,
-	HTTPQOP__MAX
-};
-
-/*
- * Parsed HTTP ``Authorization'' header (RFC 2617).
- * These are just copied over from kcgi's values.
- */
 #define	KREALM		"kcaldav"
-struct	httpauth {
-	enum httpalg	 alg;
-	enum httpqop	 qop;
-	const char	*user;
-	const char	*uri;
-	const char	*realm;
-	const char	*nonce;
-	const char	*cnonce;
-	const char	*response;
-	size_t		 count;
-	const char	*opaque;
-	const char	*req;
-	size_t		 reqsz;
-	const char	*method;
-};
 
+/*
+ * Resource in a calendar collection.
+ */
 struct	res {
 	char		*data;
 	struct ical	*ical;
@@ -68,6 +33,9 @@ struct	res {
 	int64_t		 id;
 };
 
+/*
+ * A calendar collection.
+ */
 struct	coln {
 	char		*url; /* name of collection */
 	char		*displayname; /* displayname of collection */
@@ -79,8 +47,6 @@ struct	coln {
 
 /*
  * A principal is a user of the system.
- * The HTTP authorised user (struct httpauth) is matched against a list
- * of principals when the password file is read.
  */
 struct	prncpl {
 	char		*name; /* username */
