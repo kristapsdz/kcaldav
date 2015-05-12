@@ -104,7 +104,6 @@ ALLSRCS		 = Makefile \
 		   extern.h \
 		   get.c \
 		   home.html \
-		   httpauth.c \
 		   ical.c \
 		   kcaldav.c \
 		   kcaldav.h \
@@ -129,15 +128,14 @@ OBJS		 = db.o \
 		   compat-reallocarray.o \
 		   datetime.o \
 		   err.o \
-		   httpauth.o \
 		   ical.o \
-		   md5.o \
 		   principal.o \
 		   resource.o
 BINOBJS		 = delete.o \
 		   dynamic.o \
 		   get.o \
 		   kcaldav.o \
+		   md5.o \
 		   options.o \
 		   propfind.o \
 		   property.o \
@@ -216,8 +214,8 @@ kcaldav.tgz:
 kcaldav: $(BINOBJS) $(OBJS)
 	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) $(BINLDFLAGS) $(BINLIBS) 
 
-kcaldav.passwd: kcaldav.passwd.o $(OBJS)
-	$(CC) -o $@ kcaldav.passwd.o $(OBJS) $(LIBS)
+kcaldav.passwd: kcaldav.passwd.o md5.o $(OBJS)
+	$(CC) -o $@ kcaldav.passwd.o md5.o $(OBJS) $(LIBS)
 
 test-ical: test-ical.o $(OBJS)
 	$(CC) -o $@ test-ical.o $(OBJS) $(LIBS)

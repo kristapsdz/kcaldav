@@ -32,7 +32,6 @@
 #include <unistd.h>
 
 #include "extern.h"
-#include "md5.h"
 
 struct	icaltmcmp {
 	unsigned long	 year; /* x-1900, x>=1970 */

@@ -483,11 +483,7 @@ int		  db_resource_load(struct res **, const char *, int64_t);
 int		  db_resource_new(const char *, const char *, int64_t);
 int		  db_resource_update(const char *, const char *, int64_t, int64_t);
 
-int		  httpauth_nonce(const struct httpauth *, char **);
-
 void		  prncpl_free(struct prncpl *);
-int		  prncpl_validate(const struct prncpl *, 
-			const struct httpauth *);
 
 void		  res_free(struct res *);
 
