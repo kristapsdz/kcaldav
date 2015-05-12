@@ -31,7 +31,6 @@
 #include <unistd.h>
 
 #include "extern.h"
-#include "md5.h"
 
 /*
  * This is a misnomer: it should be "icalcomponents".
@@ -1151,12 +1150,9 @@ struct ical *
 ical_parse(const char *file, const char *cp, size_t sz)
 {
 	struct icalparse pp;
-	unsigned char	 digest[MD5_DIGEST_LENGTH];
 	char		*name, *val, *param;
 	int		 rc;
-	MD5_CTX		 ctx;
 	struct ical	*p;
-	size_t		 i;
 
 	memset(&pp, 0, sizeof(struct icalparse));
 	pp.file = NULL == file ? "<buffer>" : file;
@@ -1167,12 +1163,6 @@ ical_parse(const char *file, const char *cp, size_t sz)
 		kerr(NULL);
 		return(NULL);
 	}
-
-	MD5Init(&ctx);
-	MD5Update(&ctx, cp, sz);
-	MD5Final(digest, &ctx);
-	for (i = 0; i < sizeof(digest); i++) 
-	         snprintf(&p->digest[i * 2], 3, "%02x", digest[i]);
 
 	while (pp.pos < pp.sz) {
 		if ((rc = ical_line(&pp, &name, &param, &val)) < 0)
