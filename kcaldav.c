@@ -71,6 +71,45 @@ const char *const valids[VALID__MAX] = {
 };
 
 /*
+ * Algorithm for HTTP digest.
+ */
+enum	httpalg {
+	HTTPALG_MD5 = 0,
+	HTTPALG_MD5_SESS,
+	HTTPALG__MAX
+};
+
+/*
+ * Quality of protection (QOP) for HTTP digest.
+ */
+enum	httpqop {
+	HTTPQOP_NONE = 0,
+	HTTPQOP_AUTH,
+	HTTPQOP_AUTH_INT,
+	HTTPQOP__MAX
+};
+
+/*
+ * Parsed HTTP ``Authorization'' header (RFC 2617).
+ * These are just copied over from kcgi's values.
+ */
+struct	httpauth {
+	enum httpalg	 alg;
+	enum httpqop	 qop;
+	const char	*user;
+	const char	*uri;
+	const char	*realm;
+	const char	*nonce;
+	const char	*cnonce;
+	const char	*response;
+	size_t		 count;
+	const char	*opaque;
+	const char	*req;
+	size_t		 reqsz;
+	const char	*method;
+};
+
+/*
  * Run a series of checks for the nonce validity.
  * This requires us to first open the nonce database read-only and see
  * if we've seen the nonce or not.
