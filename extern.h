@@ -317,7 +317,6 @@ struct	ical {
 #define	ICAL_VFREEBUSY	 0x010
 #define	ICAL_VTIMEZONE	 0x020
 #define	ICAL_VALARM	 0x040
-	char	 	 digest[33];
 	struct icalnode	*first;
 	struct icalcomp	*comps[ICALTYPE__MAX];
 };
