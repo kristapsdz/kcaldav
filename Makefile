@@ -120,15 +120,15 @@ ALLSRCS		 = Makefile \
 		   resource.c \
 		   style.css \
 		   util.c
-OBJS		 = db.o \
-		   buf.o \
+LIBOBJS		 = buf.o \
 		   caldav.o \
 		   compat-explicit_bzero.o \
 		   compat-memmem.o \
 		   compat-reallocarray.o \
 		   datetime.o \
 		   err.o \
-		   ical.o \
+		   ical.o
+OBJS		 = db.o \
 		   principal.o \
 		   resource.o
 BINOBJS		 = delete.o \
@@ -143,6 +143,7 @@ BINOBJS		 = delete.o \
 		   put.o \
 		   util.o
 ALLOBJS		 = $(TESTOBJS) \
+		   $(LIBOBJS) \
 		   $(BINOBJS) \
 		   $(OBJS) \
 		   kcaldav.passwd.o
@@ -189,11 +190,15 @@ updatecgi: all
 
 install: all
 	mkdir -p $(PREFIX)/bin
+	mkdir -p $(PREFIX)/lib
+	mkdir -p $(PREFIX)/include
 	mkdir -p $(PREFIX)/man/man8
 	mkdir -p $(PREFIX)/man/man1
 	install -m 0555 kcaldav.passwd $(PREFIX)/bin
 	install -m 0444 kcaldav.passwd.1 $(PREFIX)/man/man1
 	install -m 0444 kcaldav.8 $(PREFIX)/man/man8
+	install -m 0444 libkcaldav.a $(PREFIX)/lib
+	install -m 0444 libkcaldav.h $(PREFIX)/include
 
 installwww: www
 	mkdir -p $(PREFIX)/snapshots
@@ -211,23 +216,26 @@ kcaldav.tgz:
 	(cd .dist && tar zcf ../$@ kcaldav-$(VERSION))
 	rm -rf .dist
 
-kcaldav: $(BINOBJS) $(OBJS)
-	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) $(BINLDFLAGS) $(BINLIBS) 
+libkcaldav.a: $(LIBOBJS)
+	$(AR) -rs $@ $(LIBOBJS)
 
-kcaldav.passwd: kcaldav.passwd.o md5.o $(OBJS)
-	$(CC) -o $@ kcaldav.passwd.o md5.o $(OBJS) $(LIBS)
+kcaldav: $(BINOBJS) $(OBJS) libkcaldav.a
+	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) libkcaldav.a $(BINLDFLAGS) $(BINLIBS) 
 
-test-ical: test-ical.o $(OBJS)
-	$(CC) -o $@ test-ical.o $(OBJS) $(LIBS)
+kcaldav.passwd: kcaldav.passwd.o md5.o $(OBJS) libkcaldav.a
+	$(CC) -o $@ kcaldav.passwd.o md5.o $(OBJS) libkcaldav.a $(LIBS)
 
-test-rrule: test-rrule.o $(OBJS)
-	$(CC) -o $@ test-rrule.o $(OBJS) $(LIBS)
+test-ical: test-ical.o $(OBJS) libkcaldav.a
+	$(CC) -o $@ test-ical.o $(OBJS) libkcaldav.a $(LIBS)
 
-test-nonce: test-nonce.o $(OBJS)
-	$(CC) -o $@ test-nonce.o $(OBJS) $(LIBS)
+test-rrule: test-rrule.o $(OBJS) libkcaldav.a
+	$(CC) -o $@ test-rrule.o $(OBJS) libkcaldav.a $(LIBS)
 
-test-caldav: test-caldav.o $(OBJS)
-	$(CC) -o $@ test-caldav.o $(OBJS) $(LIBS)
+test-nonce: test-nonce.o $(OBJS) libkcaldav.a
+	$(CC) -o $@ test-nonce.o $(OBJS) libkcaldav.a $(LIBS)
+
+test-caldav: test-caldav.o $(OBJS) libkcaldav.a
+	$(CC) -o $@ test-caldav.o $(OBJS) libkcaldav.a $(LIBS)
 
 $(ALLOBJS): extern.h md5.h config.h
 
@@ -245,7 +253,7 @@ kcaldav.passwd.1: kcaldav.passwd.in.1
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.passwd.in.1 >$@
 
 clean:
-	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1
+	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1 libkcaldav.a
 	rm -rf *.dSYM
 	rm -f $(HTMLS) kcaldav.tgz kcaldav.tgz.sha512
 	rm -f test-memmem test-reallocarray test-explicit_bzero
