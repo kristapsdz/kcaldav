@@ -17,23 +17,8 @@
 #include "config.h"
 
 #include <assert.h>
-#include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
-#ifdef __linux__
-#include <bsd/string.h>
-#endif
-#include <unistd.h>
-#ifdef __linux__
-#include <bsd/stdio.h>
-#else
-#include <util.h>
-#endif
 
 #include <kcgi.h>
 
