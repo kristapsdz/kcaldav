@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "extern.h"
+#include "libkcaldav.h"
 
 int verbose = 1;
 
