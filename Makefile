@@ -1,4 +1,4 @@
-.SUFFIXES: .5 .8 .5.html .8.html .1 .1.html
+.SUFFIXES: .3 .3.html .5 .8 .5.html .8.html .1 .1.html
 
 # This is the directory prepended to all calendar requests.
 # It is relative to the CGI process's file-system root.
@@ -41,7 +41,7 @@ PREFIX		 = /usr/local
 # Most web servers provide this; others (e.g., OpenBSD httpd(8)) don't.
 
 #### For OpenBSD:
-#LIBS		 = -lexpat -lutil -lm -lsqlite3
+#LIBS		 = -lexpat -lm -lsqlite3
 #STATIC		 = -static
 #CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
 #BINLDFLAGS	 = -L/usr/local/lib
@@ -53,7 +53,7 @@ CPPFLAGS	+= -I/usr/local/include
 BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Linux:
-#LIBS		 = -lexpat -lutil -lbsd -lm -lsqlite3
+#LIBS		 = -lexpat -lbsd -lm -lsqlite3
 #STATIC		 = 
 #CPPFLAGS	+= -I/usr/local/include 
 #BINLDFLAGS	 = -L/usr/local/lib
@@ -77,9 +77,11 @@ TESTOBJS 	 = test-caldav.o \
 		   test-rrule.o
 HTMLS	 	 = index.html \
 		   kcaldav.8.html \
-		   kcaldav.passwd.1.html
+		   kcaldav.passwd.1.html \
+		   libkcaldav.3.html
 MANS		 = kcaldav.in.8 \
-		   kcaldav.passwd.in.1
+		   kcaldav.passwd.in.1 \
+		   libkcaldav.3
 CTESTSRCS	 = test-explicit_bzero.c \
 		   test-memmem.c \
 		   test-reallocarray.c
@@ -108,6 +110,7 @@ ALLSRCS		 = Makefile \
 		   kcaldav.c \
 		   kcaldav.h \
 		   kcaldav.passwd.c \
+		   libkcaldav.h \
 		   md5.js \
 		   md5.c \
 		   md5.h \
@@ -160,8 +163,9 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_14.xml \
 		   version_0_0_15.xml \
 		   version_0_0_16.xml \
-		   version_0_1_0.xml
-VERSION		 = 0.1.0
+		   version_0_1_0.xml \
+		   version_0_1_1.xml
+VERSION		 = 0.1.1
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
@@ -179,7 +183,7 @@ config.h: config.h.pre config.h.post configure $(CTESTSRCS)
 	rm -f config.log
 	CC="$(CC)" CFLAGS="$(CFLAGS)" ./configure
 
-updatecgi: all
+installcgi: all
 	mkdir -p $(CGIPREFIX)
 	mkdir -p $(HTDOCSPREFIX)
 	mkdir -p $(CALPREFIX)
@@ -193,10 +197,12 @@ install: all
 	mkdir -p $(PREFIX)/lib
 	mkdir -p $(PREFIX)/include
 	mkdir -p $(PREFIX)/man/man8
+	mkdir -p $(PREFIX)/man/man3
 	mkdir -p $(PREFIX)/man/man1
 	install -m 0555 kcaldav.passwd $(PREFIX)/bin
 	install -m 0444 kcaldav.passwd.1 $(PREFIX)/man/man1
 	install -m 0444 kcaldav.8 $(PREFIX)/man/man8
+	install -m 0444 libkcaldav.3 $(PREFIX)/man/man3
 	install -m 0444 libkcaldav.a $(PREFIX)/lib
 	install -m 0444 libkcaldav.h $(PREFIX)/include
 
@@ -225,19 +231,19 @@ kcaldav: $(BINOBJS) $(OBJS) libkcaldav.a
 kcaldav.passwd: kcaldav.passwd.o md5.o $(OBJS) libkcaldav.a
 	$(CC) -o $@ kcaldav.passwd.o md5.o $(OBJS) libkcaldav.a $(LIBS)
 
-test-ical: test-ical.o $(OBJS) libkcaldav.a
-	$(CC) -o $@ test-ical.o $(OBJS) libkcaldav.a $(LIBS)
+test-ical: test-ical.o libkcaldav.a
+	$(CC) -o $@ test-ical.o libkcaldav.a $(LIBS)
 
-test-rrule: test-rrule.o $(OBJS) libkcaldav.a
-	$(CC) -o $@ test-rrule.o $(OBJS) libkcaldav.a $(LIBS)
+test-rrule: test-rrule.o libkcaldav.a
+	$(CC) -o $@ test-rrule.o libkcaldav.a $(LIBS)
 
 test-nonce: test-nonce.o $(OBJS) libkcaldav.a
 	$(CC) -o $@ test-nonce.o $(OBJS) libkcaldav.a $(LIBS)
 
-test-caldav: test-caldav.o $(OBJS) libkcaldav.a
-	$(CC) -o $@ test-caldav.o $(OBJS) libkcaldav.a $(LIBS)
+test-caldav: test-caldav.o libkcaldav.a
+	$(CC) -o $@ test-caldav.o libkcaldav.a $(LIBS)
 
-$(ALLOBJS): extern.h md5.h config.h
+$(ALLOBJS): extern.h libkcaldav.h md5.h config.h
 
 $(BINOBJS): kcaldav.h
 
@@ -259,5 +265,5 @@ clean:
 	rm -f test-memmem test-reallocarray test-explicit_bzero
 	rm -f config.h config.log
 
-.8.8.html .5.5.html .1.1.html:
+.8.8.html .5.5.html .3.3.html .1.1.html:
 	mandoc -Wall -Thtml $< >$@
