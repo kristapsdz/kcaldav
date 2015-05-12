@@ -30,7 +30,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "extern.h"
+#include "libkcaldav.h"
 
 /*
  * This is a misnomer: it should be "icalcomponents".
