@@ -199,8 +199,8 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 	tm->year += 100 * (cp[1] - 48);
 	tm->year += 10 * (cp[2] - 48);
 	tm->year += 1 * (cp[3] - 48);
-	if (tm->year < 1970) {
-		kerrx("%s:%zu: bad year", p->file, p->line);
+	if (tm->year < 1900) {
+		kerrx("%s:%zu: bad year (before 1900)", p->file, p->line);
 		return(0);
 	}
 
@@ -292,11 +292,14 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 	 * Specification", Base definitions (4: General concepts), part
 	 * 15: Seconds since epoch.
 	 */
-	tm->tm = tm->sec + tm->min * 60 + tm->hour * 3600 + 
-		tm->day * 86400 + (tm->year - 70) * 31536000 + 
-		((tm->year - 69) / 4) * 86400 -
-		((tm->year - 1) / 100) * 86400 + 
-		((tm->year + 299) / 400) * 86400;
+	if (tm->year >= 70) {
+		tm->tm = tm->sec + tm->min * 60 + tm->hour * 3600 + 
+			tm->day * 86400 + (tm->year - 70) * 31536000 + 
+			((tm->year - 69) / 4) * 86400 -
+			((tm->year - 1) / 100) * 86400 + 
+			((tm->year + 299) / 400) * 86400;
+	} else
+		kerrx("%s:%zu: pre-epoch year", p->file, p->line);
 
 	/*
 	 * Use Zeller's congruence to compute the weekday starting on
