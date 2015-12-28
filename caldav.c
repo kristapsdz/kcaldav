@@ -352,10 +352,20 @@ cdata(void *dat)
 	/* Intentionally left blank. */
 }
 
+static char
+parsehex(char ch)
+{
+
+	return(isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
+}
+
 static void
 parseclose(void *dat, const XML_Char *s)
 {
-	struct parse	*p = dat;
+	struct parse	 *p = dat;
+	size_t		  i, j, sz, len;
+	int		  c;
+	char		**array;
 
 	switch (calelem_find(s)) {
 	case (CALELEM_CALENDAR_MULTIGET):
@@ -369,18 +379,49 @@ parseclose(void *dat, const XML_Char *s)
 	case (CALELEM_HREF):
 		if (0 == p->buf.sz)
 			break;
-		p->p->hrefs = reallocarray(p->p->hrefs, 
+		/*
+		 * According to the WebDAV RFC 4918, we need to URL
+		 * decode this.
+		 */
+		array = reallocarray(p->p->hrefs, 
 			p->p->hrefsz + 1, sizeof(char *));
-		if (NULL == p->p->hrefs) {
+		if (NULL == array) {
 			caldav_err(p, "memory exhausted");
 			break;
 		}
-		p->p->hrefs[p->p->hrefsz] = strdup(p->buf.buf);
+		p->p->hrefs = array;
+		sz = strlen(p->buf.buf);
+		len = sz + 1;
+		p->p->hrefs[p->p->hrefsz] = calloc(len, 1);
 		if (NULL == p->p->hrefs[p->p->hrefsz]) {
 			caldav_err(p, "memory exhausted");
 			break;
 		}
 		p->p->hrefsz++;
+		for (i = j = 0; i < sz; i++, j++) {
+			c = p->buf.buf[i];
+			if ('+' == c) {
+				p->p->hrefs[p->p->hrefsz - 1][j] = ' ';
+				continue;
+			} else if ('%' != c) {
+				p->p->hrefs[p->p->hrefsz - 1][j] = c;
+				continue;
+			}
+
+			if ('\0' == p->buf.buf[i + 1] ||
+			    '\0' == p->buf.buf[i + 2] ||
+			    ! isalnum(p->buf.buf[i + 1]) ||
+			    ! isalnum(p->buf.buf[i + 2])) {
+				caldav_err(p, "bad percent-encoding");
+				break;
+			}
+
+			p->p->hrefs[p->p->hrefsz - 1][j] = 
+				parsehex(p->buf.buf[i + 1]) << 4 |
+				parsehex(p->buf.buf[i + 2]);
+			i += 2;
+		}
+
 		XML_SetDefaultHandler(p->xp, NULL);
 		break;
 	default:

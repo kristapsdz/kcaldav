@@ -1071,8 +1071,10 @@ db_resource_load(struct res **pp, const char *url, int64_t colid)
 		/* Parse the full iCalendar. */
 		(*pp)->ical = ical_parse(NULL, 
 			(*pp)->data, strlen((*pp)->data));
-		if (NULL == (*pp)->ical)
+		if (NULL == (*pp)->ical) {
+			kerrx("%s: failed to parse ical", url);
 			goto err;
+		}
 		db_finalise(&stmt);
 		return(1);
 	} else if (SQLITE_DONE == rc) {
