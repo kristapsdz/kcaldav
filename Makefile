@@ -164,8 +164,9 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_0_15.xml \
 		   version_0_0_16.xml \
 		   version_0_1_0.xml \
-		   version_0_1_1.xml
-VERSION		 = 0.1.1
+		   version_0_1_1.xml \
+		   version_0_1_2.xml
+VERSION		 = 0.1.2
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
