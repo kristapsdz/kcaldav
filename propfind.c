@@ -393,6 +393,7 @@ propfind_list(struct kxmlreq *xml, const struct caldav *dav)
 	struct state	*st = xml->req->arg;
 	size_t		 i, j;
 	struct res	*res;
+	char		*cp;
 
 	for (i = 0; i < dav->hrefsz; i++) {
 		res = propfind_resource_lookup(xml, dav->hrefs[i]);
@@ -411,7 +412,10 @@ propfind_list(struct kxmlreq *xml, const struct caldav *dav)
 		kxml_push(xml, XML_DAV_RESPONSE);
 		kxml_push(xml, XML_DAV_HREF);
 		kxml_puts(xml, xml->req->pname);
-		kxml_puts(xml, dav->hrefs[i]);
+		/* Remember to URL encode! */
+		cp = kutil_urlencode(dav->hrefs[i]);
+		kxml_puts(xml, cp);
+		free(cp);
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_STATUS);
 		kxml_puts(xml, "HTTP/1.1 ");
