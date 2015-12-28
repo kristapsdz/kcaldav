@@ -41,16 +41,16 @@ PREFIX		 = /usr/local
 # Most web servers provide this; others (e.g., OpenBSD httpd(8)) don't.
 
 #### For OpenBSD:
-#LIBS		 = -lexpat -lm -lsqlite3
-#STATIC		 = -static
-#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-#BINLDFLAGS	 = -L/usr/local/lib
+LIBS		 = -lexpat -lm -lsqlite3
+STATIC		 = -static
+CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
+BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-LIBS		 = -lexpat -lsqlite3
-STATIC		 = 
-CPPFLAGS	+= -I/usr/local/include 
-BINLDFLAGS	 = -L/usr/local/lib
+#LIBS		 = -lexpat -lsqlite3
+#STATIC		 = 
+#CPPFLAGS	+= -I/usr/local/include 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lbsd -lm -lsqlite3
