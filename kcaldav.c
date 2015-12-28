@@ -563,6 +563,20 @@ main(int argc, char *argv[])
 		auth.reqsz = 0;
 	}
 
+	if ('\0' == r.fullpath[0]) {
+		np = kutil_urlabs(r.scheme, r.host, r.port, r.pname);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_303]);
+	        khttp_head(&r, kresps[KRESP_CONTENT_TYPE], 
+			"%s", kmimetypes[r.mime]);
+		khttp_head(&r, kresps[KRESP_LOCATION], 
+			"%s/", np);
+		khttp_body(&r);
+		khttp_puts(&r, "Redirecting...");
+		free(np);
+		goto out;
+	}
+
 	/* 
 	 * First, validate our request paths.
 	 * This is just a matter of copying them over.
