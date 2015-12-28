@@ -1,0 +1,11 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.1.3</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-12-28">2015-12-28</time>
+	</header>
+	<aside>
+		Make web-interface access to the <q>null</q> directory (e.g., /cgi-bin/kcaldav) automatically redirect to the root directory
+		instead of crashing the system.
+	</aside>
+</article>
