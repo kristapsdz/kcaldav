@@ -73,7 +73,7 @@
 						href="http://kristaps.bsd.lv">Kristaps</a>.
 				</p>
 			</section>
-			<section>
+			<section id="history">
 				<h2>Recent Release History</h2>
 				<nav data-sblg-nav="1" data-sblg-navsz="6" data-sblg-navcontent="1">
 					<time datetime="${sblg-date}">${sblg-date}</time>

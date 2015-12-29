@@ -25,19 +25,33 @@
 .Sh SYNOPSIS
 .In time.h
 .In libkcaldav.h
-.Fo "struct ical *"
-.Fn ical_parse
+.Ft void
+.Fo caldav_free
+.Fa "struct caldav *p"
+.Fc
+.Ft "struct caldav *"
+.Fo caldav_parse
+.Fa "const char *buf"
+.Fa "size_t bufsz"
+.Fc
+.Ft void
+.Fo ical_free
+.Fa "struct ical *p"
+.Fc
+.Ft "struct ical *"
+.Fo ical_parse
 .Fa "const char *file"
 .Fa "const char *buf"
 .Fa "size_t bufsz"
 .Fc
 .Sh DESCRIPTION
-The...
-.Bd -literal
-#include <time.h>
-#include <libkcaldav.h>
-
-int main(void) {
-  return(1);
-}
-.Ed
+The
+.Nm libkcaldav
+library parses CalDAV and iCalendar files.
+This documentation is only a stub: it is yet to be written.
+.Sh STANDARDS
+The
+.Nm libkcaldav
+library minimally implements RFC 4918 (WebDAV), RFC 4791 (CalDAV),
+caldav-ctag-02 (CalDAV ctags), RFC 3744 (only the ACL component), RFC 5397
+(current principal address), and RFC 4331 (file-system quota).
