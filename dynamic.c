@@ -387,6 +387,41 @@ dosetpass(struct kreq *r)
 }
 
 static void
+dodelcoln(struct kreq *r)
+{
+	struct state	*st = r->arg;
+	const char	*fragment;
+	struct coln	*coln;
+	int		 rc;
+
+	fragment = NULL;
+	if (NULL != r->fieldmap[VALID_ID]) {
+		rc = db_collection_loadid
+			(&coln,
+			 r->fieldmap[VALID_ID]->parsed.i,
+			 st->prncpl->id);
+		if (rc > 0 && db_collection_remove(coln->id) < 0)
+			fragment = "#error";
+		else if (rc < 0)
+			fragment = "#error";
+		db_collection_free(coln);
+	} else if (NULL != r->fieldnmap[VALID_ID])
+		if (r->fieldnmap[VALID_ID]->valsz) 
+			fragment = "#delcoln-error";
+
+	khttp_head(r, kresps[KRESP_STATUS], 
+		"%s", khttps[KHTTP_303]);
+	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+		"%s", kmimetypes[r->mime]);
+	khttp_head(r, kresps[KRESP_LOCATION], "%s://%s%s/%s.%s%s", 
+		kschemes[r->scheme], r->host, r->pname,
+		pages[PAGE_INDEX], ksuffixes[r->mime],
+		NULL == fragment ? "" : fragment);
+	khttp_body(r);
+	khttp_puts(r, "Redirecting...");
+}
+
+static void
 donewcoln(struct kreq *r)
 {
 	struct state	*st = r->arg;
@@ -552,6 +587,9 @@ method_dynamic_post(struct kreq *r)
 	struct state	*st = r->arg;
 
 	switch (r->page) {
+	case (PAGE_DELCOLN):
+		dodelcoln(r);
+		break;
 	case (PAGE_NEWCOLN):
 		donewcoln(r);
 		break;

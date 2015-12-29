@@ -6,11 +6,13 @@ header			{ background-color: #336699;
 			  color: #def; }
 header a		{ color: #ccc; }
 header a:hover		{ color: #eec; }
-article 		{ padding: 8pt 24pt; 
+article > section	{ padding: 8pt 24pt; 
 			  line-height: 120%;
 			  background-color: #eee; }
+#history		{ background-color: #ddd; 
+			  border-top: thin solid #aaa; }
 article a		{ color: blue; }
-footer 			{ padding: 8pt 24pt; 
+footer 			{ padding: 32pt 0; 
 			  font-size: 12pt;
 			  color: #444;
 			  text-align: center; }

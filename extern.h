@@ -71,7 +71,9 @@ enum	nonceerr {
 
 __BEGIN_DECLS
 
+void		  db_collection_free(struct coln *);
 int		  db_collection_load(struct coln **, const char *, int64_t);
+int		  db_collection_loadid(struct coln **, int64_t, int64_t);
 int		  db_collection_new(const char *, int64_t);
 int		  db_collection_remove(int64_t);
 int		  db_collection_resources(void (*)(const struct res *, void *), int64_t, void *);
