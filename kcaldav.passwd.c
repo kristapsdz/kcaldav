@@ -394,7 +394,7 @@ main(int argc, char *argv[])
 		printf("principal created: %s\n", user);
 	} else if ((c = db_prncpl_load(&p, user)) > 0) {
 		if (NULL != coln) {
-			rc = db_collection_new(coln, p->id);
+			rc = db_collection_new(coln, p);
 			if (rc > 0)
 				printf("collection added: %s\n", coln);
 			else if (rc < 0)

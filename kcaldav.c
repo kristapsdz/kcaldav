@@ -57,6 +57,7 @@ const char *const pages[PAGE__MAX] = {
 	"delcoln", /* PAGE_DELCOLN */
 	"index", /* PAGE_INDEX */
 	"newcoln", /* PAGE_NEWCOLN */
+	"setcolnprops", /* PAGE_SETCOLNPROPS */
 	"setemail", /* PAGE_SETEMAIL */
 	"setpass", /* PAGE_SETPASS */
 };
@@ -663,15 +664,12 @@ main(int argc, char *argv[])
 	 * file exists for the requested URI.
 	 * For HTML access (the browser), we don't care.
 	 */
-	if (KMIME_TEXT_HTML == r.mime && PAGE__MAX != r.page) {
-		if (KMETHOD_GET == r.method) {
-			method_dynamic_get(&r);
-			goto out;
-		} else if (KMETHOD_POST == r.method) {
-			method_dynamic_post(&r);
-			goto out;
-		}
-	}
+	if (KMIME_APP_JSON == r.mime &&
+	    (KMETHOD_GET == r.method ||
+	     KMETHOD_POST == r.method)) {
+		method_json(&r);
+		goto out;
+	} 
 
 	if (strcmp(st->principal, st->prncpl->name)) {
 		kerrx("%s: requesting other principal "
@@ -716,12 +714,14 @@ main(int argc, char *argv[])
 		 * POST to a resource, however, gets 405'd.
 		 */
 		if ('\0' == st->resource[0]) {
-			method_dynamic_post(&r);
-			break;
+			kerrx("%s: ignoring post to collection",
+				st->prncpl->name);
+			http_error(&r, KHTTP_404);
+		} else {
+			kerrx("%s: bad post to resource",
+				st->prncpl->name);
+			http_error(&r, KHTTP_405);
 		}
-		kerrx("%s: ignoring method %s",
-			st->prncpl->name, kmethods[r.method]);
-		http_error(&r, KHTTP_405);
 		break;
 	case (KMETHOD_GET):
 		/*
@@ -730,9 +730,11 @@ main(int argc, char *argv[])
 		 * Thus, return an HTML page describing the collection.
 		 * Otherwise, use the regular WebDAV handler.
 		 */
-		if ('\0' == st->resource[0])
-			method_dynamic_get(&r);
-		else
+		if ('\0' == st->resource[0]) {
+			kerrx("%s: ignoring get of collection",
+				st->prncpl->name);
+			http_error(&r, KHTTP_404);
+		} else
 			method_get(&r);
 		break;
 	case (KMETHOD_REPORT):

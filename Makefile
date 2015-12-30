@@ -1,4 +1,4 @@
-.SUFFIXES: .3 .3.html .5 .8 .5.html .8.html .1 .1.html
+.SUFFIXES: .3 .3.html .5 .8 .5.html .8.html .1 .1.html .xml .html .min.js .js
 
 # This is the directory prepended to all calendar requests.
 # It is relative to the CGI process's file-system root.
@@ -21,6 +21,7 @@
 # I use this on my Mac OS X laptop (no chroot(2)).
 CALDIR		 = /Users/kristaps/Sites/kcaldav
 HTDOCS	 	 = /~kristaps/kcaldav
+CGIURI		 = /~kristaps/kcaldav/kcaldav.cgi
 CALPREFIX	 = /Users/kristaps/Sites/kcaldav
 CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
 HTDOCSPREFIX	 = /Users/kristaps/Sites/kcaldav
@@ -30,6 +31,7 @@ PREFIX		 = /usr/local
 # virtual host and runs within a chroot(2).
 #CALDIR		 = /caldav
 #HTDOCS	 	 = /kcaldav
+#CGIURI		 = /cgi-bin/kcaldav.cgi
 #CALPREFIX	 = /var/www/caldav
 #CGIPREFIX	 = /var/www/cgi-bin
 #HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
@@ -41,16 +43,16 @@ PREFIX		 = /usr/local
 # Most web servers provide this; others (e.g., OpenBSD httpd(8)) don't.
 
 #### For OpenBSD:
-LIBS		 = -lexpat -lm -lsqlite3
-STATIC		 = -static
-CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-BINLDFLAGS	 = -L/usr/local/lib
+#LIBS		 = -lexpat -lm -lsqlite3
+#STATIC		 = -static
+#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-#LIBS		 = -lexpat -lsqlite3
-#STATIC		 = 
-#CPPFLAGS	+= -I/usr/local/include 
-#BINLDFLAGS	 = -L/usr/local/lib
+LIBS		 = -lexpat -lsqlite3
+STATIC		 = 
+CPPFLAGS	+= -I/usr/local/include 
+BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lbsd -lm -lsqlite3
@@ -60,7 +62,7 @@ BINLDFLAGS	 = -L/usr/local/lib
 
 # You probably don't want to change anything after this point.
 
-BINLIBS		 = -lkcgi -lkcgixml -lkcgihtml -lz $(LIBS) 
+BINLIBS		 = -lkcgi -lkcgixml -lkcgihtml -lkcgijson -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-caldav \
@@ -85,13 +87,18 @@ MANS		 = kcaldav.in.8 \
 CTESTSRCS	 = test-explicit_bzero.c \
 		   test-memmem.c \
 		   test-reallocarray.c
+JSMINS		 = collection.min.js \
+		   home.min.js \
+		   md5.min.js \
+		   script.min.js
 ALLSRCS		 = Makefile \
 		   $(TESTSRCS) \
 		   $(CTESTSRCS) \
 		   $(MANS) \
 		   buf.c \
 		   caldav.c \
-		   collection.html \
+		   collection.js \
+		   collection.xml \
 		   compat-explicit_bzero.c \
 		   compat-memmem.c \
 		   compat-reallocarray.c \
@@ -105,15 +112,16 @@ ALLSRCS		 = Makefile \
 		   err.c \
 		   extern.h \
 		   get.c \
-		   home.html \
+		   home.js \
+		   home.xml \
 		   ical.c \
 		   kcaldav.c \
 		   kcaldav.h \
 		   kcaldav.passwd.c \
 		   libkcaldav.h \
-		   md5.js \
 		   md5.c \
 		   md5.h \
+		   md5.js \
 		   options.c \
 		   principal.c \
 		   propfind.c \
@@ -121,6 +129,7 @@ ALLSRCS		 = Makefile \
 		   proppatch.c \
 		   put.c \
 		   resource.c \
+		   script.js \
 		   style.css \
 		   util.c
 LIBOBJS		 = buf.o \
@@ -172,8 +181,10 @@ CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-string
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"
+BHTMLS		 = collection.html \
+		   home.html
 
-all: $(BINS) kcaldav.8 kcaldav.passwd.1
+all: $(BINS) kcaldav.8 kcaldav.passwd.1 $(BHTMLS) $(JSMINS)
 
 www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
@@ -191,8 +202,7 @@ installcgi: all
 	mkdir -p $(CALPREFIX)
 	install -m 0555 kcaldav $(CGIPREFIX)
 	install -m 0555 kcaldav $(CGIPREFIX)/kcaldav.cgi
-	install -m 0444 md5.js style.css $(HTDOCSPREFIX)
-	install -m 0444 home.html collection.html $(CALPREFIX)
+	install -m 0444 $(JSMINS) $(BHTMLS) style.css $(HTDOCSPREFIX)
 
 install: all
 	mkdir -p $(PREFIX)/bin
@@ -263,9 +273,19 @@ kcaldav.passwd.1: kcaldav.passwd.in.1
 clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1 libkcaldav.a
 	rm -rf *.dSYM
-	rm -f $(HTMLS) kcaldav.tgz kcaldav.tgz.sha512
+	rm -f $(HTMLS) $(BHTMLS) $(JSMINS) kcaldav.tgz kcaldav.tgz.sha512
 	rm -f test-memmem test-reallocarray test-explicit_bzero
 	rm -f config.h config.log
 
 .8.8.html .5.5.html .3.3.html .1.1.html:
 	mandoc -Wall -Thtml $< >$@
+
+.xml.html:
+	sed -e "s!@HTDOCS@!$(HTDOCS)!g" \
+	    -e "s!@VERSION@!$(VERSION)!g" \
+	    -e "s!@CGIURI@!$(CGIURI)!g" $< >$@
+
+.js.min.js:
+	sed -e "s!@HTDOCS@!$(HTDOCS)!g" \
+	    -e "s!@VERSION@!$(VERSION)!g" \
+	    -e "s!@CGIURI@!$(CGIURI)!g" $< >$@

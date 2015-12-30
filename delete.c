@@ -94,7 +94,7 @@ method_delete(struct kreq *r)
 		return;
 	} 
 
-	if (0 == db_collection_remove(st->cfg->id)) {
+	if (0 == db_collection_remove(st->cfg->id, st->prncpl)) {
 		kinfo("%s: cannot delete: %s", 
 			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_505);
