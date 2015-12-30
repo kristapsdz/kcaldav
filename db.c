@@ -473,8 +473,8 @@ err:
 	return(0);
 }
 
-int
-db_collection_new(const char *url, int64_t principal)
+static int
+db_collection_new_byid(const char *url, int64_t id)
 {
 	const char	*sql;
 	sqlite3_stmt	*stmt;
@@ -484,7 +484,7 @@ db_collection_new(const char *url, int64_t principal)
 		"(principal, url) VALUES (?,?)";
 	if (NULL == (stmt = db_prepare(sql)))
 		goto err;
-	else if ( ! db_bindint(stmt, 1, principal))
+	else if ( ! db_bindint(stmt, 1, id))
 		goto err;
 	else if ( ! db_bindtext(stmt, 2, url))
 		goto err;
@@ -497,9 +497,24 @@ db_collection_new(const char *url, int64_t principal)
 		return(1);
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("%s: database failure", dbname);
 	return(-1);
 
+}
+
+int
+db_collection_new(const char *url, const struct prncpl *p)
+{
+	int	 rc;
+
+	if ((rc = db_collection_new_byid(url, p->id)) < 0)
+		kerrx("%s: collection failure: %s", p->email, url);
+	else if (0 == rc) 
+		kerrx("%s: collection exists: %s", p->email, url);
+	else
+		kinfo("%s: collection created: %s", p->email, url);
+
+	return(rc);
 }
 
 /*
@@ -540,7 +555,7 @@ db_prncpl_new(const char *name, const char *hash,
 	db_finalise(&stmt);
 
 	lastid = sqlite3_last_insert_rowid(db);
-	if (db_collection_new(directory, lastid) > 0) {
+	if (db_collection_new_byid(directory, lastid) > 0) {
 		db_trans_commit();
 		return(1);
 	}
@@ -552,9 +567,10 @@ err:
 }
 
 /*
- * Change the hash of a principal to the hash set in the principal
- * object.
- * This returns zero on failure and non-zero on success.
+ * Change the hash and e-mail of a principal to the hash set in the
+ * principal object.
+ * This returns zero on constraint failure (email), >0 on success, <0 on
+ * failure.
  */
 int
 db_prncpl_update(const struct prncpl *p)
@@ -563,21 +579,26 @@ db_prncpl_update(const struct prncpl *p)
 	sqlite3_stmt	*stmt;
 	int		 rc;
 
-	sql = "UPDATE principal SET hash=? WHERE id=?";
+	sql = "UPDATE principal SET hash=?,email=? WHERE id=?";
 	if (NULL == (stmt = db_prepare(sql)))
 		goto err;
 	else if ( ! db_bindtext(stmt, 1, p->hash))
 		goto err;
-	else if ( ! db_bindint(stmt, 2, p->id))
+	else if ( ! db_bindtext(stmt, 2, p->email))
 		goto err;
-	else if (SQLITE_DONE != (rc = db_step(stmt)))
+	else if ( ! db_bindint(stmt, 3, p->id))
+		goto err;
+	rc = db_step_constrained(stmt);
+	if (SQLITE_CONSTRAINT != rc && SQLITE_DONE != rc)
 		goto err;
 	db_finalise(&stmt);
+	kinfo("%s: principal updated", p->email);
 	return(SQLITE_DONE == rc);
 err:
 	db_finalise(&stmt);
 	kerrx("%s: %s: failure", dbname, __func__);
-	return(0);
+	kerrx("%s: principal update failure", p->email);
+	return(-1);
 }
 
 static int
@@ -793,7 +814,7 @@ err:
 }
 
 int
-db_collection_update(const struct coln *p)
+db_collection_update(const struct coln *c, const struct prncpl *p)
 {
 	const char	*sql;
 	sqlite3_stmt	*stmt;
@@ -803,23 +824,25 @@ db_collection_update(const struct coln *p)
 		"colour=?,description=? WHERE id=?";
 	if (NULL == (stmt = db_prepare(sql)))
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, p->displayname))
+	else if ( ! db_bindtext(stmt, 1, c->displayname))
 		goto err;
-	else if ( ! db_bindtext(stmt, 2, p->colour))
+	else if ( ! db_bindtext(stmt, 2, c->colour))
 		goto err;
-	else if ( ! db_bindtext(stmt, 3, p->description))
+	else if ( ! db_bindtext(stmt, 3, c->description))
 		goto err;
-	else if ( ! db_bindint(stmt, 4, p->id))
+	else if ( ! db_bindint(stmt, 4, c->id))
 		goto err;
 	else if (SQLITE_DONE != (rc = db_step(stmt)))
 		goto err;
 
 	db_finalise(&stmt);
-	if (db_collection_ctag(p->id))
+	kerrx("%s: updated collection: %" PRId64, p->email, c->id);
+	if (db_collection_ctag(c->id))
 		return(1);
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("%s: failure", dbname);
+	kerrx("%s: update collection fail: %" PRId64, p->email, c->id);
 	return(0);
 }
 
@@ -864,7 +887,7 @@ err:
 }
 
 int
-db_collection_remove(int64_t colid)
+db_collection_remove(int64_t id, const struct prncpl *p)
 {
 	const char	*sql;	
 	sqlite3_stmt	*stmt;
@@ -872,16 +895,18 @@ db_collection_remove(int64_t colid)
 	sql = "DELETE FROM collection WHERE id=?";
 	if (NULL == (stmt = db_prepare(sql)))
 		goto err;
-	else if ( ! db_bindint(stmt, 1, colid))
+	else if ( ! db_bindint(stmt, 1, id))
 		goto err;
 	else if (SQLITE_DONE != db_step(stmt))
 		goto err;
 
+	kinfo("%s: removed collection: %" PRId64, p->email, id);
 	db_finalise(&stmt);
 	return(1);
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("%s: failure", dbname);
+	kerrx("%s: remove collection fail: %" PRId64, p->email, id);
 	return(0);
 }
 

@@ -74,10 +74,10 @@ __BEGIN_DECLS
 void		  db_collection_free(struct coln *);
 int		  db_collection_load(struct coln **, const char *, int64_t);
 int		  db_collection_loadid(struct coln **, int64_t, int64_t);
-int		  db_collection_new(const char *, int64_t);
-int		  db_collection_remove(int64_t);
+int		  db_collection_new(const char *, const struct prncpl *);
+int		  db_collection_remove(int64_t, const struct prncpl *);
 int		  db_collection_resources(void (*)(const struct res *, void *), int64_t, void *);
-int		  db_collection_update(const struct coln *);
+int		  db_collection_update(const struct coln *, const struct prncpl *);
 int		  db_init(const char *, int);
 int		  db_nonce_new(char **);
 enum nonceerr	  db_nonce_update(const char *, size_t);
