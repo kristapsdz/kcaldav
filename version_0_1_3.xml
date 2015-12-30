@@ -7,5 +7,7 @@
 	<aside>
 		Make web-interface access to the <q>null</q> directory (e.g., /cgi-bin/kcaldav) automatically redirect to the root directory
 		instead of crashing the system.
+		While there, move the entire web interface to use JSON and JavaScript instead of dynamic HTML.
+		This makes it easier to extend or replace.
 	</aside>
 </article>

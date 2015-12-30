@@ -215,7 +215,7 @@ method_proppatch(struct kreq *r)
 	 * We do this post-factum to avoid long requests clogging up the
 	 * configuration file in exclusive write mode.
 	 */
-	if (0 == df || db_collection_update(&cfg)) {
+	if (0 == df || db_collection_update(&cfg, st->prncpl)) {
 		caldav_free(dav);
 		return;
 	}

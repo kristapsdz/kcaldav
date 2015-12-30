@@ -51,6 +51,7 @@ enum	page {
 	PAGE_DELCOLN = 0,
 	PAGE_INDEX,
 	PAGE_NEWCOLN,
+	PAGE_SETCOLNPROPS,
 	PAGE_SETEMAIL,
 	PAGE_SETPASS,
 	PAGE__MAX
@@ -95,9 +96,8 @@ int	 http_paths(const char *, char **, char **, char **);
 int	 http_safe_string(const char *);
 
 void	 method_delete(struct kreq *);
-void	 method_dynamic_get(struct kreq *);
-void	 method_dynamic_post(struct kreq *);
 void	 method_get(struct kreq *);
+void	 method_json(struct kreq *);
 void	 method_options(struct kreq *);
 void	 method_propfind(struct kreq *);
 void	 method_proppatch(struct kreq *);

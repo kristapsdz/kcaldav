@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta charset="utf-8" /> 
+		<title>kcaldav: home</title>
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css" />
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/0.6.0/pure-min.css" />
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css" />
+		<link rel="stylesheet" href="@HTDOCS@/style.css" />
+		<script src="@HTDOCS@/md5.min.js"></script>
+		<script src="@HTDOCS@/script.min.js"></script>
+		<script src="@HTDOCS@/home.min.js"></script>
+	</head>
+	<body onload="load();">
+		<section id="loading">
+			<p>
+				<i class="fa fa-spin fa-spinner"></i> Loading <i>k</i>CalDAV...
+			</p>
+		</section>
+		<section id="loaded" class="hide">
+			<header>
+				<div>
+					<h1>
+						<a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> Management
+					</h1><nav>
+						<a href="@HTDOCS@/home.html">home</a>
+					</nav>
+				</div>
+			</header>
+			<article>
+				<p>
+					Welcome, <span class="kcalendar-field kcalendar-principal-name"></span>.
+					This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a>
+					(version @VERSION@) installation.
+					Your principal has <span class="kcalendar-field kcalendar-principal-quota-used"></span> used and <span
+						class="kcalendar-field kcalendar-principal-quota-avail"></span> available.
+					<span id="insecure">
+						This connection is <strong>not secure</strong>, so consider that your password hash is being sent in the clear!
+					</span>
+				</p>
+				<section>
+					<h2>
+						Your CalDAV Address
+					</h2>
+					<ul>
+						<li>
+							<span class="kcalendar-principal-uri"></span>
+						</li>
+					</ul>
+					<aside>
+						Note: some clients (e.g., <a href="https://www.mozilla.org/en-US/projects/calendar/">Lightning Calendar</a>) may
+						not be able to use this address.  
+						Instead, you'll need to specify the full URL of each individual calendar.
+					</aside>
+				</section>
+				<section>
+					<h2>
+						Your CalDAV Calendars
+					</h2>
+					<ul class="kcalendar-principal-colns">
+						<li>
+							<a class="kcalendar-coln-uri"></a>
+						</li>
+					</ul>
+					<ul class="kcalendar-principal-nocolns">
+						<li>
+							<i>You have no calendars.</i>
+						</li>
+					</ul>
+					<p class="newcoln-error error hide" id="newcoln-error-form">
+						Collection name must be a valid path component, or collection already exists.
+					</p>
+					<p class="newcoln-error error hide" id="newcoln-error-sys">
+						System failure when creating collection.
+					</p>
+					<form class="pure-form" action="@CGIURI@/newcoln.json" method="post" onsubmit="return(newcoln(this));">
+						<input name="path" type="text" required="required" />
+						<button id="newcoln-btn" type="submit" class="pure-button pure-button-primary">
+							<i class="fa fa-fw fa-folder-o"></i> 
+							<span class="bigonly">Add</span>
+						</button>
+						<button id="newcoln-pbtn" type="submit" class="hide pure-button pure-button-primary">
+							<i class="fa fa-fw fa-spin fa-spinner"></i> 
+							<span class="bigonly">Adding...</span>
+						</button>
+					</form>
+				</section>
+				<section>
+					<h2>
+						Your E-mail Address
+					</h2>
+					<p class="setemail-error error hide" id="setemail-error-form">
+						Malformed or missing e-mail address, or e-mail already exists.
+					</p>
+					<p class="setemail-error error hide" id="setemail-error-sys">
+						A system error occurred.
+					</p>
+					<form class="pure-form" action="@CGIURI@/setemail.json" method="post" onsubmit="return(setemail(this));">
+						<input class="kcalendar-principal-email" name="email" type="email"/>
+						<button id="setemail-btn" type="submit" class="pure-button pure-button-primary">
+							<i class="fa fa-fw fa-envelope-o"></i> 
+							<span class="bigonly">Change</span>
+						</button>
+						<button id="setemail-pbtn" type="submit" class="hide pure-button pure-button-primary">
+							<i class="fa fa-fw fa-spin fa-spinner"></i> 
+							<span class="bigonly">Changing...</span>
+						</button>
+					</form>
+				</section>
+				<section>
+					<h2>
+						Your Password
+					</h2>
+					<p>
+						Your password will be MD5-hashed before being passed to the server.
+						You'll be logged out if you change your password.
+					</p>
+					<p class="setpass-error error hide" id="setpass-error-form">
+						Password not hashed properly?
+					</p>
+					<p class="setpass-error error hide" id="setpass-error-sys">
+						A system error occurred.
+					</p>
+					<form class="pure-form" action="@CGIURI@/setpass.json" method="post" onsubmit="return(setpass(this));">
+						<input placeholder="Password" type="password" onkeyup="updateHash(this);" />
+						<button id="setpass-btn" type="submit" class="pure-button pure-button-primary">
+							<i class="fa fa-fw fa-lock"></i> 
+							<span class="bigonly">Change</span>
+						</button>
+						<button id="setpass-pbtn" type="submit" class="hide pure-button pure-button-primary">
+							<i class="fa fa-fw fa-spin fa-spinner"></i> 
+							<span class="bigonly">Changing...</span>
+						</button>
+						<span class="bigonly">
+							<input name="pass" id="password" type="text" readonly="readonly" />
+						</span>
+					</form>
+				</section>
+			</article>
+			<footer>
+				&copy; 2015 <a href="http://kristaps.bsd.lv">Kristaps Dzonsons</a>
+			</footer>
+		</section>
+	</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta charset="utf-8" /> 
+		<title>kcaldav: collection</title>
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css" />
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/0.6.0/pure-min.css" />
+		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css" />
+		<link rel="stylesheet" href="@HTDOCS@/style.css" type="text/css" />
+		<script src="@HTDOCS@/script.min.js"></script>
+		<script src="@HTDOCS@/collection.min.js"></script>
+	</head>
+	<body onload="load();">
+		<section id="loading">
+			<p>
+				<i class="fa fa-spin fa-spinner"></i> Loading <i>k</i>CalDAV...
+			</p>
+		</section>
+		<section id="loaded" class="hide">
+			<header>
+				<div>
+					<h1>
+						<a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> Management
+					</h1><nav>
+						<a href="@HTDOCS@/home.html">home</a>
+					</nav>
+				</div>
+			</header>
+			<article>
+				<p>
+					Welcome, <span class="kcalendar-field kcalendar-principal-name"></span>.
+					This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a>
+					(version @VERSION@) installation.
+					To this collection, <q class="kcalendar-coln-displayname kcalendar-field"></q>, you have @@privileges@@ access.
+					Your principal has <span class="kcalendar-field kcalendar-principal-quota-used"></span> used and <span
+						class="kcalendar-field kcalendar-principal-quota-avail"></span> available.
+				</p>
+				<section>
+					<p class="setcolnprops-error error hide" id="setcolnprops-error-form">
+						Missing or invalid fields.
+					</p>
+					<p class="setcolnprops-error error hide" id="setcolnprops-error-sys">
+						A system failure has occurred.
+					</p>
+					<form class="pure-form" method="post" action="@CGIURI@/delcoln.json" onsubmit="return(setcolnprops(this, 'setcolnprops-delete'));">
+						<input type="hidden" name="id" class="kcalendar-coln-id" />
+						<button type="submit" class="pure-button pure-button-primary" id="setcolnprops-delete-btn">
+							<i class="fa fa-fw fa-remove"></i>
+							<span class="bigonly">Delete</span>
+						</button>
+						<button type="submit" class="hide pure-button pure-button-primary" id="setcolnprops-delete-pbtn">
+							<i class="fa fa-fw fa-spin fa-spinner"></i>
+							<span class="bigonly">Deleting...</span>
+						</button>
+					</form>
+					<h2>
+						Collection Name
+					</h2>
+					<form class="pure-form" method="post" action="@CGIURI@/setcolnprops.json" onsubmit="return(setcolnprops(this, 'setcolnprops-name'));">
+						<input type="hidden" name="id" class="kcalendar-coln-id" />
+						<input class="kcalendar-coln-displayname" name="name" type="text" required="required" />
+						<button type="submit" class="pure-button pure-button-primary" id="setcolnprops-name-btn">
+							<i class="fa fa-fw fa-calendar"></i>
+							<span class="bigonly">Change</span>
+						</button>
+						<button type="submit" class="hide pure-button pure-button-primary" id="setcolnprops-name-pbtn">
+							<i class="fa fa-fw fa-spin fa-spinner"></i>
+							<span class="bigonly">Changing...</span>
+						</button>
+					</form>
+					<h2>
+						Collection Colour
+					</h2>
+					<form class="pure-form" method="post" action="@CGIURI@/setcolnprops.json" onsubmit="return(setcolnprops(this, 'setcolnprops-colour'));">
+						<input type="hidden" name="id" class="kcalendar-coln-id" />
+						<input class="kcalendar-coln-colour" name="colour" type="color" required="required" />
+						<button type="submit" class="pure-button pure-button-primary" id="setcolnprops-colour-btn">
+							<i class="fa fa-fw fa-paint-brush"></i>
+							<span class="bigonly">Change</span>
+						</button>
+						<button type="submit" class="hide pure-button pure-button-primary" id="setcolnprops-colour-pbtn">
+							<i class="fa fa-fw fa-spin fa-spinner"></i>
+							<span class="bigonly">Changing...</span>
+						</button>
+					</form>
+					<h2>
+						Collection Description
+					</h2>
+					<form class="pure-form" method="post" action="@CGIURI@/setcolnprops.json" onsubmit="return(setcolnprops(this, 'setcolnprops-desc'));">
+						<input type="hidden" name="id" class="kcalendar-coln-id" />
+						<textarea class="kcalendar-coln-description" name="description" required="required"></textarea>
+						<button type="submit" class="pure-button pure-button-primary" id="setcolnprops-desc-btn">
+							<i class="fa fa-fw fa-file-text-o"></i>
+							<span class="bigonly">Change</span>
+						</button>
+						<button type="submit" class="hide pure-button pure-button-primary" id="setcolnprops-desc-pbtn">
+							<i class="fa fa-fw fa-spin fa-spinner"></i>
+							<span class="bigonly">Changing...</span>
+						</button>
+					</form>
+				</section>
+			</article>
+			<footer>
+				&copy; 2015 <a href="http://kristaps.bsd.lv">Kristaps Dzonsons</a>
+			</footer>
+		</section>
+	</body>
+</html>
