@@ -58,6 +58,7 @@ article					{ padding: 1em; }
 @media only screen and (max-width: 480px) {
 .bigonly				{ display: none; }
 .pure-form input[type="password"],
+.pure-form label,
 .pure-form input[type="color"],
 .pure-form input[type="email"],
 .pure-form input[type="text"]		{ display: inline-block; 

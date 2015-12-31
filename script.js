@@ -90,6 +90,34 @@
 			return((b / 1024.0).toFixed(2) + ' KB');
 	}
 
+	function proxyFill(e, p, pr)
+	{
+		var list, i, sz;
+
+		list = e.getElementsByClassName
+			('kcalendar-proxy-email');
+		for (i = 0, sz = list.length; i < sz; i++) {
+			replacen(list[i], pr.email);
+			list[i].href = 'mailto:' + pr.email;
+		}
+
+		list = e.getElementsByClassName
+			('kcalendar-proxy-read');
+		for (i = 0, sz = list.length; i < sz; i++)
+			if ( ! (1 & pr.bits))
+				classSet(list[i], 'hide');
+			else
+				classUnset(list[i], 'hide');
+
+		list = e.getElementsByClassName
+			('kcalendar-proxy-write');
+		for (i = 0, sz = list.length; i < sz; i++)
+			if ( ! (2 & pr.bits))
+				classSet(list[i], 'hide');
+			else
+				classUnset(list[i], 'hide');
+	}
+
 	function colnFill(e, p, c)
 	{
 		var list, i, sz;
@@ -169,6 +197,28 @@
 			('kcalendar-principal-quota-used');
 		for (i = 0, sz = list.length; i < sz; i++) 
 			replacen(list[i], formatBytes(p.quota_used));
+
+		list = document.getElementsByClassName
+			('kcalendar-principal-proxies');
+		for (i = 0, sz = list.length; i < sz; i++) {
+			tmpl = list[i].children[0];
+			if (null === tmpl)
+				continue;
+			list[i].removeChild(tmpl);
+			for (j = 0, ssz = p.proxies.length; j < ssz; j++) {
+				cln = tmpl.cloneNode(true);
+				proxyFill(cln, p, p.proxies[j]);
+				list[i].appendChild(cln);
+			}
+		}
+
+		list = document.getElementsByClassName
+			('kcalendar-principal-noproxies');
+		for (i = 0, sz = list.length; i < sz; i++)
+			if (0 === p.proxies.length && list[i].classList.contains('hide')) 
+				list[i].classList.remove('hide');
+			else if (p.proxies.length && ! list[i].classList.contains('hide'))
+				list[i].classList.add('hide');
 
 		list = document.getElementsByClassName
 			('kcalendar-principal-colns');

@@ -185,6 +185,46 @@ json_setemail(struct kreq *r)
 }
 
 static void
+json_modproxy(struct kreq *r)
+{
+	struct state	*st = r->arg;
+	int64_t	 	 id, bits;
+	int		 rc;
+	struct kpair	*kp;
+
+	if (NULL == r->fieldmap[VALID_EMAIL]) {
+		send400(r);
+		return;
+	}
+
+	bits = 0;
+	for (kp = r->fieldmap[VALID_BITS]; NULL != kp; kp = kp->next)
+		bits |= kp->parsed.i;
+
+	id = db_prncpl_identify(r->fieldmap[VALID_EMAIL]->parsed.s);
+	if (id < 0) {
+		send500(r);
+		return;
+	} else if (0 == id) {
+		send400(r);
+		return;
+	} else if (id == st->prncpl->id) {
+		send200(r);
+		return;
+	}
+
+	if ((rc = db_proxy(st->prncpl, id, bits)) < 0) {
+		send500(r);
+		return;
+	} else if (0 == rc) {
+		send400(r);
+		return;
+	}
+
+	send200(r);
+}
+
+static void
 json_newcoln(struct kreq *r)
 {
 	struct state	*st = r->arg;
@@ -246,6 +286,22 @@ json_index(struct kreq *r)
 			st->prncpl->cols[i].id);
 		kjson_obj_close(&req);
 	}
+	kjson_array_close(&req);
+	kjson_arrayp_open(&req, "proxies");
+	for (i = 0; i < st->prncpl->proxiesz; i++) {
+		kjson_obj_open(&req);
+		kjson_putstringp(&req, "email", 
+			st->prncpl->proxies[i].email);
+		kjson_putstringp(&req, "name", 
+			st->prncpl->proxies[i].name);
+		kjson_putintp(&req, "bits", 
+			st->prncpl->proxies[i].bits);
+		kjson_putintp(&req, "id", 
+			st->prncpl->proxies[i].id);
+		kjson_putintp(&req, "proxy", 
+			st->prncpl->proxies[i].proxy);
+		kjson_obj_close(&req);
+	}
 	kjson_close(&req);
 }
 
@@ -264,6 +320,9 @@ method_json(struct kreq *r)
 		return;
 	case (PAGE_INDEX):
 		json_index(r);
+		return;
+	case (PAGE_MODPROXY):
+		json_modproxy(r);
 		return;
 	case (PAGE_NEWCOLN):
 		json_newcoln(r);

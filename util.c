@@ -42,6 +42,7 @@ const char *const xmls[XML__MAX] = {
 	"D:collection", /* XML_DAV_COLLECTION */
 	"D:href", /* XML_DAV_HREF */
 	"D:multistatus", /* XML_DAV_MULTISTATUS */
+	"D:principal", /* XML_DAV_PRINCIPAL */
 	"D:privilege", /* XML_DAV_PRIVILEGE */
 	"D:prop", /* XML_DAV_PROP */
         "D:propstat", /* XML_DAV_PROPSTAT */

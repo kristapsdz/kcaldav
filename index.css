@@ -1,6 +1,5 @@
 body, html		{ margin: 0; }
-body			{ background-color: #ccc; 
-			  font-size: 14pt;}
+body			{ background-color: #ccc; }
 header			{ background-color: #336699; 
 			  padding: 12pt 24pt;
 			  color: #def; }
@@ -13,22 +12,18 @@ article > section	{ padding: 8pt 24pt;
 			  border-top: thin solid #aaa; }
 article a		{ color: blue; }
 footer 			{ padding: 32pt 0; 
-			  font-size: 12pt;
 			  color: #444;
 			  text-align: center; }
 footer a		{ color: #000; }
 a			{ text-decoration: none; }
 h1			{ margin-bottom: 0;
-			  margin-top: 1ex;
-			  font-size: 36pt; }
+			  margin-top: 1ex; }
 h2			{ font-size: inherit; }
 .version		{ font-weight: bold; 
 			  color: #000; }
 .nm			{ font-style: italic; }
 .file			{ font-style: italic; }
-pre, code		{ font-size: 11pt; }
 nav[data-sblg-nav] ul	{ list-style-type: none; 
-			  font-size: 13pt;
 			  color: #333;
 			  padding-left: 0; }
 nav[data-sblg-nav] time	{ font-weight: bold; }

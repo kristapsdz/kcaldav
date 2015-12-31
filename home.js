@@ -74,6 +74,26 @@
 			setpassError, function() { document.location.reload(); }));
 	}
 
+	function modproxyError(code)
+	{
+		var cls;
+
+		cls = 'modproxy-error-sys';
+		if (400 === code)
+			cls = 'modproxy-error-form';
+
+		classUnset(document.getElementById(cls), 'hide');
+		classUnset(document.getElementById('modproxy-btn'), 'hide');
+		classSet(document.getElementById('modproxy-pbtn'), 'hide');
+	}
+
+	function modproxy(e)
+	{
+
+		return(sendForm(e, function() { genericSetup('modproxy'); }, 
+			modproxyError, function() { document.location.reload(); }));
+	}
+
 	function newcolnError(code)
 	{
 		var cls;
@@ -120,4 +140,5 @@
 	root.newcoln = newcoln;
 	root.setemail = setemail;
 	root.setpass = setpass;
+	root.modproxy = modproxy;
 })(this);

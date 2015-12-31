@@ -56,6 +56,7 @@ int verbose = 0;
 const char *const pages[PAGE__MAX] = {
 	"delcoln", /* PAGE_DELCOLN */
 	"index", /* PAGE_INDEX */
+	"modproxy", /* PAGE_MODPROXY */
 	"newcoln", /* PAGE_NEWCOLN */
 	"setcolnprops", /* PAGE_SETCOLNPROPS */
 	"setemail", /* PAGE_SETEMAIL */
@@ -63,6 +64,7 @@ const char *const pages[PAGE__MAX] = {
 };
 
 const char *const valids[VALID__MAX] = {
+	"bits", /* VALID_BITS */
 	"", /* VALID_BODY */
 	"colour", /* VALID_COLOUR */
 	"description", /* VALID_DESCRIPTION */
@@ -280,6 +282,19 @@ httpauth_validate(const struct prncpl *prncpl,
 }
 
 /*
+ * The name of a calendar.
+ * Less than... 1K?
+ */
+static int
+kvalid_name(struct kpair *kp)
+{
+
+	if ( ! kvalid_stringne(kp))
+		return(0);
+	return (kp->valsz < 1024);
+}
+
+/*
  * The description of a calendar.
  * Make sure this is less than 4K.
  */
@@ -421,12 +436,13 @@ main(int argc, char *argv[])
 {
 	struct kreq	 r;
 	struct kvalid	 valid[VALID__MAX] = {
+		{ kvalid_int, valids[VALID_BITS] },
 		{ kvalid_body, valids[VALID_BODY] },
 		{ kvalid_colour, valids[VALID_COLOUR] },
 		{ kvalid_description, valids[VALID_DESCRIPTION] },
 		{ kvalid_email, valids[VALID_EMAIL] },
-		{ kvalid_uint, valids[VALID_ID] },
-		{ kvalid_string, valids[VALID_NAME] },
+		{ kvalid_int, valids[VALID_ID] },
+		{ kvalid_name, valids[VALID_NAME] },
 		{ kvalid_hash, valids[VALID_PASS] },
 		{ kvalid_path, valids[VALID_PATH] } }; 
 	struct state	*st;
