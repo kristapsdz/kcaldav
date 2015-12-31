@@ -137,6 +137,44 @@
 						</span>
 					</form>
 				</section>
+				<section>
+					<h2>
+						Your Proxies
+					</h2>
+					<ul class="kcalendar-principal-proxies">
+						<li>
+							<span class="kcalendar-proxy-read"><i class="fa fa-search"></i></span>
+							<span class="kcalendar-proxy-write"><i class="fa fa-pencil"></i></span>
+							<a class="kcalendar-proxy-email"></a>
+						</li>
+					</ul>
+					<ul class="kcalendar-principal-noproxies">
+						<li>
+							<i>You have not granted any proxies.</i>
+						</li>
+					</ul>
+					<p class="modproxy-error error hide" id="modproxy-error-form">
+						Requested user does not exist.
+					</p>
+					<p class="modproxy-error error hide" id="modproxy-error-sys">
+						A system error occurred.
+					</p>
+					<form class="pure-form" action="@CGIURI@/modproxy.json" method="post" onsubmit="return(modproxy(this));">
+						<input placeholder="User" type="email" name="email" required="required" />
+						<label for="modproxy-read"><i class="fa fa-search"></i></label>
+						<input id="modproxy-read" class"pure-checkbox" type="checkbox" name="bits" value="1" />
+						<label for="modproxy-write"><i class="fa fa-pencil"></i></label>
+						<input id="modproxy-write" class"pure-checkbox" type="checkbox" name="bits" value="2" />
+						<button id="modproxy-btn" type="submit" class="pure-button pure-button-primary">
+							<i class="fa fa-fw fa-user"></i> 
+							<span class="bigonly">Grant</span>
+						</button>
+						<button id="modproxy-pbtn" type="submit" class="hide pure-button pure-button-primary">
+							<i class="fa fa-fw fa-spin fa-spinner"></i> 
+							<span class="bigonly">Granting...</span>
+						</button>
+					</form>
+				</section>
 			</article>
 			<footer>
 				&copy; 2015 <a href="http://kristaps.bsd.lv">Kristaps Dzonsons</a>

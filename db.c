@@ -77,6 +77,54 @@ db_finalise(sqlite3_stmt **stmt)
 	*stmt = NULL;
 }
 
+static void
+db_sleep(size_t attempt)
+{
+
+	if (attempt < 10)
+		usleep(arc4random_uniform(100000));
+	else
+		usleep(arc4random_uniform(400000));
+}
+
+/*
+ * Interior function managing step errors.
+ */
+static int
+db_step_inner(sqlite3_stmt *stmt, int constrained)
+{
+	int	 rc;
+	size_t	 attempt = 0;
+
+	assert(NULL != stmt);
+	assert(NULL != db);
+again:
+	rc = sqlite3_step(stmt);
+	if (SQLITE_BUSY == rc) {
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_LOCKED == rc) {
+		kerrx("%s: sqlite3_step: %s", 
+			dbname, sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_PROTOCOL == rc) {
+		kerrx("%s: sqlite3_step: %s", 
+			dbname, sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	}
+
+	if (SQLITE_DONE == rc || SQLITE_ROW == rc)
+		return(rc);
+	if (SQLITE_CONSTRAINT == rc && constrained)
+		return(rc);
+
+	kerrx("%s: sqlite3_step: %s", 
+		dbname, sqlite3_errmsg(db));
+	return(rc);
+}
+
 /*
  * Step through any results where the return code can also be
  * SQL_CONSTRAINT, i.e., we've violated our constraints.
@@ -86,16 +134,8 @@ db_finalise(sqlite3_stmt **stmt)
 static int
 db_step_constrained(sqlite3_stmt *stmt)
 {
-	int	 rc;
 
-	assert(NULL != db);
-	rc = sqlite3_step(stmt);
-	if (SQLITE_ROW == rc || 
-		 SQLITE_DONE == rc || 
-		 SQLITE_CONSTRAINT == rc) 
-		return(rc);
-	kerrx("%s: %s", dbname, sqlite3_errmsg(db));
-	return(rc);
+	return(db_step_inner(stmt, 1));
 }
 
 /*
@@ -106,15 +146,8 @@ db_step_constrained(sqlite3_stmt *stmt)
 static int
 db_step(sqlite3_stmt *stmt)
 {
-	int	 rc;
 
-	assert(NULL != db);
-	rc = sqlite3_step(stmt);
-	if (SQLITE_ROW == rc || 
-		 SQLITE_DONE == rc)
-		return(rc);
-	kerrx("%s: %s", dbname, sqlite3_errmsg(db));
-	return(rc);
+	return(db_step_inner(stmt, 0));
 }
 
 /*
@@ -158,16 +191,34 @@ db_bindtext(sqlite3_stmt *stmt, size_t pos, const char *name)
  * Returns the sqlite3 error code, reporting the error if it doesn't
  * equal SQLITE_OK.
  */
-static int
+int
 db_exec(const char *sql)
 {
-	int	 rc;
+	size_t	attempt = 0;
+	int	rc;
 
+again:
 	assert(NULL != db);
 	rc = sqlite3_exec(db, sql, NULL, NULL, NULL);
-	if (SQLITE_OK == rc)
+
+	if (SQLITE_BUSY == rc) {
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_LOCKED == rc) {
+		kerrx("%s: sqlite3_exec: %s", 
+			dbname, sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_PROTOCOL == rc) {
+		kerrx("%s: sqlite3_exec: %s", 
+			dbname, sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_OK == rc)
 		return(rc);
-	kerrx("%s: %s", dbname, sqlite3_errmsg(db));
+
+	kerrx("%s: sqlite3_exec: %s (%s)", 
+		dbname, sqlite3_errmsg(db), sql);
 	return(rc);
 }
 
@@ -179,31 +230,21 @@ db_trans_open(int immediate)
 	sql = immediate ? 
 		"BEGIN TRANSACTION IMMEDIATE" :
 		"BEGIN TRANSACTION";
-
-	if (SQLITE_OK == db_exec(sql))
-		return(1);
-	kerrx("%s: %s", dbname, sqlite3_errmsg(db));
-	return(0);
+	return(SQLITE_OK == db_exec(sql));
 }
 
 static int
 db_trans_rollback(void)
 {
 
-	if (SQLITE_OK == db_exec("ROLLBACK TRANSACTION"))
-		return(1);
-	kerrx("%s: %s", dbname, sqlite3_errmsg(db));
-	return(0);
+	return(SQLITE_OK == db_exec("ROLLBACK TRANSACTION"));
 }
 
 static int
 db_trans_commit(void)
 {
 
-	if (SQLITE_OK == db_exec("COMMIT TRANSACTION"))
-		return(1);
-	kerrx("%s: %s", dbname, sqlite3_errmsg(db));
-	return(0);
+	return(SQLITE_OK == db_exec("COMMIT TRANSACTION"));
 }
 
 /*
@@ -215,13 +256,31 @@ static sqlite3_stmt *
 db_prepare(const char *sql)
 {
 	sqlite3_stmt	*stmt;
+	size_t		 attempt = 0;
 	int		 rc;
 
 	assert(NULL != db);
+again:
 	rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
-	if (SQLITE_OK == rc) 
+
+	if (SQLITE_BUSY == rc) {
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_LOCKED == rc) {
+		kerrx("%s: sqlite3_prepare_v2: %s", 
+			dbname, sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_PROTOCOL == rc) {
+		kerrx("%s: sqlite3_prepare_v2: %s", 
+			dbname, sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_OK == rc)
 		return(stmt);
-	kerrx("%s: %s", dbname, sqlite3_errmsg(db));
+
+	kerrx("%s: sqlite3_stmt: %s (%s)", 
+		dbname, sqlite3_errmsg(db), sql);
 	sqlite3_finalize(stmt);
 	return(NULL);
 }
@@ -235,7 +294,7 @@ db_prepare(const char *sql)
 int
 db_init(const char *dir, int create)
 {
-	size_t	 i, sz;
+	size_t	 attempt, sz;
 	int	 rc;
 
 	/* 
@@ -249,7 +308,7 @@ db_init(const char *dir, int create)
 
 	/* Format the name of the database. */
 	sz = strlcpy(dbname, dir, sizeof(dbname));
-	if (sz  > sizeof(dbname)) {
+	if (sz > sizeof(dbname)) {
 		printf("%s: too long", dir);
 		return(0);
 	} else if ('/' == dbname[sz - 1])
@@ -261,44 +320,34 @@ db_init(const char *dir, int create)
 		return(0);
 	}
 
-	/* 
-	 * Try to open the database.
-	 * We repeat our try 100 times, waiting for a random value
-	 * within 100,000 microseconds (1/10 second) to try again.
-	 * Exit on any non-block-related errors.
-	 */
-	for (i = 0; i < 100; i++) {
-		rc = sqlite3_open_v2(dbname, &db, 
-			SQLITE_OPEN_READWRITE | 
-			(create ? SQLITE_OPEN_CREATE : 0),
-			NULL);
-		if (SQLITE_OK == rc)
-			break;
-		if (SQLITE_BUSY == rc || SQLITE_LOCKED == rc) {
-			usleep(arc4random_uniform(100000));
-			continue;
-		} 
-		kerrx("%s: %s", dbname, sqlite3_errmsg(db));
-		return(0);
-	}
+	attempt = 0;
+again:
+	rc = sqlite3_open_v2(dbname, &db, 
+		SQLITE_OPEN_READWRITE | 
+		(create ? SQLITE_OPEN_CREATE : 0),
+		NULL);
+	if (SQLITE_BUSY == rc) {
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_LOCKED == rc) {
+		kerrx("%s: sqlite3_open_v2: %s", 
+			dbname, sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_PROTOCOL == rc) {
+		kerrx("%s: sqlite3_open_v2: %s", 
+			dbname, sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	} else if (SQLITE_OK == rc) {
+		sqlite3_busy_timeout(db, 1000);
+		return(SQLITE_OK == 
+		       db_exec("PRAGMA foreign_keys = ON;"));
+	} 
 
-	/* Too many failures. */
-	if (i == 100) {
-		kerrx("%s: open timeout", dbname);
-		return(0);
-	}
-
-	/*
-	 * Install the default timeout for busy-waiting on the database
-	 * to be 1 second.
-	 */
-	sqlite3_busy_timeout(db, 1000);
-	kdbg("%s: database ready", dbname);
-	if (SQLITE_OK != db_exec("PRAGMA foreign_keys = ON")) {
-		kerrx("%s: cannot enable foreign keys", dbname);
-		return(0);
-	}
-	return(1);
+	kerrx("%s: sqlite3_open_v2: %s", 
+		dbname, sqlite3_errmsg(db));
+	return(0);
 }
 
 static int
@@ -638,6 +687,133 @@ db_collection_get(struct coln **pp, sqlite3_stmt *stmt)
 	return(-1);
 }
 
+/*
+ * Create or modify a proxy.
+ * This allows the principal "id" to access "bits" on the principal "p".
+ * Returns <0 on system failure, 0 if the "id" principal does not exist,
+ * or >0 if everything went well.
+ * Having "0" as the bits will delete the proxy entry.
+ */
+int
+db_proxy(const struct prncpl *p, int64_t id, int64_t bits)
+{
+	int	 	 rc = -1;
+	sqlite3_stmt	*stmt;
+
+	if (0 == bits) {
+		stmt = db_prepare("DELETE FROM proxy "
+			"WHERE principal=? AND proxy=?");
+		if (NULL == stmt)
+			goto err;
+		else if ( ! db_bindint(stmt, 1, p->id))
+			goto err;
+		else if ( ! db_bindint(stmt, 2, id))
+			goto err;
+		else if (SQLITE_DONE != db_step(stmt))
+			goto err;
+		db_finalise(&stmt);
+		kinfo("%s: deleted proxy to %" PRId64,
+			p->email, id);
+		return(1);
+	}
+
+	/* Transaction to wrap the test-set. */
+	if ( ! db_trans_open(1))
+		return(-1);
+
+	/* First try to create a new one. */
+	stmt = db_prepare
+		("INSERT INTO proxy (principal,proxy,bits) "
+		 "VALUES (?, ?, ?)");
+	if (NULL == stmt)
+		goto err;
+	else if ( ! db_bindint(stmt, 1, p->id))
+		goto err;
+	else if ( ! db_bindint(stmt, 2, id))
+		goto err;
+	else if ( ! db_bindint(stmt, 3, bits))
+		goto err;
+
+	rc = db_step_constrained(stmt);
+	db_finalise(&stmt);
+	if (SQLITE_DONE == rc) {
+		/* We were able to create everything. */
+		if ( ! db_trans_commit())
+			return(-1);
+		kinfo("%s: new proxy to %" PRId64 ": %" PRId64,
+			p->email, id, bits);
+		return(1);
+	} else if (SQLITE_CONSTRAINT != rc)
+		goto err;
+
+	/* Field (might?) exist. */
+	stmt = db_prepare
+		("UPDATE proxy SET bits=? "
+		 "WHERE principal=? AND proxy=?");
+	if (NULL == stmt)
+		goto err;
+	else if ( ! db_bindint(stmt, 1, bits))
+		goto err;
+	else if ( ! db_bindint(stmt, 2, p->id))
+		goto err;
+	else if ( ! db_bindint(stmt, 3, id))
+		goto err;
+
+	rc = db_step_constrained(stmt);
+	db_finalise(&stmt);
+	if (SQLITE_CONSTRAINT == rc) {
+		/* The proxy row doesn't exist. */
+		if ( ! db_trans_rollback())
+			return(-1);
+		kerrx("%s: proxy principal not exist: %" 
+			PRId64, p->email, id);
+		return(0);
+	} else if (SQLITE_DONE != rc)
+		goto err;
+
+	/* All is well. */
+	if ( ! db_trans_commit())
+		return(-1);
+	kinfo("%s: modified proxy to %" PRId64 ": %" PRId64,
+		p->email, id, bits);
+	return(1);
+err:
+	db_finalise(&stmt);
+	kerrx("%s: failure", dbname);
+	db_trans_rollback();
+	return(rc);
+}
+
+int
+db_prncpl_proxies(const struct prncpl *p, 
+	void (*fp)(const char *, int64_t, void *), void *arg)
+{
+	sqlite3_stmt	*stmt;
+	int		 rc = -1;
+
+	stmt = db_prepare
+		("SELECT principal.name,proxy.bits FROM proxy "
+		 "INNER JOIN principal ON principal.id = proxy.proxy "
+		 "WHERE proxy.principal=?");
+	if (NULL == stmt) 
+		goto err;
+	else if ( ! db_bindint(stmt, 1, p->id))
+		goto err;
+
+	while (SQLITE_ROW == (rc = db_step(stmt)))
+		fp((char *)sqlite3_column_text(stmt, 0),
+		   sqlite3_column_int64(stmt, 1),
+		   arg);
+	if (SQLITE_DONE != rc) 
+		goto err;
+	db_finalise(&stmt);
+	return(1);
+err:
+	db_finalise(&stmt);
+	kerrx("%s: failure", dbname);
+	return(rc);
+}
+
 int
 db_collection_loadid(struct coln **pp, int64_t id, int64_t pid)
 {
@@ -660,7 +836,7 @@ db_collection_loadid(struct coln **pp, int64_t id, int64_t pid)
 	}
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("%s: failure", dbname);
 	return(rc);
 }
 
@@ -686,7 +862,7 @@ db_collection_load(struct coln **pp, const char *url, int64_t id)
 	}
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("%s: failure", dbname);
 	return(rc);
 }
 
@@ -702,6 +878,35 @@ db_collection_free(struct coln *p)
 	free(p->colour);
 	free(p->description);
 	free(p);
+}
+
+int64_t
+db_prncpl_identify(const char *email)
+{
+	sqlite3_stmt	*stmt;
+	int64_t		 id = -1;
+	int		 rc;
+
+	stmt = db_prepare
+		("SELECT id FROM principal WHERE email=?");
+	if (NULL == stmt)
+		goto err;
+	else if ( ! db_bindtext(stmt, 1, email))
+		goto err;
+	
+	if (SQLITE_DONE == (rc = db_step(stmt))) {
+		db_finalise(&stmt);
+		return(0);
+	} else if (SQLITE_ROW != rc)
+		goto err;
+
+	id = sqlite3_column_int64(stmt, 0);
+	db_finalise(&stmt);
+	return(id);
+err:
+	db_finalise(&stmt);
+	kerrx("%s: failure", dbname);
+	return(id);
 }
 
 int
@@ -791,25 +996,64 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 		p->cols[i].id = sqlite3_column_int64(stmt, 5);
 
 		if (NULL == p->cols[i].url ||
-			 NULL == p->cols[i].displayname ||
-			 NULL == p->cols[i].colour ||
-			 NULL == p->cols[i].description) {
+		    NULL == p->cols[i].displayname ||
+		    NULL == p->cols[i].colour ||
+		    NULL == p->cols[i].description) {
 			kerr(NULL);
 			db_finalise(&stmt);
 			goto err;
 		}
 	}
-
 	if (SQLITE_DONE != c)
 		goto err;
-
 	db_finalise(&stmt);
+
+	sql = "SELECT email,name,bits,proxy,proxy.id "
+		"FROM proxy "
+		"INNER JOIN principal ON principal.id=proxy "
+		"WHERE principal=?";
+	if (NULL == (stmt = db_prepare(sql)))
+		goto err;
+	else if ( ! db_bindint(stmt, 1, p->id))
+		goto err;
+
+	while (SQLITE_ROW == (c = db_step(stmt))) {
+		vp = reallocarray
+			(p->proxies,
+			 p->proxiesz + 1,
+			 sizeof(struct proxy));
+		if (NULL == vp) {
+			kerr(NULL);
+			db_finalise(&stmt);
+			goto err;
+		}
+		p->proxies = vp;
+		i = p->proxiesz++;
+		p->proxies[i].email = strdup
+			((char *)sqlite3_column_text(stmt, 0));
+		p->proxies[i].name = strdup
+			((char *)sqlite3_column_text(stmt, 1));
+		p->proxies[i].bits = sqlite3_column_int64(stmt, 2);
+		p->proxies[i].proxy = sqlite3_column_int64(stmt, 3);
+		p->proxies[i].id = sqlite3_column_int64(stmt, 4);
+
+		if (NULL == p->proxies[i].email ||
+		    NULL == p->proxies[i].name) {
+			kerr(NULL);
+			db_finalise(&stmt);
+			goto err;
+		}
+	}
+	if (SQLITE_DONE != c)
+		goto err;
+	db_finalise(&stmt);
+
 	return(1);
 err:
 	*pp = NULL;
 	prncpl_free(p);
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("%s: failure", dbname);
 	return(rc);
 }
 
@@ -836,7 +1080,7 @@ db_collection_update(const struct coln *c, const struct prncpl *p)
 		goto err;
 
 	db_finalise(&stmt);
-	kerrx("%s: updated collection: %" PRId64, p->email, c->id);
+	kinfo("%s: updated collection: %" PRId64, p->email, c->id);
 	if (db_collection_ctag(c->id))
 		return(1);
 err:
@@ -1208,14 +1452,24 @@ CREATE TABLE resource (\n\
 	FOREIGN KEY (collection) REFERENCES collection(id) ON DELETE CASCADE\n\
 );\n\
 CREATE TABLE collection (\n\
-	principal INTEGER REFERENCES principal(id) NOT NULL,\n\
+	principal INTEGER NOT NULL,\n\
 	url TEXT NOT NULL,\n\
 	displayname TEXT NOT NULL DEFAULT(\'Calendar\'),\n\
 	colour TEXT NOT NULL DEFAULT(\'#B90E28FF\'),\n\
 	description TEXT NOT NULL DEFAULT(\'\'),\n\
 	ctag INT NOT NULL DEFAULT(1),\n\
 	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n\
-	unique (url,principal)\n\
+	unique (url,principal),\n\
+	FOREIGN KEY (principal) REFERENCES principal(id) ON DELETE CASCADE\n\
+);\n\
+CREATE TABLE proxy (\n\
+	principal INTEGER NOT NULL,\n\
+	proxy INTEGER NOT NULL,\n\
+	bits INTEGER NOT NULL DEFAULT(0),\n\
+	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n\
+	unique (principal,proxy),\n\
+	FOREIGN KEY (principal) REFERENCES principal(id) ON DELETE CASCADE,\n\
+	FOREIGN KEY (proxy) REFERENCES principal(id) ON DELETE CASCADE\n\
 );\n\
 CREATE TABLE nonce (\n\
 	nonce TEXT NOT NULL,\n\

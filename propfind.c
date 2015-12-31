@@ -339,6 +339,11 @@ propfind_principal(struct kxmlreq *xml, const struct caldav *dav)
 	}
 
 	kxml_pop(xml);
+
+	/*
+	 * Now we want to list all of the users who have proxy access to
+	 * this resource.
+	 */
 }
 
 /*

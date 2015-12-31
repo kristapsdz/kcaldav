@@ -9,5 +9,17 @@
 		instead of crashing the system.
 		While there, move the entire web interface to use JSON and JavaScript instead of dynamic HTML.
 		This makes it easier to extend or replace.
+		Updated the underlying database routines to better handle failure conditions.
+		Added proxy functionality (see <a href="http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/doc/Extensions/caldav-proxy.txt">caldav-proxy.txt</a>).
+		If you have an existing database, execute the following on it:
+		<pre>CREATE TABLE proxy (
+	principal INTEGER NOT NULL,
+	proxy INTEGER NOT NULL,
+	bits INTEGER NOT NULL DEFAULT(0),
+	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	unique (principal,proxy),
+	FOREIGN KEY (principal) REFERENCES principal(id) ON DELETE CASCADE,
+	FOREIGN KEY (proxy) REFERENCES principal(id) ON DELETE CASCADE
+);</pre>
 	</aside>
 </article>
