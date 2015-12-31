@@ -368,11 +368,13 @@ resource_quota_used_bytes(struct kxmlreq *xml,
 
 /*
  * RFC 4918, 15.9.
+ * Moreover see RFC 3744, 4 and caldav-proxy.txt.
  */
 static void
 principal_resourcetype(struct kxmlreq *xml)
 {
 
+	kxml_pushnull(xml, XML_DAV_PRINCIPAL);
 	kxml_pushnull(xml, XML_DAV_COLLECTION);
 }
 

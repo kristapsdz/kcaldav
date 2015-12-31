@@ -46,6 +46,17 @@ struct	coln {
 };
 
 /*
+ * Proxies for a principal.
+ */
+struct	proxy {
+	int64_t		 proxy;
+	char		*email;
+	char		*name;
+	int64_t		 bits;
+	int64_t		 id;
+};
+
+/*
  * A principal is a user of the system.
  */
 struct	prncpl {
@@ -56,6 +67,8 @@ struct	prncpl {
 	char		*email; /* email address */
 	struct coln	*cols; /* owned collections */
 	size_t		 colsz; /* number of owned collections */
+	struct proxy	*proxies;
+	size_t		 proxiesz;
 	int64_t		 id; /* unique identifier */
 };
 
@@ -83,9 +96,12 @@ int		  db_nonce_new(char **);
 enum nonceerr	  db_nonce_update(const char *, size_t);
 enum nonceerr	  db_nonce_validate(const char *, size_t);
 int		  db_owner_check_or_set(int64_t);
+int64_t		  db_prncpl_identify(const char *);
 int		  db_prncpl_load(struct prncpl **, const char *);
 int		  db_prncpl_new(const char *, const char *, const char *, const char *);
+int		  db_prncpl_proxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
 int		  db_prncpl_update(const struct prncpl *);
+int		  db_proxy(const struct prncpl *, int64_t, int64_t);
 int		  db_resource_delete(const char *, int64_t, int64_t);
 int		  db_resource_remove(const char *, int64_t);
 int		  db_resource_load(struct res **, const char *, int64_t);
