@@ -64,7 +64,7 @@ principal_calendar_home_set(struct kxmlreq *xml)
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, xml->req->pname);
 	kxml_putc(xml, '/');
-	kxml_puts(xml, st->prncpl->name);
+	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
 	kxml_pop(xml);
 }
@@ -102,7 +102,7 @@ principal_calendar_user_address_set(struct kxmlreq *xml)
 
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, "mailto:");
-	kxml_puts(xml, st->prncpl->email);
+	kxml_puts(xml, st->rprncpl->email);
 	kxml_pop(xml);
 }
 
@@ -256,7 +256,7 @@ collection_owner(struct kxmlreq *xml, const struct coln *c)
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, xml->req->pname);
 	kxml_putc(xml, '/');
-	kxml_puts(xml, st->prncpl->name);
+	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
 	kxml_pop(xml);
 }
@@ -284,7 +284,7 @@ principal_principal_url(struct kxmlreq *xml)
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, xml->req->pname);
 	kxml_putc(xml, '/');
-	kxml_puts(xml, st->prncpl->name);
+	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
 	kxml_pop(xml);
 }
@@ -313,6 +313,36 @@ resource_principal_url(struct kxmlreq *xml,
 }
 
 /*
+ * RFC 3744, 4.4.
+ * Also, caldav-proxy.txt, 5.2.
+ */
+static void
+principal_group_membership(struct kxmlreq *xml)
+{
+	struct state	*st = xml->req->arg;
+	size_t	 	 i;
+
+	for (i = 0; i < st->rprncpl->rproxiesz; i++) {
+		if (PROXY_READ & st->rprncpl->rproxies[i].bits) {
+			kxml_push(xml, XML_DAV_HREF);
+			kxml_puts(xml, xml->req->pname);
+			kxml_putc(xml, '/');
+			kxml_puts(xml, st->rprncpl->rproxies[i].name);
+			kxml_puts(xml, "/calendar-proxy-read/");
+			kxml_pop(xml);
+		}
+		if (PROXY_WRITE & st->rprncpl->rproxies[i].bits) {
+			kxml_push(xml, XML_DAV_HREF);
+			kxml_puts(xml, xml->req->pname);
+			kxml_putc(xml, '/');
+			kxml_puts(xml, st->rprncpl->rproxies[i].name);
+			kxml_puts(xml, "/calendar-proxy-write/");
+			kxml_pop(xml);
+		}
+	}
+}
+
+/*
  * RFC 4331, 3.
  * This is defined over the collection; the resource handler simply
  * calls through here.
@@ -324,7 +354,7 @@ collection_quota_available_bytes(struct kxmlreq *xml, const struct coln *c)
 	char	 	 buf[32];
 
 	snprintf(buf, sizeof(buf), 
-		"%" PRIu64, st->prncpl->quota_avail);
+		"%" PRIu64, st->rprncpl->quota_avail);
 	kxml_puts(xml, buf);
 }
 
@@ -351,7 +381,7 @@ collection_quota_used_bytes(struct kxmlreq *xml, const struct coln *c)
 	char	 	 buf[32];
 
 	snprintf(buf, sizeof(buf), "%"
-		PRIu64, st->prncpl->quota_used);
+		PRIu64, st->rprncpl->quota_used);
 	kxml_puts(xml, buf);
 }
 
@@ -592,6 +622,16 @@ const struct property properties[PROP__MAX] = {
 	  NULL, 
 	  resource_getetag,
 	  NULL }, 
+	{ /* PROP_GROUP_MEMBER_SET */
+	  0, 
+	  NULL, 
+	  NULL,
+	  NULL }, 
+	{ /* PROP_GROUP_MEMBERSHIP */
+	  0, 
+	  NULL, 
+	  NULL,
+	  principal_group_membership }, 
 	{ /* PROP_OWNER */
 	  0, 
 	  collection_owner, 

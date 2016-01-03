@@ -48,13 +48,13 @@ req2caldav(struct kreq *r)
 
 	if (NULL == r->fieldmap[VALID_BODY]) {
 		kerrx("%s: failed parse CalDAV XML "
-			"in client request", st->prncpl->name);
+			"in client request", st->prncpl->email);
 		http_error(r, KHTTP_400);
 		return(NULL);
 	} 
 
 	if (KMIME_TEXT_XML != r->fieldmap[VALID_BODY]->ctypepos) {
-		kerrx("%s: not CalDAV MIME", st->prncpl->name);
+		kerrx("%s: not CalDAV MIME", st->prncpl->email);
 		http_error(r, KHTTP_415);
 		return(NULL);
 	}
@@ -81,7 +81,7 @@ method_proppatch(struct kreq *r)
 
 	if (NULL == st->cfg) {
 		kerrx("%s: PROPPATCH for non-calendar "
-			"collection", st->prncpl->name);
+			"collection", st->prncpl->email);
 		http_error(r, KHTTP_403);
 		return;
 	} else if (NULL == (dav = req2caldav(r)))
@@ -95,7 +95,7 @@ method_proppatch(struct kreq *r)
 	accepted[PROP_DISPLAYNAME] = 1;
 
 	if (TYPE_PROPERTYUPDATE != dav->type) {
-		kerrx("%s: unknown request type", st->prncpl->name);
+		kerrx("%s: unknown request type", st->prncpl->email);
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
 		return;
@@ -105,7 +105,8 @@ method_proppatch(struct kreq *r)
 		"%s", khttps[KHTTP_207]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
-	khttp_head(r, "DAV", "1, access-control, calendar-access");
+	khttp_head(r, "DAV", "1, access-control, "
+		"calendar-access, calendar-proxy");
 	khttp_body(r);
 	kxml_open(&xml, r, xmls, XML__MAX);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
@@ -135,17 +136,17 @@ method_proppatch(struct kreq *r)
 		case (PROP_DISPLAYNAME):
 			cfg.displayname = dav->props[i].val;
 			kinfo("%s: display name modified",
-				st->prncpl->name);
+				st->prncpl->email);
 			break;
 		case (PROP_CALENDAR_COLOR):
 			cfg.colour = dav->props[i].val;
 			kinfo("%s: colour modified",
-				st->prncpl->name);
+				st->prncpl->email);
 			break;
 		case (PROP_CALENDAR_DESCRIPTION):
 			cfg.description = dav->props[i].val;
 			kinfo("%s: description modified",
-				st->prncpl->name);
+				st->prncpl->email);
 			break;
 		default:
 			abort();
@@ -215,12 +216,12 @@ method_proppatch(struct kreq *r)
 	 * We do this post-factum to avoid long requests clogging up the
 	 * configuration file in exclusive write mode.
 	 */
-	if (0 == df || db_collection_update(&cfg, st->prncpl)) {
+	if (0 == df || db_collection_update(&cfg, st->rprncpl)) {
 		caldav_free(dav);
 		return;
 	}
 
 	caldav_free(dav);
-	kerrx("%s: couldn't update collection", st->prncpl->name);
+	kerrx("%s: couldn't update collection", st->prncpl->email);
 }
 

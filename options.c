@@ -41,7 +41,7 @@ method_options(struct kreq *r)
 	khttp_head(r, kresps[KRESP_ALLOW], "%s", 
 		"OPTIONS, GET, PUT, PROPFIND, PROPPATCH");
 	khttp_head(r, "DAV", "%s",
-		"1, access-control, calendar-access");
+		"1, access-control, calendar-access, calendar-proxy");
 	khttp_body(r);
 }
 
