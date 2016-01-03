@@ -56,8 +56,8 @@ PREFIX		 = /usr/local
 #### For Mac OS X:
 LIBS		 = -lexpat -lsqlite3
 STATIC		 = 
-CPPFLAGS	+= -I/usr/local/include 
-BINLDFLAGS	 = -L/usr/local/lib
+CPPFLAGS	+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
+BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lbsd -lm -lsqlite3

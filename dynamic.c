@@ -189,7 +189,6 @@ json_modproxy(struct kreq *r)
 	struct state	*st = r->arg;
 	int64_t	 	 id, bits;
 	int		 rc;
-	struct kpair	*kp;
 
 	if (NULL == r->fieldmap[VALID_EMAIL]) {
 		send400(r);
@@ -197,8 +196,9 @@ json_modproxy(struct kreq *r)
 	}
 
 	bits = 0;
-	for (kp = r->fieldmap[VALID_BITS]; NULL != kp; kp = kp->next)
-		bits |= kp->parsed.i;
+	if (NULL != r->fieldmap[VALID_BITS])
+		if ((bits = r->fieldmap[VALID_BITS]->parsed.i) > 2)
+			bits = 2;
 
 	id = db_prncpl_identify(r->fieldmap[VALID_EMAIL]->parsed.s);
 	if (id < 0) {
