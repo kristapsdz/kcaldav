@@ -95,6 +95,10 @@
 							<i>You have no calendars.</i>
 						</li>
 					</ul>
+					<p>
+						Add new calendar by specifying the file-system name.
+						This must conform to <a href="https://tools.ietf.org/html/rfc3986">RFC 3986, 3.3</a> and be less than 256 bytes in length.
+					</p>
 					<p class="newcoln-error error hide" id="newcoln-error-form">
 						Collection name must be a valid path component, or collection already exists.
 					</p>
@@ -180,6 +184,11 @@
 							<i>You have not granted any proxies.</i>
 						</li>
 					</ul>
+					<p>
+						Enter the e-mail address of a system user to grant them proxy permissions.
+						(This is <q>delegation</q> in the terms of <a
+							href="http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/doc/Extensions/caldav-proxy.txt">caldav-proxy.txt</a>.)
+					</p>
 					<p class="modproxy-error error hide" id="modproxy-error-form">
 						Requested user does not exist.
 					</p>
