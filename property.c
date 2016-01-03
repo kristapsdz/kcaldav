@@ -323,15 +323,16 @@ principal_group_membership(struct kxmlreq *xml)
 	size_t	 	 i;
 
 	for (i = 0; i < st->rprncpl->rproxiesz; i++) {
-		if (PROXY_READ & st->rprncpl->rproxies[i].bits) {
+		if (PROXY_READ == 
+		    st->rprncpl->rproxies[i].bits) {
 			kxml_push(xml, XML_DAV_HREF);
 			kxml_puts(xml, xml->req->pname);
 			kxml_putc(xml, '/');
 			kxml_puts(xml, st->rprncpl->rproxies[i].name);
 			kxml_puts(xml, "/calendar-proxy-read/");
 			kxml_pop(xml);
-		}
-		if (PROXY_WRITE & st->rprncpl->rproxies[i].bits) {
+		} else if (PROXY_WRITE == 
+			   st->rprncpl->rproxies[i].bits) {
 			kxml_push(xml, XML_DAV_HREF);
 			kxml_puts(xml, xml->req->pname);
 			kxml_putc(xml, '/');

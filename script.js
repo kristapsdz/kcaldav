@@ -104,7 +104,7 @@
 		list = e.getElementsByClassName
 			('kcalendar-proxy-read');
 		for (i = 0, sz = list.length; i < sz; i++)
-			if ( ! (1 & pr.bits))
+			if ( ! (1 === pr.bits))
 				classSet(list[i], 'hide');
 			else
 				classUnset(list[i], 'hide');
@@ -112,7 +112,7 @@
 		list = e.getElementsByClassName
 			('kcalendar-proxy-write');
 		for (i = 0, sz = list.length; i < sz; i++)
-			if ( ! (2 & pr.bits))
+			if ( ! (2 === pr.bits))
 				classSet(list[i], 'hide');
 			else
 				classUnset(list[i], 'hide');
@@ -132,7 +132,7 @@
 		list = e.getElementsByClassName
 			('kcalendar-rproxy-read');
 		for (i = 0, sz = list.length; i < sz; i++)
-			if (1 & rp.bits)
+			if (1 === rp.bits)
 				classUnset(list[i], 'hide');
 			else
 				classSet(list[i], 'hide');
@@ -140,7 +140,7 @@
 		list = e.getElementsByClassName
 			('kcalendar-rproxy-write');
 		for (i = 0, sz = list.length; i < sz; i++)
-			if (2 & rp.bits)
+			if (2 === rp.bits)
 				classUnset(list[i], 'hide');
 			else
 				classSet(list[i], 'hide');

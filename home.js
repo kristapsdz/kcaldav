@@ -91,7 +91,7 @@
 	{
 
 		return(sendForm(e, function() { genericSetup('modproxy'); }, 
-			modproxyError, function() { document.location.reload(); }));
+			modproxyError, function() { document.getElementById('modproxy').reset(); document.location.reload(); }));
 	}
 
 	function newcolnError(code)

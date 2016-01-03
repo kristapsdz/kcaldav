@@ -185,7 +185,9 @@
 						</li>
 					</ul>
 					<p>
-						Enter the e-mail address of a system user to grant them proxy permissions.
+						Enter the e-mail address of a system user to grant them 
+						<i class="fa fa-pencil"></i> read-write or
+						<i class="fa fa-search"></i> read-only proxy permissions.
 						(This is <q>delegation</q> in the terms of <a
 							href="http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/doc/Extensions/caldav-proxy.txt">caldav-proxy.txt</a>.)
 					</p>
@@ -195,12 +197,16 @@
 					<p class="modproxy-error error hide" id="modproxy-error-sys">
 						A system error occurred.
 					</p>
-					<form class="pure-form" action="@CGIURI@/modproxy.json" method="post" onsubmit="return(modproxy(this));">
+					<form id="modproxy" class="pure-form" action="@CGIURI@/modproxy.json" method="post" onsubmit="return(modproxy(this));">
 						<input placeholder="User" type="email" name="email" required="required" />
-						<label for="modproxy-read"><i class="fa fa-search"></i></label>
-						<input id="modproxy-read" class"pure-checkbox" type="checkbox" name="bits" value="1" />
-						<label for="modproxy-write"><i class="fa fa-pencil"></i></label>
-						<input id="modproxy-write" class"pure-checkbox" type="checkbox" name="bits" value="2" />
+						<label for="modproxy-read" class="pure-radio">
+							<i class="fa fa-search"></i>
+							<input id="modproxy-read" type="radio" name="bits" value="1" />
+						</label>
+						<label for="modproxy-write" class="pure-radio">
+							<i class="fa fa-pencil"></i>
+							<input id="modproxy-write" type="radio" name="bits" value="2" />
+						</label>
 						<button id="modproxy-btn" type="submit" class="pure-button pure-button-primary">
 							<i class="fa fa-fw fa-user"></i> 
 							<span class="bigonly">Grant</span>
