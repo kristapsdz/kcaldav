@@ -29,7 +29,6 @@
 #include <unistd.h>
 
 #include <kcgi.h>
-#include <kcgihtml.h>
 #include <kcgijson.h>
 #include <kcgixml.h>
 
