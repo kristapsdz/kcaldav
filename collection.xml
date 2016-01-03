@@ -43,6 +43,14 @@
 						class="kcalendar-field kcalendar-principal-quota-avail"></span> available.
 				</p>
 				<section>
+					<h2>
+						Calendar Address
+					</h2>
+					<ul>
+						<li>
+							<span class="kcalendar-coln-uri"></span>
+						</li>
+					</ul>
 					<p class="setcolnprops-error error hide" id="setcolnprops-error-form">
 						Missing or invalid fields.
 					</p>
@@ -53,7 +61,7 @@
 						<input type="hidden" name="id" class="kcalendar-coln-id" />
 						<button type="submit" class="pure-button pure-button-primary" id="setcolnprops-delete-btn">
 							<i class="fa fa-fw fa-remove"></i>
-							<span class="bigonly">Delete Collection</span>
+							<span class="bigonly">Delete Calendar</span>
 						</button>
 						<button type="submit" class="hide pure-button pure-button-primary" id="setcolnprops-delete-pbtn">
 							<i class="fa fa-fw fa-spin fa-spinner"></i>

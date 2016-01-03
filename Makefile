@@ -1,40 +1,45 @@
 .SUFFIXES: .3 .3.html .5 .8 .5.html .8.html .1 .1.html .xml .html .min.js .js
 
+# You WILL need to edit this for your needs.
+# I have added defaults for all of the systems that I use.
+# Good luck!
+
 # This is the directory prepended to all calendar requests.
 # It is relative to the CGI process's file-system root.
-# It contains top-level processing information (like the principal
-# password file) and miscellaneous data files to be served.
+# It contains the database.
 # An example follows:
 #CALDIR		 = /caldav
-# This is the URI of the static (CSS, JS) files.
-#HTDOCS	 	 = /
 # This is the file-system directory of CALDIR.
 #CALPREFIX	 = /var/www/caldav
-# This is the file-system directory of the CGI script.
-#CGIPREFIX	 = /var/www/cgi-bin/caldav
+# This is the URI of the static (CSS, JS) files.
+#HTDOCS	 	 = /
 # This is the file-system directory of HTDOCS.
 #HTDOCSPREFIX	 = /var/www/htdocs
+# This is the relative URI of the server executable.
+#CGIURI		 = /cgi-bin/caldav/kcaldav.cgi
+# This is the file-system directory of the CGI script.
+#CGIPREFIX	 = /var/www/cgi-bin/caldav
 # This is the file-system root for system programs and manpages.
 #PREFIX		 = /usr/local
 
 # Use this for installing into a single directory.
 # I use this on my Mac OS X laptop (no chroot(2)).
 CALDIR		 = /Users/kristaps/Sites/kcaldav
-HTDOCS	 	 = /~kristaps/kcaldav
-CGIURI		 = /~kristaps/kcaldav/kcaldav.cgi
 CALPREFIX	 = /Users/kristaps/Sites/kcaldav
-CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
+HTDOCS	 	 = /~kristaps/kcaldav
 HTDOCSPREFIX	 = /Users/kristaps/Sites/kcaldav
+CGIURI		 = /~kristaps/kcaldav/kcaldav.cgi
+CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
 PREFIX		 = /usr/local
 
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
 #CALDIR		 = /caldav
-#HTDOCS	 	 = /kcaldav
-#CGIURI		 = /cgi-bin/kcaldav.cgi
 #CALPREFIX	 = /var/www/caldav
-#CGIPREFIX	 = /var/www/cgi-bin
+#HTDOCS	 	 = /kcaldav
 #HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
+#CGIURI		 = /cgi-bin/kcaldav.cgi
+#CGIPREFIX	 = /var/www/cgi-bin
 #PREFIX		 = /usr/local
 
 # Add any special dependency directives here.
@@ -60,9 +65,11 @@ BINLDFLAGS	 = -L/usr/local/lib
 #CPPFLAGS	+= -I/usr/local/include 
 #BINLDFLAGS	 = -L/usr/local/lib
 
-# You probably don't want to change anything after this point.
+# ####################################################################
+# You probably don't want to change anything after this point.       #
+# ####################################################################
 
-BINLIBS		 = -lkcgi -lkcgixml -lkcgihtml -lkcgijson -lz $(LIBS) 
+BINLIBS		 = -lkcgi -lkcgixml -lkcgijson -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-caldav \
@@ -177,7 +184,7 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_1_1.xml \
 		   version_0_1_2.xml \
 		   version_0_1_3.xml
-VERSION		 = 0.1.2
+VERSION		 = 0.1.3
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
@@ -271,6 +278,7 @@ kcaldav.passwd.1: kcaldav.passwd.in.1
 	sed -e "s!@CALDIR@!$(CALDIR)!g" \
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.passwd.in.1 >$@
 
+# We generate a database on-the-fly.
 kcaldav-sql.c: kcaldav.sql
 	( echo "#include <stdlib.h>"; \
 	  echo "#include <stdint.h>"; \
