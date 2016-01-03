@@ -227,14 +227,10 @@ again:
 }
 
 static int
-db_trans_open(int immediate)
+db_trans_open(void)
 {
-	const char	*sql;
 
-	sql = immediate ? 
-		"BEGIN TRANSACTION IMMEDIATE" :
-		"BEGIN TRANSACTION";
-	return(SQLITE_OK == db_exec(sql));
+	return(SQLITE_OK == db_exec("BEGIN IMMEDIATE TRANSACTION"));
 }
 
 static int
@@ -437,15 +433,13 @@ db_nonce_update(const char *nonce, size_t count)
 	enum nonceerr	 er;
 	sqlite3_stmt	*stmt;
 	const char	*sql;
-	int		 rc;
 
-	rc = -2;
 	stmt = NULL;
 
-	if ( ! db_trans_open(1))
+	if ( ! db_trans_open())
 		return(NONCE_ERR);
 
-	if (NONCE_OK != (er = db_nonce_validate(nonce, count)))  {
+	if (NONCE_OK != (er = db_nonce_validate(nonce, count))) {
 		db_trans_rollback();
 		return(er);
 	}
@@ -458,7 +452,7 @@ db_nonce_update(const char *nonce, size_t count)
 		goto err;
 	else if ( ! db_bindtext(stmt, 2, nonce))
 		goto err;
-	else if (SQLITE_DONE != (rc = db_step(stmt)))
+	else if (SQLITE_DONE != db_step(stmt))
 		goto err;
 
 	db_finalise(&stmt);
@@ -468,8 +462,7 @@ db_nonce_update(const char *nonce, size_t count)
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	db_exec("ROLLBACK TRANSACTION");
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("%s: failure", dbname);
 	return(NONCE_ERR);
 }
 
@@ -483,7 +476,7 @@ db_nonce_new(char **np)
 	int		 rc;
 	size_t		 i;
 
-	if ( ! db_trans_open(1))
+	if ( ! db_trans_open())
 		return(0);
 
 	/* How many nonces do we have? */
@@ -525,8 +518,8 @@ db_nonce_new(char **np)
 		goto err;
 	for (;;) {
 		for (i = 0; i < sizeof(nonce) - 1; i++)
-			snprintf(nonce + i, 2, "%01X", 
-				arc4random_uniform(128));
+			snprintf(nonce + i, 2, "%X", 
+				arc4random_uniform(16));
 		if ( ! db_bindtext(stmt, 1, nonce))
 			goto err;
 		kdbg("nonce attempt: %s", nonce);
@@ -619,7 +612,7 @@ db_prncpl_new(const char *name, const char *hash,
 
 	assert(directory && '\0' != directory[0]);
 
-	if ( ! db_trans_open(0)) 
+	if ( ! db_trans_open()) 
 		return(-1);
 
 	sql = "INSERT INTO principal "
@@ -638,6 +631,7 @@ db_prncpl_new(const char *name, const char *hash,
 	db_finalise(&stmt);
 
 	if (SQLITE_CONSTRAINT == rc) {
+		db_trans_rollback();
 		kerrx("%s: principal already exists by "
 			"that email or name: %s", email, name);
 		return(0);
@@ -763,7 +757,7 @@ db_proxy(const struct prncpl *p, int64_t id, int64_t bits)
 	}
 
 	/* Transaction to wrap the test-set. */
-	if ( ! db_trans_open(1))
+	if ( ! db_trans_open())
 		return(-1);
 
 	/* First try to create a new one. */
@@ -1282,7 +1276,7 @@ db_resource_delete(const char *url, int64_t tag, int64_t colid)
 	sqlite3_stmt	*stmt;
 	int		 rc;
 
-	if ( ! db_trans_open(1)) 
+	if ( ! db_trans_open()) 
 		return(0);
 
 	sql = "SELECT * FROM resource WHERE "
@@ -1418,7 +1412,7 @@ db_resource_update(const char *data, const char *url,
 	int64_t		 id;
 	const char	*sql;
 
-	if ( ! db_trans_open(1)) 
+	if ( ! db_trans_open()) 
 		return(-1);
 
 	stmt = NULL;

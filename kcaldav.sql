@@ -1,3 +1,4 @@
+PRAGMA journal_mode = WAL;
 CREATE TABLE resource (
 	collection INTEGER NOT NULL,
 	url TEXT NOT NULL,

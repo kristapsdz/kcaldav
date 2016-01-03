@@ -61,6 +61,7 @@ article					{ padding: 1em; }
 					  height: 100%;
 					  width: 100%; }
 .error					{ color: #ff3333; }
+.pure-form .pure-radio			{ display: inline-block; }
 aside					{ font-style: italic; }
 
 @media only screen and (max-width: 480px) {

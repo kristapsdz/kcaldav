@@ -443,7 +443,7 @@ main(int argc, char *argv[])
 {
 	struct kreq	 r;
 	struct kvalid	 valid[VALID__MAX] = {
-		{ kvalid_int, valids[VALID_BITS] },
+		{ kvalid_uint, valids[VALID_BITS] },
 		{ kvalid_body, valids[VALID_BODY] },
 		{ kvalid_colour, valids[VALID_COLOUR] },
 		{ kvalid_description, valids[VALID_DESCRIPTION] },
@@ -761,7 +761,7 @@ main(int argc, char *argv[])
 		case (KMETHOD_PROPPATCH):
 		case (KMETHOD_DELETE):
 			/* Implies read. */
-			if (PROXY_WRITE & v)
+			if (PROXY_WRITE == v)
 				break;
 			kerrx("%s: disallowed reverse proxy "
 				"write on principal: %s",
@@ -770,7 +770,7 @@ main(int argc, char *argv[])
 			http_error(&r, KHTTP_403);
 			goto out;
 		default:
-			if (PROXY_READ & v)
+			if (PROXY_READ == v || PROXY_WRITE == v)
 				break;
 			kerrx("%s: disallowed reverse proxy "
 				"read on principal: %s",

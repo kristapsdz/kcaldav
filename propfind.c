@@ -415,7 +415,7 @@ propfind_proxy(struct kxmlreq *xml,
 
 		/* All of the readers or writers. */
 		for (j = 0; j < st->rprncpl->proxiesz; j++) {
-			if ( ! (bits & st->rprncpl->proxies[j].bits))
+			if (bits != st->rprncpl->proxies[j].bits)
 				continue;
 			kxml_push(xml, XML_DAV_HREF);
 			kxml_puts(xml, xml->req->pname);
