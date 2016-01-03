@@ -141,6 +141,7 @@ LIBOBJS		 = buf.o \
 		   err.o \
 		   ical.o
 OBJS		 = db.o \
+		   kcaldav-sql.o \
 		   principal.o \
 		   resource.o
 BINOBJS		 = delete.o \
@@ -270,8 +271,17 @@ kcaldav.passwd.1: kcaldav.passwd.in.1
 	sed -e "s!@CALDIR@!$(CALDIR)!g" \
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.passwd.in.1 >$@
 
+kcaldav-sql.c: kcaldav.sql
+	( echo "#include <stdlib.h>"; \
+	  echo "#include <stdint.h>"; \
+	  echo "#include <time.h>"; \
+	  echo "#include \"extern.h\""; \
+	  printf "const char *db_sql = \""; \
+	  sed 's!$$!\\n\\!' kcaldav.sql ; \
+	  echo '";'; ) >$@
+
 clean:
-	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1 libkcaldav.a
+	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1 libkcaldav.a kcaldav-sql.c
 	rm -rf *.dSYM
 	rm -f $(HTMLS) $(BHTMLS) $(JSMINS) kcaldav.tgz kcaldav.tgz.sha512
 	rm -f test-memmem test-reallocarray test-explicit_bzero

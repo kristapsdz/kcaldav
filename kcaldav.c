@@ -27,6 +27,9 @@
 #include <ctype.h>
 #include <getopt.h>
 #include <limits.h>
+#ifdef HAVE_SANDBOX_INIT
+#include <sandbox.h>
+#endif
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -56,6 +59,7 @@ int verbose = 0;
 const char *const pages[PAGE__MAX] = {
 	"delcoln", /* PAGE_DELCOLN */
 	"index", /* PAGE_INDEX */
+	"logout", /* PAGE_LOGOUT */
 	"modproxy", /* PAGE_MODPROXY */
 	"newcoln", /* PAGE_NEWCOLN */
 	"setcolnprops", /* PAGE_SETCOLNPROPS */
@@ -410,6 +414,8 @@ state_free(struct state *st)
 
 	if (NULL == st)
 		return;
+	if (st->prncpl != st->rprncpl)
+		prncpl_free(st->rprncpl);
 	prncpl_free(st->prncpl);
 	free(st->principal);
 	free(st->collection);
@@ -423,11 +429,12 @@ state_free(struct state *st)
  * This will load all of our collections, too.
  */
 static int
-state_load(struct state *st, const char *name)
+state_load(struct state *st, const char *nonce, const char *name)
 {
 
 	if ( ! db_init(st->caldir, 0))
 		return(-1);
+	st->nonce = nonce;
 	return(db_prncpl_load(&st->prncpl, name));
 }
 
@@ -482,6 +489,7 @@ main(int argc, char *argv[])
 		(&r, valid, VALID__MAX, 
 		 pages, PAGE__MAX, PAGE_INDEX))
 		return(EXIT_FAILURE);
+
 #if 0
 	ktrace("/tmp/kcaldav.trace", KTROP_SET,
 		KTRFAC_SYSCALL |
@@ -497,6 +505,17 @@ main(int argc, char *argv[])
 		getpid());
 #endif
 	verbose = v;
+	verbose = 1;
+
+#ifdef HAVE_SANDBOX_INIT
+	rc = sandbox_init
+		(kSBXProfileNoInternet, 
+		 SANDBOX_NAMED, &np);
+	if (-1 == rc) {
+		kerrx("sandbox_init: %s", np);
+		goto out;
+	}
+#endif
 
 	/* 
 	 * Begin by disallowing bogus HTTP methods and processing the
@@ -586,7 +605,7 @@ main(int argc, char *argv[])
 	if ('\0' == r.fullpath[0]) {
 		np = kutil_urlabs(r.scheme, r.host, r.port, r.pname);
 		khttp_head(&r, kresps[KRESP_STATUS], 
-			"%s", khttps[KHTTP_303]);
+			"%s", khttps[KHTTP_307]);
 	        khttp_head(&r, kresps[KRESP_CONTENT_TYPE], 
 			"%s", kmimetypes[r.mime]);
 		khttp_head(&r, kresps[KRESP_LOCATION], 
@@ -624,7 +643,7 @@ main(int argc, char *argv[])
 	 * and other stuff.
 	 * We'll do all the authentication afterward: this just loads.
 	 */
-	if ((rc = state_load(st, auth.user)) < 0) {
+	if ((rc = state_load(st, auth.nonce, auth.user)) < 0) {
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (0 == rc) {
@@ -687,24 +706,96 @@ main(int argc, char *argv[])
 		goto out;
 	} 
 
-	if (strcmp(st->principal, st->prncpl->name)) {
-		kerrx("%s: requesting other principal "
-			"collection", st->prncpl->name);
-		http_error(&r, KHTTP_404);
+	/* 
+	 * The client is probing.
+	 * Send them to the server root.
+	 */
+	if ('\0' == st->principal[0]) {
+		kdbg("%s: redirecting probe from client", 
+			st->prncpl->email);
+		np = kutil_urlabs(r.scheme, r.host, r.port, r.pname);
+		khttp_head(&r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_307]);
+	        khttp_head(&r, kresps[KRESP_CONTENT_TYPE], 
+			"%s", kmimetypes[r.mime]);
+		khttp_head(&r, kresps[KRESP_LOCATION], 
+			"%s/%s/", np, st->prncpl->name);
+		khttp_body(&r);
+		khttp_puts(&r, "Redirecting...");
+		free(np);
 		goto out;
 	}
+
+	if (strcmp(st->principal, st->prncpl->name)) {
+		kdbg("%s: requesting other principal "
+			"collection", st->prncpl->name);
+		rc = db_prncpl_load
+			(&st->rprncpl, st->principal);
+		if (rc < 0) {
+			http_error(&r, KHTTP_505);
+			goto out;
+		} else if (0 == rc) {
+			http_error(&r, KHTTP_401);
+			goto out;
+		}
+		/* 
+		 * Look us up in the requested principal's proxies,
+		 * i.e., those who are allowed to proxy as the given
+		 * principal.
+		 */
+		for (i = 0; i < st->rprncpl->proxiesz; i++)
+			if (st->prncpl->id ==
+			    st->rprncpl->proxies[i].proxy)
+				break;
+		if (i == st->rprncpl->proxiesz) {
+			kerrx("%s: disallowed reverse proxy "
+				"on principal: %s",
+				st->prncpl->email,
+				st->rprncpl->email);
+			http_error(&r, KHTTP_403);
+			goto out;
+		}
+		v = st->rprncpl->proxies[i].bits;
+		switch (r.method) {
+		case (KMETHOD_PUT):
+		case (KMETHOD_PROPPATCH):
+		case (KMETHOD_DELETE):
+			/* Implies read. */
+			if (PROXY_WRITE & v)
+				break;
+			kerrx("%s: disallowed reverse proxy "
+				"write on principal: %s",
+				st->prncpl->email,
+				st->rprncpl->email);
+			http_error(&r, KHTTP_403);
+			goto out;
+		default:
+			if (PROXY_READ & v)
+				break;
+			kerrx("%s: disallowed reverse proxy "
+				"read on principal: %s",
+				st->prncpl->email,
+				st->rprncpl->email);
+			http_error(&r, KHTTP_403);
+			goto out;
+		}
+	} else
+		st->rprncpl = st->prncpl;
+
 	/*
 	 * If we're going to look for a calendar collection, try to do
 	 * so now by querying the collections for our principal.
 	 */
 	if ('\0' != st->collection[0]) {
-		for (i = 0; i < st->prncpl->colsz; i++) {
-			if (strcmp(st->prncpl->cols[i].url, st->collection))
+		for (i = 0; i < st->rprncpl->colsz; i++) {
+			if (strcmp(st->rprncpl->cols[i].url, st->collection))
 				continue;
-			st->cfg = &st->prncpl->cols[i];
+			st->cfg = &st->rprncpl->cols[i];
 			break;
 		}
-		if (NULL == st->cfg) {
+		if (NULL == st->cfg &&
+		    strcmp(st->collection, "calendar-proxy-read") &&
+  		    strcmp(st->collection, "calendar-proxy-write")) {
 			kerrx("%s: requesting unknown "
 				"collection", st->prncpl->name);
 			http_error(&r, KHTTP_404);

@@ -1,0 +1,50 @@
+CREATE TABLE resource (
+	collection INTEGER NOT NULL,
+	url TEXT NOT NULL,
+	etag INT NOT NULL DEFAULT(1),
+	data TEXT NOT NULL,
+	flags INTEGER NOT NULL DEFAULT(0),
+	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	unique (url,collection),
+	FOREIGN KEY (collection) REFERENCES collection(id) ON DELETE CASCADE
+);
+CREATE TABLE collection (
+	principal INTEGER NOT NULL,
+	url TEXT NOT NULL,
+	displayname TEXT NOT NULL DEFAULT('Calendar'),
+	colour TEXT NOT NULL DEFAULT('#B90E28FF'),
+	description TEXT NOT NULL DEFAULT(''),
+	ctag INT NOT NULL DEFAULT(1),
+	flags INTEGER NOT NULL DEFAULT(0),
+	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	unique (url,principal),
+	FOREIGN KEY (principal) REFERENCES principal(id) ON DELETE CASCADE
+);
+CREATE TABLE proxy (
+	principal INTEGER NOT NULL,
+	proxy INTEGER NOT NULL,
+	bits INTEGER NOT NULL DEFAULT(0),
+	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	flags INTEGER NOT NULL DEFAULT(0),
+	unique (principal,proxy),
+	FOREIGN KEY (principal) REFERENCES principal(id) ON DELETE CASCADE,
+	FOREIGN KEY (proxy) REFERENCES principal(id) ON DELETE CASCADE
+);
+CREATE TABLE nonce (
+	nonce TEXT NOT NULL,
+	count INT NOT NULL DEFAULT(0),
+	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	unique (nonce)
+);
+CREATE TABLE principal (
+	name TEXT NOT NULL,
+	hash TEXT NOT NULL,
+	email TEXT NOT NULL,
+	flags INTEGER NOT NULL DEFAULT(0),
+	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	unique (email),
+	unique (name)
+);
+CREATE TABLE database (
+	owneruid INTEGER NOT NULL
+);

@@ -73,6 +73,10 @@ static void
 db_finalise(sqlite3_stmt **stmt)
 {
 
+	if (NULL == *stmt) {
+		kerrx("passed NULL statement");
+		return;
+	}
 	sqlite3_finalize(*stmt);
 	*stmt = NULL;
 }
@@ -372,6 +376,32 @@ err:
 	return(0);
 }
 
+/*
+ * Delete the nonce row.
+ * Return <0 on system failure, >0 on success.
+ */
+int
+db_nonce_delete(const char *nonce, const struct prncpl *p)
+{
+	sqlite3_stmt	*stmt;
+
+	stmt = db_prepare("DELETE FROM nonce WHERE nonce=?");
+	if (NULL == stmt)
+		goto err;
+	else if ( ! db_bindtext(stmt, 1, nonce))
+		goto err;
+	else if (SQLITE_DONE != db_step(stmt))
+		goto err;
+
+	kinfo("%s: deleted nonce: %s", p->email, nonce);
+	db_finalise(&stmt);
+	return(1);
+err:
+	db_finalise(&stmt);
+	kerrx("%s: failed deleted nonce: %s", p->email, nonce);
+	return(-1);
+}
+
 enum nonceerr
 db_nonce_validate(const char *nonce, size_t count)
 {
@@ -396,7 +426,7 @@ db_nonce_validate(const char *nonce, size_t count)
 	db_finalise(&stmt);
 	return(NONCE_NOTFOUND);
 err:
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("%s: failure", dbname);
 	db_finalise(&stmt);
 	return(NONCE_ERR);
 }
@@ -540,13 +570,17 @@ db_collection_new_byid(const char *url, int64_t id)
 
 	rc = db_step_constrained(stmt);
 	db_finalise(&stmt);
-	if (SQLITE_CONSTRAINT == rc) 
+	if (SQLITE_CONSTRAINT == rc) {
+		kerrx("%s: directory exists", url);
 		return(0);
-	else if (SQLITE_DONE == rc)
+	} else if (SQLITE_DONE == rc) {
+		kerrx("%s: directory created", url);
 		return(1);
+	}
 err:
 	db_finalise(&stmt);
 	kerrx("%s: database failure", dbname);
+	kerrx("%s: failed directory create", url);
 	return(-1);
 
 }
@@ -586,7 +620,7 @@ db_prncpl_new(const char *name, const char *hash,
 	assert(directory && '\0' != directory[0]);
 
 	if ( ! db_trans_open(0)) 
-		return(0);
+		return(-1);
 
 	sql = "INSERT INTO principal "
 		"(name,hash,email) VALUES (?,?,?)";
@@ -603,15 +637,26 @@ db_prncpl_new(const char *name, const char *hash,
 		goto err;
 	db_finalise(&stmt);
 
+	if (SQLITE_CONSTRAINT == rc) {
+		kerrx("%s: principal already exists by "
+			"that email or name: %s", email, name);
+		return(0);
+	}
+	kinfo("%s: principal created: %s", email, name);
+
 	lastid = sqlite3_last_insert_rowid(db);
 	if (db_collection_new_byid(directory, lastid) > 0) {
 		db_trans_commit();
+		kinfo("%s: principal directory "
+			"created: %s", email, directory);
 		return(1);
 	}
+	kinfo("%s: principal fail create "
+		"directory: %s", email, directory);
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("%s: failure", dbname);
 	return(-1);
 }
 
@@ -781,6 +826,38 @@ err:
 	db_finalise(&stmt);
 	kerrx("%s: failure", dbname);
 	db_trans_rollback();
+	return(rc);
+}
+
+int
+db_prncpl_rproxies(const struct prncpl *p, 
+	void (*fp)(const char *, int64_t, void *), void *arg)
+{
+	sqlite3_stmt	*stmt;
+	int		 rc = -1;
+
+	stmt = db_prepare
+		("SELECT principal.name,proxy.bits "
+		 "FROM proxy "
+		 "INNER JOIN principal ON "
+		  "principal.id = proxy.principal "
+		 "WHERE proxy.proxy=?");
+	if (NULL == stmt) 
+		goto err;
+	else if ( ! db_bindint(stmt, 1, p->id))
+		goto err;
+
+	while (SQLITE_ROW == (rc = db_step(stmt)))
+		fp((char *)sqlite3_column_text(stmt, 0),
+		   sqlite3_column_int64(stmt, 1),
+		   arg);
+	if (SQLITE_DONE != rc) 
+		goto err;
+	db_finalise(&stmt);
+	return(1);
+err:
+	db_finalise(&stmt);
+	kerrx("%s: failure", dbname);
 	return(rc);
 }
 
@@ -999,6 +1076,45 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 		    NULL == p->cols[i].displayname ||
 		    NULL == p->cols[i].colour ||
 		    NULL == p->cols[i].description) {
+			kerr(NULL);
+			db_finalise(&stmt);
+			goto err;
+		}
+	}
+	if (SQLITE_DONE != c)
+		goto err;
+	db_finalise(&stmt);
+
+	sql = "SELECT email,name,bits,principal,proxy.id "
+		"FROM proxy "
+		"INNER JOIN principal ON principal.id=principal "
+		"WHERE proxy=?";
+	if (NULL == (stmt = db_prepare(sql)))
+		goto err;
+	else if ( ! db_bindint(stmt, 1, p->id))
+		goto err;
+
+	while (SQLITE_ROW == (c = db_step(stmt))) {
+		vp = reallocarray
+			(p->rproxies,
+			 p->rproxiesz + 1,
+			 sizeof(struct proxy));
+		if (NULL == vp) {
+			kerr(NULL);
+			db_finalise(&stmt);
+			goto err;
+		}
+		p->rproxies = vp;
+		i = p->rproxiesz++;
+		p->rproxies[i].email = strdup
+			((char *)sqlite3_column_text(stmt, 0));
+		p->rproxies[i].name = strdup
+			((char *)sqlite3_column_text(stmt, 1));
+		p->rproxies[i].bits = sqlite3_column_int64(stmt, 2);
+		p->rproxies[i].proxy = sqlite3_column_int64(stmt, 3);
+		p->rproxies[i].id = sqlite3_column_int64(stmt, 4);
+		if (NULL == p->rproxies[i].email ||
+		    NULL == p->rproxies[i].name) {
 			kerr(NULL);
 			db_finalise(&stmt);
 			goto err;
@@ -1441,53 +1557,7 @@ db_owner_check_or_set(int64_t id)
 	 * Assume that the database has not been initialised and try to
 	 * do so here with a hardcoded schema.
 	 */
-	sql = "\
-CREATE TABLE resource (\n\
-	collection INTEGER NOT NULL,\n\
-	url TEXT NOT NULL,\n\
-	etag INT NOT NULL DEFAULT(1),\n\
-	data TEXT NOT NULL,\n\
-	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n\
-	unique (url,collection),\n\
-	FOREIGN KEY (collection) REFERENCES collection(id) ON DELETE CASCADE\n\
-);\n\
-CREATE TABLE collection (\n\
-	principal INTEGER NOT NULL,\n\
-	url TEXT NOT NULL,\n\
-	displayname TEXT NOT NULL DEFAULT(\'Calendar\'),\n\
-	colour TEXT NOT NULL DEFAULT(\'#B90E28FF\'),\n\
-	description TEXT NOT NULL DEFAULT(\'\'),\n\
-	ctag INT NOT NULL DEFAULT(1),\n\
-	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n\
-	unique (url,principal),\n\
-	FOREIGN KEY (principal) REFERENCES principal(id) ON DELETE CASCADE\n\
-);\n\
-CREATE TABLE proxy (\n\
-	principal INTEGER NOT NULL,\n\
-	proxy INTEGER NOT NULL,\n\
-	bits INTEGER NOT NULL DEFAULT(0),\n\
-	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n\
-	unique (principal,proxy),\n\
-	FOREIGN KEY (principal) REFERENCES principal(id) ON DELETE CASCADE,\n\
-	FOREIGN KEY (proxy) REFERENCES principal(id) ON DELETE CASCADE\n\
-);\n\
-CREATE TABLE nonce (\n\
-	nonce TEXT NOT NULL,\n\
-	count INT NOT NULL DEFAULT(0),\n\
-	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n\
-	unique (nonce)\n\
-);\n\
-CREATE TABLE principal (\n\
-	name TEXT NOT NULL,\n\
-	hash TEXT NOT NULL,\n\
-	email TEXT NOT NULL,\n\
-	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n\
-	unique (name)\n\
-);\n\
-CREATE TABLE database (\n\
-	owneruid INTEGER NOT NULL\n\
-);";
-	if (SQLITE_OK != db_exec(sql))
+	if (SQLITE_OK != db_exec(db_sql))
 		goto err;
 
 	/* Finally, insert our database record. */

@@ -38,6 +38,8 @@ const char *const xmls[XML__MAX] = {
 	"C:calendar-data", /* XML_CALDAV_CALENDAR_DATA */
 	"C:comp", /* XML_CALDAV_COMP */
 	"C:opaque", /* XML_CALDAV_OPAQUE */
+	"B:calendar-proxy-read", /* XML_CALDAVSERV_PROXY_READ */
+	"B:calendar-proxy-write", /* XML_CALDAVSERV_PROXY_WRITE */
 	"D:bind", /* XML_DAV_BIND */
 	"D:collection", /* XML_DAV_COLLECTION */
 	"D:href", /* XML_DAV_HREF */
@@ -48,6 +50,7 @@ const char *const xmls[XML__MAX] = {
         "D:propstat", /* XML_DAV_PROPSTAT */
 	"D:read", /* XML_DAV_READ */
 	"D:read-current-user-privilege-set", /* XML_DAV_READ_CUR... */
+	"D:resourcetype", /* XML_DAV_RESOURCETYPE */
 	"D:response", /* XML_DAV_RESPONSE */
 	"D:status", /* XML_DAV_STATUS */
 	"D:unbind", /* XML_DAV_UNBIND */

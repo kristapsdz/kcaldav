@@ -1,33 +1,41 @@
 body, html		{ margin: 0; }
-body			{ background-color: #ccc; }
-header			{ background-color: #336699; 
-			  padding: 12pt 24pt;
+body			{ background-color: #313131; 
+			  font-family: Calibri,Candara,Segoe,Segoe UI,Optima,Arial,sans-serif;
+			  font-size: 16px;
+			  font-style: normal;
+			  font-variant: normal;
+			  font-weight: 400;
+			  line-height: 23px; }
+footer, header		{ padding: 12pt 24pt;
 			  color: #def; }
-header a		{ color: #ccc; }
-header a:hover		{ color: #eec; }
+footer a, header a	{ color: #FFBB51; }
 article > section	{ padding: 8pt 24pt; 
-			  line-height: 120%;
 			  background-color: #eee; }
+div.version		{ font-size: 20px; 
+			  line-height: 20px; }
+div.date		{ font-size: 14px;
+			  color: #666;
+			  line-height: 14px; }
+#intro			{ font-size: 17px; }
 #history		{ background-color: #ddd; 
 			  border-top: thin solid #aaa; }
 article a		{ color: blue; }
-footer 			{ padding: 32pt 0; 
-			  color: #444;
-			  text-align: center; }
-footer a		{ color: #000; }
+footer 			{ text-align: center; 
+			  color: #abc; }
 a			{ text-decoration: none; }
-h1			{ margin-bottom: 0;
-			  margin-top: 1ex; }
-h2			{ font-size: inherit; }
-.version		{ font-weight: bold; 
-			  color: #000; }
-.nm			{ font-style: italic; }
+h1			{ margin: 0; 
+			  font-family: Georgia,Times,Times New Roman,serif;
+			  font-size: 48px;
+			  font-style: normal;
+			  font-variant: normal;
+			  font-weight: 500;
+			  line-height: 56px; }
 .file			{ font-style: italic; }
 nav[data-sblg-nav] ul	{ list-style-type: none; 
 			  color: #333;
 			  padding-left: 0; }
-nav[data-sblg-nav] time	{ font-weight: bold; }
 nav[data-sblg-nav] li	{ margin-bottom: 1em; }
 nav[data-sblg-nav] a	{ color: #05f; }
 nav[data-sblg-nav] div + div 
-			{ margin-top: 1ex; }
+			{ margin-top: 8px; }
+aside			{ font-size: inherit; }

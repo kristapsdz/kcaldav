@@ -13,6 +13,12 @@
 		<script src="@HTDOCS@/home.min.js"></script>
 	</head>
 	<body onload="load();">
+		<section id="loggedout" class="hide">
+			<p>
+				The nonce for this HTTP-authorised session has been deleted.
+				To complete your logout, you'll need to close the browser window to destroy your credentials.
+			</p>
+		</section>
 		<section id="loading">
 			<p>
 				<i class="fa fa-spin fa-spinner"></i> Loading <i>k</i>CalDAV...
@@ -22,9 +28,9 @@
 			<header>
 				<div>
 					<h1>
-						<a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> Management
+						<a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> <span class="bigonly">Management</span>
 					</h1><nav>
-						<a href="@HTDOCS@/home.html">home</a>
+						<a href="#" onclick="logout();">logout</a>
 					</nav>
 				</div>
 			</header>
@@ -43,6 +49,9 @@
 					<h2>
 						Your CalDAV Address
 					</h2>
+					<p>
+						Point your calendar client to this address.
+					</p>
 					<ul>
 						<li>
 							<span class="kcalendar-principal-uri"></span>
@@ -53,6 +62,24 @@
 						not be able to use this address.  
 						Instead, you'll need to specify the full URL of each individual calendar.
 					</aside>
+					<h3>
+						Reverse CalDAV Proxies
+					</h3>
+					<p>
+						These principals have given you access to their calendars.
+					</p>
+					<ul class="kcalendar-principal-rproxies">
+						<li>
+							<span class="kcalendar-rproxy-uri"></span>
+							<span title="Read Access" class="kcalendar-rproxy-read"><i class="fa fa-search"></i></span>
+							<span title="Write Access" class="kcalendar-rproxy-write"><i class="fa fa-pencil"></i></span>
+						</li>
+					</ul>
+					<ul class="kcalendar-principal-norproxies">
+						<li>
+							<i>You have not been granted any proxies.</i>
+						</li>
+					</ul>
 				</section>
 				<section>
 					<h2>

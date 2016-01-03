@@ -47,12 +47,16 @@ struct	coln {
 
 /*
  * Proxies for a principal.
+ * That is, the other principals who are allowed to read/write into the
+ * current principal.
  */
 struct	proxy {
-	int64_t		 proxy;
+	int64_t		 proxy; 
 	char		*email;
 	char		*name;
 	int64_t		 bits;
+#define	PROXY_READ	 0x01
+#define	PROXY_WRITE	 0x02
 	int64_t		 id;
 };
 
@@ -67,8 +71,10 @@ struct	prncpl {
 	char		*email; /* email address */
 	struct coln	*cols; /* owned collections */
 	size_t		 colsz; /* number of owned collections */
-	struct proxy	*proxies;
+	struct proxy	*proxies; /* principals who can proxy as us */
 	size_t		 proxiesz;
+	struct proxy	*rproxies; /* principals as whom we proxy */
+	size_t		 rproxiesz; 
 	int64_t		 id; /* unique identifier */
 };
 
@@ -84,33 +90,37 @@ enum	nonceerr {
 
 __BEGIN_DECLS
 
-void		  db_collection_free(struct coln *);
-int		  db_collection_load(struct coln **, const char *, int64_t);
-int		  db_collection_loadid(struct coln **, int64_t, int64_t);
-int		  db_collection_new(const char *, const struct prncpl *);
-int		  db_collection_remove(int64_t, const struct prncpl *);
-int		  db_collection_resources(void (*)(const struct res *, void *), int64_t, void *);
-int		  db_collection_update(const struct coln *, const struct prncpl *);
-int		  db_init(const char *, int);
-int		  db_nonce_new(char **);
-enum nonceerr	  db_nonce_update(const char *, size_t);
-enum nonceerr	  db_nonce_validate(const char *, size_t);
-int		  db_owner_check_or_set(int64_t);
-int64_t		  db_prncpl_identify(const char *);
-int		  db_prncpl_load(struct prncpl **, const char *);
-int		  db_prncpl_new(const char *, const char *, const char *, const char *);
-int		  db_prncpl_proxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
-int		  db_prncpl_update(const struct prncpl *);
-int		  db_proxy(const struct prncpl *, int64_t, int64_t);
-int		  db_resource_delete(const char *, int64_t, int64_t);
-int		  db_resource_remove(const char *, int64_t);
-int		  db_resource_load(struct res **, const char *, int64_t);
-int		  db_resource_new(const char *, const char *, int64_t);
-int		  db_resource_update(const char *, const char *, int64_t, int64_t);
+void		   db_collection_free(struct coln *);
+int		   db_collection_load(struct coln **, const char *, int64_t);
+int		   db_collection_loadid(struct coln **, int64_t, int64_t);
+int		   db_collection_new(const char *, const struct prncpl *);
+int		   db_collection_remove(int64_t, const struct prncpl *);
+int		   db_collection_resources(void (*)(const struct res *, void *), int64_t, void *);
+int		   db_collection_update(const struct coln *, const struct prncpl *);
+int		   db_init(const char *, int);
+int		   db_nonce_delete(const char *, const struct prncpl *);
+int		   db_nonce_new(char **);
+enum nonceerr	   db_nonce_update(const char *, size_t);
+enum nonceerr	   db_nonce_validate(const char *, size_t);
+int		   db_owner_check_or_set(int64_t);
+int64_t		   db_prncpl_identify(const char *);
+int		   db_prncpl_load(struct prncpl **, const char *);
+int		   db_prncpl_new(const char *, const char *, const char *, const char *);
+int		   db_prncpl_proxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
+int		   db_prncpl_rproxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
+int		   db_prncpl_update(const struct prncpl *);
+int		   db_proxy(const struct prncpl *, int64_t, int64_t);
+int		   db_resource_delete(const char *, int64_t, int64_t);
+int		   db_resource_remove(const char *, int64_t);
+int		   db_resource_load(struct res **, const char *, int64_t);
+int		   db_resource_new(const char *, const char *, int64_t);
+int		   db_resource_update(const char *, const char *, int64_t, int64_t);
 
-void		  prncpl_free(struct prncpl *);
+void		   prncpl_free(struct prncpl *);
 
-void		  res_free(struct res *);
+void		   res_free(struct res *);
+
+extern const char *db_sql;
 
 __END_DECLS
 

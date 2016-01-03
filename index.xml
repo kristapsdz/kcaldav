@@ -3,7 +3,7 @@
 	<head>
 		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
 		<meta charset='utf-8' /> 
-		<title>kcaldav | simple CalDav server</title>
+		<title>kCalDAV: a simple CalDAV server</title>
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css" />
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pure/0.6.0/pure-min.css" />
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css" />
@@ -11,18 +11,18 @@
 	</head>
 	<body itemscope="itemscope" itemtype="http://schema.org/SoftwareApplication">
 		<header>
+			<h1 itemprop="name"><i>k</i>CalDAV</h1>
 			<nav>
 				<a itemprop="downloadURL" href="snapshots/kcaldav.tgz"><i class="fa fa-fw fa-gears"></i></a>
 				<a href="snapshots/kcaldav.tgz.sha512"><i class="fa fa-fw fa-lock"></i></a>
 				<a href="snapshots"><i class="fa fa-fw fa-archive"></i></a>
+				<span itemprop="softwareVersion">Version @VERSION@</span>
 			</nav>
-			<h1 itemprop="name">kcaldav</h1>
-			<div itemprop="softwareVersion">Version @VERSION@</div>
 		</header>
 		<article>
-			<section>
+			<section id="intro">
 				<p>
-					<span class="nm">kcaldav</span> is a simple, safe, and minimal CalDav server depending only on <a
+					<span class="nm"><i>k</i>CalDAV</span> is a simple, safe, and minimal CalDAV server depending only on <a
 						href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a>, <a
 						href="https://www.sqlite.org">SQLite</a>, and <a
 						href="http://expat.sourceforge.net/">expat(3)</a>.
@@ -41,18 +41,10 @@
 							href="https://www.sqlite.org">SQLite</a>, <a
 							href="http://expat.sourceforge.net">expat(3)</a>, and <a
 							href="http://libbsd.freedesktop.org/wiki/">bsd(3)</a> if using Linux.
-						<span class="nm">kcaldav</span> and <a href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a> are often
-						developed in tandem, so make sure you're up to date with both.
 					</li>
 					<li>
-						Configure for your installation by editing the <span class="file">Makefile</span>:
-						<code>CALDIR</code> to the calendar root within CGI script's file-system,
-						<code>LIBS</code> and <code>STATIC</code> (per-system defaults are noted),
-						<code>CGIPREFIX</code> to the CGI script install target,
-						<code>CALPREFIX</code> to the CGI's data file install target,
-						<code>HTDOCSPREFIX</code> to the web server's static files install target, and
-						<code>HTDOCS</code> to the static files' URI.
-						All of these are documented and given sample values.
+						Configure for your installation by editing the <span class="file">Makefile</span>.
+						(You <strong>will</strong> need to do this: installation paths for CGI scripts differ vastly!)
 					</li>
 					<li>
 						Compile with <code>make</code>, install manpages and administration tools with
@@ -61,14 +53,13 @@
 					</li>
 					<li>
 						If using <a href="https://www.apache.org/">Apache</a>, make sure that HTTP authorisation is not
-						interpreted by the web server.
-						You'll probably need a re-write rule, e.g., <code>[E=HTTP_AUTHORIZATION:%{HTTP:Authorization},L]</code>.
-						OpenBSD's <a href="http://www.openbsd.org/cgi-bin/man.cgi/OpenBSD-current/man8/httpd.8">httpd(8)</a> doesn't need this.
-						I'm not sure about <a href="http://nginx.org/">nginx</a>.
+						interpreted by the web server.  
+						(<a href="https://stackoverflow.com/questions/3663520/php-auth-user-not-set">Example</a>.)
 					</li>
 				</ol>
 				<p>
-					To use <span class="nm">kcaldav</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
+					To use <span class="nm"><i>k</i>CalDAV</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
+					This has a complete description of supported CalDAV features.
 					You'll also want to read <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
 					If these manpages lack information or clarity, that's a bug.
 					For bug-reports and comments on usage (please let me know!), contact <a
@@ -76,10 +67,15 @@
 				</p>
 			</section>
 			<section id="history">
-				<h2>Recent Release History</h2>
-				<nav data-sblg-nav="1" data-sblg-navsz="6" data-sblg-navcontent="1">
-					<time datetime="${sblg-date}">${sblg-date}</time>
-					(version <span class="version">${sblg-title}</span>)
+				<nav data-sblg-nav="1" data-sblg-navcontent="1">
+					<div>
+						<div class="version">
+							Version <span class="version">${sblg-title}</span>
+						</div>
+						<div class="date">
+							<i class="fa fa-fw fa-clock-o"></i><time datetime="${sblg-date}">${sblg-date}</time>
+						</div>
+					</div>
 					<div>${sblg-aside}</div>
 				</nav>
 			</section>

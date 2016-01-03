@@ -30,6 +30,7 @@ runtest() {
 cat config.h.pre
 runtest memmem MEMMEM ""
 runtest reallocarray REALLOCARRAY ""
+runtest sandbox_init SANDBOX_INIT ""
 cat config.h.post
 
 exit 0
