@@ -19,11 +19,13 @@
 
 struct	state {
 	struct prncpl	*prncpl; /* current user principal */
+	struct prncpl	*rprncpl; /* requested user principal */
 	struct coln	*cfg; /* (resource in?) requested collection */
 	char		 caldir[PATH_MAX]; /* calendar root */
 	char		*principal; /* principal in request */
 	char		*collection; /* collection in request */
 	char		*resource; /* resource in request */
+	const char	*nonce; /* requested nonce */
 };
 
 enum	xml {
@@ -31,6 +33,8 @@ enum	xml {
 	XML_CALDAV_CALENDAR_DATA,
 	XML_CALDAV_COMP,
 	XML_CALDAV_OPAQUE,
+	XML_CALDAVSERV_PROXY_READ,
+	XML_CALDAVSERV_PROXY_WRITE,
 	XML_DAV_BIND,
 	XML_DAV_COLLECTION,
 	XML_DAV_HREF,
@@ -41,6 +45,7 @@ enum	xml {
 	XML_DAV_PROPSTAT,
 	XML_DAV_READ,
 	XML_DAV_READ_CURRENT_USER_PRIVILEGE_SET,
+	XML_DAV_RESOURCETYPE,
 	XML_DAV_RESPONSE,
 	XML_DAV_STATUS,
 	XML_DAV_UNBIND,
@@ -51,6 +56,7 @@ enum	xml {
 enum	page {
 	PAGE_DELCOLN = 0,
 	PAGE_INDEX,
+	PAGE_LOGOUT,
 	PAGE_MODPROXY,
 	PAGE_NEWCOLN,
 	PAGE_SETCOLNPROPS,

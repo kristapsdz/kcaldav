@@ -118,6 +118,34 @@
 				classUnset(list[i], 'hide');
 	}
 
+	function rproxyFill(e, p, rp)
+	{
+		var list, i, sz;
+
+		list = e.getElementsByClassName
+			('kcalendar-rproxy-uri');
+		for (i = 0, sz = list.length; i < sz; i++)
+			replacen(list[i], location.protocol + '//' + 
+				window.location.hostname +
+				'@CGIURI@/' + rp.name + '/');
+
+		list = e.getElementsByClassName
+			('kcalendar-rproxy-read');
+		for (i = 0, sz = list.length; i < sz; i++)
+			if (1 & rp.bits)
+				classUnset(list[i], 'hide');
+			else
+				classSet(list[i], 'hide');
+
+		list = e.getElementsByClassName
+			('kcalendar-rproxy-write');
+		for (i = 0, sz = list.length; i < sz; i++)
+			if (2 & rp.bits)
+				classUnset(list[i], 'hide');
+			else
+				classSet(list[i], 'hide');
+	}
+
 	function colnFill(e, p, c)
 	{
 		var list, i, sz;
@@ -197,6 +225,27 @@
 			('kcalendar-principal-quota-used');
 		for (i = 0, sz = list.length; i < sz; i++) 
 			replacen(list[i], formatBytes(p.quota_used));
+
+		list = document.getElementsByClassName
+			('kcalendar-principal-rproxies');
+		for (i = 0, sz = list.length; i < sz; i++) {
+			tmpl = list[i].children[0];
+			if (null === tmpl)
+				continue;
+			list[i].removeChild(tmpl);
+			for (j = 0, ssz = p.rproxies.length; j < ssz; j++) {
+				cln = tmpl.cloneNode(true);
+				rproxyFill(cln, p, p.rproxies[j]);
+				list[i].appendChild(cln);
+			}
+		}
+		list = document.getElementsByClassName
+			('kcalendar-principal-norproxies');
+		for (i = 0, sz = list.length; i < sz; i++)
+			if (0 === p.rproxies.length && list[i].classList.contains('hide')) 
+				list[i].classList.remove('hide');
+			else if (p.rproxies.length && ! list[i].classList.contains('hide'))
+				list[i].classList.add('hide');
 
 		list = document.getElementsByClassName
 			('kcalendar-principal-proxies');
@@ -286,6 +335,21 @@
 		return(e);
 	}
 
+	function logoutSuccess()
+	{
+
+		classSet(document.getElementById('loading'), 'hide');
+		classSet(document.getElementById('loaded'), 'hide');
+		classUnset(document.getElementById('loggedout'), 'hide');
+	}
+
+	function logout()
+	{
+
+		sendQuery('@CGIURI@/logout.json', 
+			null, logoutSuccess, null);
+	}
+
 	root.sendQuery = sendQuery;
 	root.sendForm = sendForm;
 	root.parseJSON = parseJSON;
@@ -295,4 +359,5 @@
 	root.getQueryVariable = getQueryVariable;
 	root.classSet = classSet;
 	root.classUnset = classUnset;
+	root.logout = logout;
 })(this);

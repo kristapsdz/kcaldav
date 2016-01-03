@@ -246,6 +246,15 @@ json_newcoln(struct kreq *r)
 }
 
 static void
+json_logout(struct kreq *r)
+{
+	struct state	*st = r->arg;
+
+	db_nonce_delete(st->nonce, st->prncpl);
+	send200(r);
+}
+
+static void
 json_index(struct kreq *r)
 {
 	struct state	*st = r->arg;
@@ -302,6 +311,23 @@ json_index(struct kreq *r)
 			st->prncpl->proxies[i].proxy);
 		kjson_obj_close(&req);
 	}
+	kjson_array_close(&req);
+	kjson_arrayp_open(&req, "rproxies");
+	for (i = 0; i < st->prncpl->rproxiesz; i++) {
+		kjson_obj_open(&req);
+		kjson_putstringp(&req, "email", 
+			st->prncpl->rproxies[i].email);
+		kjson_putstringp(&req, "name", 
+			st->prncpl->rproxies[i].name);
+		kjson_putintp(&req, "bits", 
+			st->prncpl->rproxies[i].bits);
+		kjson_putintp(&req, "id", 
+			st->prncpl->rproxies[i].id);
+		kjson_putintp(&req, "proxy", 
+			st->prncpl->rproxies[i].proxy);
+		kjson_obj_close(&req);
+	}
+	kjson_array_close(&req);
 	kjson_close(&req);
 }
 
@@ -320,6 +346,9 @@ method_json(struct kreq *r)
 		return;
 	case (PAGE_INDEX):
 		json_index(r);
+		return;
+	case (PAGE_LOGOUT):
+		json_logout(r);
 		return;
 	case (PAGE_MODPROXY):
 		json_modproxy(r);

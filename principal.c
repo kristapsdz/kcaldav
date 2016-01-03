@@ -47,6 +47,11 @@ prncpl_free(struct prncpl *p)
 		free(p->proxies[i].name);
 	}
 	free(p->proxies);
+	for (i = 0; i < p->rproxiesz; i++) {
+		free(p->rproxies[i].email);
+		free(p->rproxies[i].name);
+	}
+	free(p->rproxies);
 	free(p);
 }
 

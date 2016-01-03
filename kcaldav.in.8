@@ -19,7 +19,7 @@
 .Os
 .Sh NAME
 .Nm kcaldav
-.Nd simple CalDav server
+.Nd simple CalDAV server
 .\" .Sh LIBRARY
 .\" For sections 2, 3, and 9 only.
 .\" Not used in OpenBSD.
@@ -124,8 +124,8 @@ set-user-ID for modifying the file.
 .Pp
 Create user principals as follows:
 .Bd -literal -offset indent
-# kcaldav.passwd -f /caldav -C -u <user1>
-# kcaldav.passwd -f /caldav -C -u <user2>
+# kcaldav.passwd -f /caldav -C -u user1
+# kcaldav.passwd -f /caldav -C -u user2
 # ...
 .Ed
 .Pp
@@ -139,10 +139,10 @@ Let
 be
 .Pa /home/foo/caldav ,
 which is readable by the web server running as user www and
-read-writable by the logged-in user.
+read-writable by the logged-in user foo.
 First, create the database and add principals as necessary.
 .Pp
-.Dl % kcaldav.passwd -C -u <user> -f /home/foo/caldav
+.Dl % kcaldav.passwd -C -u foo -f /home/foo/caldav
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .Ss Web Calendar Administration
@@ -155,9 +155,15 @@ Principals can access the server root,
 .Pp
 in our above example, to see their configuration.
 .Pp
-The principal can modify collection information online, e.g.,
+The principal foo can modify collection information online, e.g.,
 .Pp
-.Dl http://localhost/cgi-bin/kcaldav/<user>/calendar/
+.Dl http://localhost/cgi-bin/kcaldav/foo/calendar/
+.Pp
+.Em Note :
+you will need to make sure that the calendar database is read-writable
+by the web server.
+In general, the directory containing the database will also need to be
+writable by the web server for creating its temporary transaction files.
 .Sh HTTP METHODS
 In this section, I describe each HTTP method supported.
 .Ss DELETE
@@ -182,9 +188,7 @@ content-type) as defined by RFC 4918.
 The
 .Dq If-None-Match
 header is processed and checks the file etag (MD5 sum).
-In all cases, the principal must have
-.Dv READ
-access.
+In all cases, the principal must have been delegated read access.
 .Pp
 For the HTML content-type (i.e., HTML resources),
 .Nm
@@ -202,18 +206,14 @@ The POST method is supported only for text/html requests for specific
 management (HTML content-type) resources.
 POST methods on calendar collections are interpreted by the management
 framework as HTML form requests to change collection properties.
-The principal must have
-.Dv WRITE
-access.
+The principal must have been delegated write access.
 .Ss PROPFIND
 The PROPFIND method queries collection or resource properties.
-The principal must have
-.Dv READ
-access.
+The principal must have been delegated read access.
 It accepts the
 .Dq Depth
 header for recursive reports.
-The following is a table of gettable properties.
+The following is a table of get-able properties.
 .Pp
 .TS
 l l.
@@ -229,6 +229,8 @@ displayname	RFC 4918, 15.2
 getcontenttype	RFC 4918, 15.5
 getctag	caldav-ctag-02, 4.1
 getetag	RFC 4918, 15.6
+group-member-set	RFC 3744, 4.3; caldav-proxy.txt
+group-membership	RFC 3744, 4.4; caldav-proxy.txt
 min-date-time	RFC 4791, 5.2.6
 owner	RFC 4918, 14.17
 principal-URL	RFC 3744, 4.2
@@ -242,9 +244,8 @@ supported-calendar-data	RFC 4791, 9.6
 .Ss PROPPATCH
 If the web server has write access to collection
 .Pa kcaldav.conf
-files and the principal has
-.Dv WRITE
-access, its properties may be modified.
+files and the principal has been delegated write access, its properties
+may be modified.
 The following is a table of settable properties.
 .Pp
 .TS
@@ -255,9 +256,7 @@ displayname	RFC 4918, 15.2
 .TE
 .Ss PUT
 The PUT method is supported for calendar resources where the principal
-has
-.Dv WRITE
-access.
+has been delegated write access.
 .Pp
 The
 .Dq If-Match
@@ -370,6 +369,8 @@ utility minimally implements RFC 4918 (WebDAV), RFC 4791 (CalDAV), and
 of course RFC 2616 (HTTP).
 It also implements the following extensions:
 .Bl -tag -width Ds
+.It caldav-proxy.txt
+Read-write delegation support.
 .It RFC 7232
 Conditional HTTP responses (etag,
 .Dq If-Match ,

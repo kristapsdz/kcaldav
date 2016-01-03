@@ -12,6 +12,12 @@
 		<script src="@HTDOCS@/collection.min.js"></script>
 	</head>
 	<body onload="load();">
+		<section id="loggedout" class="hide">
+			<p>
+				The nonce for this HTTP-authorised session has been deleted.
+				To complete your logout, you'll need to close the browser window to destroy your credentials.
+			</p>
+		</section>
 		<section id="loading">
 			<p>
 				<i class="fa fa-spin fa-spinner"></i> Loading <i>k</i>CalDAV...
@@ -21,9 +27,10 @@
 			<header>
 				<div>
 					<h1>
-						<a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> Management
+						<a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> <span class="bigonly">Management</span>
 					</h1><nav>
 						<a href="@HTDOCS@/home.html">home</a>
+						<a href="#" onclick="logout();">logout</a>
 					</nav>
 				</div>
 			</header>
@@ -32,7 +39,6 @@
 					Welcome, <span class="kcalendar-field kcalendar-principal-name"></span>.
 					This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a>
 					(version @VERSION@) installation.
-					To this collection, <q class="kcalendar-coln-displayname kcalendar-field"></q>, you have @@privileges@@ access.
 					Your principal has <span class="kcalendar-field kcalendar-principal-quota-used"></span> used and <span
 						class="kcalendar-field kcalendar-principal-quota-avail"></span> available.
 				</p>
@@ -47,7 +53,7 @@
 						<input type="hidden" name="id" class="kcalendar-coln-id" />
 						<button type="submit" class="pure-button pure-button-primary" id="setcolnprops-delete-btn">
 							<i class="fa fa-fw fa-remove"></i>
-							<span class="bigonly">Delete</span>
+							<span class="bigonly">Delete Collection</span>
 						</button>
 						<button type="submit" class="hide pure-button pure-button-primary" id="setcolnprops-delete-pbtn">
 							<i class="fa fa-fw fa-spin fa-spinner"></i>
@@ -55,8 +61,12 @@
 						</button>
 					</form>
 					<h2>
-						Collection Name
+						Calendar Display Name
 					</h2>
+					<p>
+						This is the display name as defined in <a href="https://tools.ietf.org/html/rfc4918#section-15.2">RFC 4918, 15.2</a>.
+						It can be any UTF-8 string less than 1024 bytes in length.
+					</p>
 					<form class="pure-form" method="post" action="@CGIURI@/setcolnprops.json" onsubmit="return(setcolnprops(this, 'setcolnprops-name'));">
 						<input type="hidden" name="id" class="kcalendar-coln-id" />
 						<input class="kcalendar-coln-displayname" name="name" type="text" required="required" />
@@ -70,8 +80,11 @@
 						</button>
 					</form>
 					<h2>
-						Collection Colour
+						Calendar Colour
 					</h2>
+					<p>
+						This is an Apple extension that will probably only work with Apple iCal systems.
+					</p>
 					<form class="pure-form" method="post" action="@CGIURI@/setcolnprops.json" onsubmit="return(setcolnprops(this, 'setcolnprops-colour'));">
 						<input type="hidden" name="id" class="kcalendar-coln-id" />
 						<input class="kcalendar-coln-colour" name="colour" type="color" required="required" />
@@ -85,8 +98,12 @@
 						</button>
 					</form>
 					<h2>
-						Collection Description
+						Calendar Description
 					</h2>
+					<p>
+						This is the calendar description as defined in <a href="https://tools.ietf.org/html/rfc4791#section-5.2.1">RFC 4791, 5.2.1</a>.
+						It can be any UTF-8 string less than 4096 bytes in length.
+					</p>
 					<form class="pure-form" method="post" action="@CGIURI@/setcolnprops.json" onsubmit="return(setcolnprops(this, 'setcolnprops-desc'));">
 						<input type="hidden" name="id" class="kcalendar-coln-id" />
 						<textarea class="kcalendar-coln-description" name="description" required="required"></textarea>
