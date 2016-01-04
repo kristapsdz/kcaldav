@@ -93,6 +93,48 @@ resource_calendar_home_set(struct kxmlreq *xml,
 }
 
 /*
+ * caldav-proxy.txt, 5.3.1.
+ */
+static void
+principal_calendar_proxy_read_for(struct kxmlreq *xml)
+{
+	struct state	*st = xml->req->arg;
+	size_t		 i;
+
+	for (i = 0; i < st->rprncpl->rproxiesz; i++) {
+		if (PROXY_WRITE != st->rprncpl->rproxies[i].bits)
+			continue;
+		kxml_push(xml, XML_DAV_HREF);
+		kxml_puts(xml, xml->req->pname);
+		kxml_putc(xml, '/');
+		kxml_puts(xml, st->rprncpl->rproxies[i].name);
+		kxml_putc(xml, '/');
+		kxml_pop(xml);
+	}
+}
+
+/*
+ * caldav-proxy.txt, 5.3.2.
+ */
+static void
+principal_calendar_proxy_write_for(struct kxmlreq *xml)
+{
+	struct state	*st = xml->req->arg;
+	size_t		 i;
+
+	for (i = 0; i < st->rprncpl->rproxiesz; i++) {
+		if (PROXY_READ != st->rprncpl->rproxies[i].bits)
+			continue;
+		kxml_push(xml, XML_DAV_HREF);
+		kxml_puts(xml, xml->req->pname);
+		kxml_putc(xml, '/');
+		kxml_puts(xml, st->rprncpl->rproxies[i].name);
+		kxml_putc(xml, '/');
+		kxml_pop(xml);
+	}
+}
+
+/*
  * RFC 6638, 2.4.1.
  */
 static void
@@ -105,7 +147,6 @@ principal_calendar_user_address_set(struct kxmlreq *xml)
 	kxml_puts(xml, st->rprncpl->email);
 	kxml_pop(xml);
 }
-
 
 /*
  * RFC 6638, 2.4.1.
@@ -171,30 +212,31 @@ resource_current_user_principal(struct kxmlreq *xml,
 static void
 collection_current_user_privilege_set(struct kxmlreq *xml, const struct coln *c)
 {
-	/*struct state	*st = xml->req->arg;*/
+	struct state	*st = xml->req->arg;
 
 	kxml_push(xml, XML_DAV_PRIVILEGE);
 	kxml_pushnull(xml, XML_DAV_READ_CURRENT_USER_PRIVILEGE_SET);
 	kxml_pop(xml);
 
-	/*if (PERMS_READ & st->cfg->perms) {*/
+	if (st->prncpl == st->rprncpl ||
+	    PROXY_WRITE == st->proxy) {
 		kxml_push(xml, XML_DAV_PRIVILEGE);
 		kxml_pushnull(xml, XML_DAV_READ);
 		kxml_pop(xml);
-	/*}
-	if (PERMS_WRITE & st->cfg->perms) {*/
 		kxml_push(xml, XML_DAV_PRIVILEGE);
 		kxml_pushnull(xml, XML_DAV_WRITE);
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_PRIVILEGE);
 		kxml_pushnull(xml, XML_DAV_BIND);
 		kxml_pop(xml);
-	/*}
-	if (PERMS_DELETE & st->cfg->perms) {*/
 		kxml_push(xml, XML_DAV_PRIVILEGE);
 		kxml_pushnull(xml, XML_DAV_UNBIND);
 		kxml_pop(xml);
-	/*}*/
+	} else if (PROXY_READ == st->proxy) {
+		kxml_push(xml, XML_DAV_PRIVILEGE);
+		kxml_pushnull(xml, XML_DAV_READ);
+		kxml_pop(xml);
+	}
 }
 
 /*
@@ -354,8 +396,8 @@ collection_quota_available_bytes(struct kxmlreq *xml, const struct coln *c)
 	struct state	*st = xml->req->arg;
 	char	 	 buf[32];
 
-	snprintf(buf, sizeof(buf), 
-		"%" PRIu64, st->rprncpl->quota_avail);
+	snprintf(buf, sizeof(buf), "%" PRIu64, 
+		st->rprncpl->quota_avail);
 	kxml_puts(xml, buf);
 }
 
@@ -578,11 +620,21 @@ const struct property properties[PROP__MAX] = {
 	  collection_calendar_home_set, 
 	  resource_calendar_home_set,
 	  principal_calendar_home_set }, 
-	{ /* PROP_CALENDAR_MIN_DATE_TIME */
+	{ /* PROP_MIN_DATE_TIME */
 	  0, 
 	  collection_min_date_time, 
 	  NULL,
 	  NULL }, 
+	{ /* PROP_CALENDAR_PROXY_READ_FOR */
+	  0, 
+	  NULL, 
+	  NULL,
+	  principal_calendar_proxy_read_for }, 
+	{ /* PROP_CALENDAR_PROXY_WRITE_FOR */
+	  0, 
+	  NULL, 
+	  NULL,
+	  principal_calendar_proxy_write_for }, 
 	{ /* PROP_CALENDAR_TIMEZONE */
 	  0, 
 	  collection_calendar_timezone, 

@@ -39,7 +39,9 @@ const char *const xmls[XML__MAX] = {
 	"C:comp", /* XML_CALDAV_COMP */
 	"C:opaque", /* XML_CALDAV_OPAQUE */
 	"B:calendar-proxy-read", /* XML_CALDAVSERV_PROXY_READ */
+	"B:calendar-proxy-read-for", /* XML_CALDAVSERV_PROXY_READ_FOR */
 	"B:calendar-proxy-write", /* XML_CALDAVSERV_PROXY_WRITE */
+	"B:calendar-proxy-write-for", /* XML_CALDAVSERV_PROXY_WRIT... */
 	"D:bind", /* XML_DAV_BIND */
 	"D:collection", /* XML_DAV_COLLECTION */
 	"D:href", /* XML_DAV_HREF */
