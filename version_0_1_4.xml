@@ -1,0 +1,16 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.1.4</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2016-01-04">2016-01-04</time>
+	</header>
+	<aside>
+		<div>
+			This small version allows integration with new <a href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a> v0.7.5 facilities for
+			debugging.
+			This makes it easier to debug new CalDAV clients.
+			I've removed the options parsed by <a href="kcaldav.8.html">kcaldav(8)</a>, instead relying on compile-time options as
+			defined (and documented) in the <span class="file">Makefile</span>.
+		</div>
+	</aside>
+</article>
