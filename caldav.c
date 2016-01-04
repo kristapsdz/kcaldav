@@ -118,9 +118,9 @@ const char *const calelems[CALELEM__MAX] = {
 	CALDAVNS "calendar-description", /* CALELEM_CALENDAR_DESCR... */
 	CALDAVNS "calendar-home-set", /* CALELEM_CALENDAR_HOME_SET */
 	CALDAVNS "min-date-time", /* CALELEM_MIN_DATE_TIME */
+	CALDAVNS "calendar-multiget", /* CALELEM_CALENDAR_MULTIGET */
 	CALSERVNS "calendar-proxy-read-for", /* CALELEM_CALENDAR_P... */
 	CALSERVNS "calendar-proxy-write-for", /* CALELEM_CALENDAR_... */
-	CALDAVNS "calendar-multiget", /* CALELEM_CALENDAR_MULTIGET */
 	CALDAVNS "calendar-query", /* CALELEM_CALENDAR_QUERY */
 	CALDAVNS "calendar-timezone", /* CALELEM_CALENDAR_TIMEZONE */
 	CALDAVNS "calendar-user-address-set", /* CALELEM_CALENDAR_... */
