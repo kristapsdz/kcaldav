@@ -93,7 +93,8 @@ MANS		 = kcaldav.in.8 \
 		   libkcaldav.3
 CTESTSRCS	 = test-explicit_bzero.c \
 		   test-memmem.c \
-		   test-reallocarray.c
+		   test-reallocarray.c \
+		   test-sandbox_init.c
 JSMINS		 = collection.min.js \
 		   home.min.js \
 		   md5.min.js \
@@ -125,6 +126,7 @@ ALLSRCS		 = Makefile \
 		   kcaldav.c \
 		   kcaldav.h \
 		   kcaldav.passwd.c \
+		   kcaldav.sql \
 		   libkcaldav.h \
 		   md5.c \
 		   md5.h \

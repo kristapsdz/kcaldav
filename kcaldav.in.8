@@ -221,6 +221,8 @@ calendar-color	Apple extension
 calendar-data	RFC 4791, 9.6
 calendar-description	RFC 4791, 5.2.1
 calendar-home-set	RFC 4791, 6.2.1
+calendar-proxy-read-for	caldav-proxy.txt, 5.3.1
+calendar-proxy-write-for	caldav-proxy.txt, 5.3.2
 calendar-timezone	RFC 4791, 5.2.2
 calendar-user-address-set	RFC 6638, 2.4.1
 current-user-principal	RFC 5379, 3
@@ -369,26 +371,26 @@ utility minimally implements RFC 4918 (WebDAV), RFC 4791 (CalDAV), and
 of course RFC 2616 (HTTP).
 It also implements the following extensions:
 .Bl -tag -width Ds
-.It caldav-proxy.txt
-Read-write delegation support.
-.It RFC 7232
-Conditional HTTP responses (etag,
-.Dq If-Match ,
-etc.).
-.It RFC 2617
-.Dq Digest
-authentication of all users.
 .It caldav-ctag-02
 The
 .Dq ctag
 Calendar Server Extension.
+.It caldav-proxy.txt
+Read-write delegation support.
+.It RFC 2617
+.Dq Digest
+authentication of all users.
 .It RFC 3744
 ACL queries on the authenticated principal (not ACEs).
-.It RFC 5397
-The current principal address.
 .It RFC 4331
 Available and used bytes in the collection file-system via
 .Xr fstatfs 2 .
+.It RFC 5397
+The current principal address.
+.It RFC 7232
+Conditional HTTP responses (etag,
+.Dq If-Match ,
+etc.).
 .El
 .\" .Sh HISTORY
 .\" .Sh AUTHORS

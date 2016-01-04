@@ -755,13 +755,13 @@ main(int argc, char *argv[])
 			http_error(&r, KHTTP_403);
 			goto out;
 		}
-		v = st->rprncpl->proxies[i].bits;
+		st->proxy = st->rprncpl->proxies[i].bits;
 		switch (r.method) {
 		case (KMETHOD_PUT):
 		case (KMETHOD_PROPPATCH):
 		case (KMETHOD_DELETE):
 			/* Implies read. */
-			if (PROXY_WRITE == v)
+			if (PROXY_WRITE == st->proxy)
 				break;
 			kerrx("%s: disallowed reverse proxy "
 				"write on principal: %s",
@@ -770,7 +770,8 @@ main(int argc, char *argv[])
 			http_error(&r, KHTTP_403);
 			goto out;
 		default:
-			if (PROXY_READ == v || PROXY_WRITE == v)
+			if (PROXY_READ == st->proxy || 
+			    PROXY_WRITE == st->proxy)
 				break;
 			kerrx("%s: disallowed reverse proxy "
 				"read on principal: %s",

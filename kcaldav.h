@@ -21,6 +21,7 @@ struct	state {
 	struct prncpl	*prncpl; /* current user principal */
 	struct prncpl	*rprncpl; /* requested user principal */
 	struct coln	*cfg; /* (resource in?) requested collection */
+	int		 proxy; /* permission of this proxy request */
 	char		 caldir[PATH_MAX]; /* calendar root */
 	char		*principal; /* principal in request */
 	char		*collection; /* collection in request */
@@ -34,7 +35,9 @@ enum	xml {
 	XML_CALDAV_COMP,
 	XML_CALDAV_OPAQUE,
 	XML_CALDAVSERV_PROXY_READ,
+	XML_CALDAVSERV_PROXY_READ_FOR,
 	XML_CALDAVSERV_PROXY_WRITE,
+	XML_CALDAVSERV_PROXY_WRITE_FOR,
 	XML_DAV_BIND,
 	XML_DAV_COLLECTION,
 	XML_DAV_HREF,
