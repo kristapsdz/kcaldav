@@ -505,7 +505,6 @@ main(int argc, char *argv[])
 		getpid());
 #endif
 	verbose = v;
-	verbose = 1;
 
 #ifdef HAVE_SANDBOX_INIT
 	rc = sandbox_init
