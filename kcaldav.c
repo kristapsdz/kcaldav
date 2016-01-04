@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2015 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2015, 2016 Kristaps Dzonsons <kristaps@bsd.lv>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -25,7 +25,6 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <getopt.h>
 #include <limits.h>
 #ifdef HAVE_SANDBOX_INIT
 #include <sandbox.h>
@@ -439,7 +438,7 @@ state_load(struct state *st, const char *nonce, const char *name)
 }
 
 int
-main(int argc, char *argv[])
+main(void)
 {
 	struct kreq	 r;
 	struct kvalid	 valid[VALID__MAX] = {
@@ -454,8 +453,7 @@ main(int argc, char *argv[])
 		{ kvalid_path, valids[VALID_PATH] } }; 
 	struct state	*st;
 	struct httpauth	 auth;
-	int		 rc, v;
-	const char	*caldir;
+	int		 rc;
 	char		*np;
 	size_t		 i, sz;
 
@@ -466,28 +464,18 @@ main(int argc, char *argv[])
 	setlinebuf(stderr);
 
 	st = NULL;
-	caldir = NULL;
-	v = 0;
+#if defined DEBUG && DEBUG > 1
+	verbose = 2;
+#elif defined DEBUG && DEBUG > 0
+	verbose = 1;
+#endif
 
-	while (-1 != (rc = getopt(argc, argv, "v")))
-		switch (rc) {
-		case ('v'):
-			v = 1;
-			break;
-		default:
-			return(EXIT_FAILURE);
-		}
-
-	argv += optind;
-	argc -= optind;
-
-	/* Optionally set the caldir. */
-	if (argc > 0)
-		caldir = argv[0];
-
-	if (KCGI_OK != khttp_parse
-		(&r, valid, VALID__MAX, 
-		 pages, PAGE__MAX, PAGE_INDEX))
+	if (KCGI_OK != khttp_parsex
+	    (&r, ksuffixmap, kmimetypes, KMIME__MAX, 
+	     valid, VALID__MAX, pages, PAGE__MAX, 
+	     KMIME_TEXT_HTML, PAGE_INDEX,
+	     NULL, NULL, verbose > 1 ? 
+	     KREQ_DEBUG_WRITE | KREQ_DEBUG_READ_BODY : 0))
 		return(EXIT_FAILURE);
 
 #if 0
@@ -504,7 +492,6 @@ main(int argc, char *argv[])
 		KTRFAC_INHERIT, 
 		getpid());
 #endif
-	verbose = v;
 
 #ifdef HAVE_SANDBOX_INIT
 	rc = sandbox_init
@@ -628,8 +615,7 @@ main(int argc, char *argv[])
 		st->principal, st->collection, st->resource);
 
 	/* Copy over the calendar directory as well. */
-	sz = strlcpy(st->caldir, NULL == caldir ? 
-		CALDIR : caldir, sizeof(st->caldir));
+	sz = strlcpy(st->caldir, CALDIR, sizeof(st->caldir));
 
 	if (sz >= sizeof(st->caldir)) {
 		kerrx("%s: caldir too long!", st->caldir);

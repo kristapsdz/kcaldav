@@ -1,6 +1,6 @@
 .\"	$Id$
 .\"
-.\" Copyright (c) 2015 Kristaps Dzonsons <kristaps@bsd.lv>
+.\" Copyright (c) 2015, 2016 Kristaps Dzonsons <kristaps@bsd.lv>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -25,26 +25,19 @@
 .\" Not used in OpenBSD.
 .Sh SYNOPSIS
 .Nm kcaldav
-.Op v
-.Op Ar caldir
 .Sh DESCRIPTION
 The
 .Nm
 CGI program minimally implements CalDAV, with an emphasis on strong
 authorisation and simplicity.
-It has only a
-.Fl v
-option, which increases verbosity of its log messages.
 To use
 .Nm ,
-you'll need to first install a calendar database in the root directory
-.Ar caldir
+you'll need to first install a calendar database in the compile-time
+root directory
+.Pa @CALDIR@
 with
 .Xr kcaldav.passwd 1 .
-The
-.Ar caldir
-directory is relative to the CGI script's file-system root, defaulting to
-.Pa @CALDIR@ .
+The root directory is relative to the CGI script's file-system root.
 .Pp
 Once installed, you can point your calendar client to owned collections
 or the calendar home (depending on the client) within the calendar root.
@@ -91,8 +84,7 @@ of a given user.
 Here I assume that the directory has CGI-execute permissions set and the
 CGI script
 .Pa kcaldav.cgi
-and its database installed into the
-.Ar caldir ,
+and its database installed into
 .Pa /home/foo/public_html .
 .Pp
 The user can then access calenders on
@@ -105,9 +97,7 @@ Although
 uses HTTP authentication to the fullest, that still doesn't protect you
 from snooping.
 .Ss System-Wide Calendar Administration
-Let
-.Ar caldir
-be
+Let the root directory be
 .Pa /caldav ,
 a directory within the CGI script's
 .Xr chroot 2
@@ -134,9 +124,7 @@ administrator intervention.
 .Pp
 .Dl user1% kcaldav.passwd -f /caldav
 .Ss Local Calendar Administration
-Let
-.Ar caldir
-be
+Let the root directory be
 .Pa /home/foo/caldav ,
 which is readable by the web server running as user www and
 read-writable by the logged-in user foo.
