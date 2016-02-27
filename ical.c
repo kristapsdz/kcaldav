@@ -877,7 +877,7 @@ ical_line(struct icalparse *p,
 	const char	*end;
 	size_t		 len;
 
-	p->buf.sz = 0;
+	p->buf.sz = len = 0;
 	while (p->pos < p->sz) {
 		end = memmem(&p->cp[p->pos], 
 			p->sz - p->pos, "\r\n", 2);
