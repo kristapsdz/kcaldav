@@ -96,7 +96,7 @@ method_put(struct kreq *r)
 		digest = buf;
 	} else if (NULL != r->reqmap[KREQU_IF]) {
 		sz = strlcpy(buf, 
-			r->reqmap[KREQU_IF_MATCH]->val,
+			r->reqmap[KREQU_IF]->val,
 			sizeof(buf));
 		if (sz >= sizeof(buf)) {
 			kerrx("%s: bad \"If\" digest", 
