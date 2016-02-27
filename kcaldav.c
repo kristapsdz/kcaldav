@@ -475,7 +475,8 @@ main(void)
 	     valid, VALID__MAX, pages, PAGE__MAX, 
 	     KMIME_TEXT_HTML, PAGE_INDEX,
 	     NULL, NULL, verbose > 1 ? 
-	     KREQ_DEBUG_WRITE | KREQ_DEBUG_READ_BODY : 0))
+	     KREQ_DEBUG_WRITE | KREQ_DEBUG_READ_BODY : 0, 
+	     NULL))
 		return(EXIT_FAILURE);
 
 #if 0
