@@ -1450,7 +1450,6 @@ db_resource_update(const char *data, const char *url,
 		return(1);
 	}
 err:
-	res_free(res);
 	db_finalise(&stmt);
 	db_trans_rollback();
 	kerrx("%s: %s: failure", dbname, __func__);
