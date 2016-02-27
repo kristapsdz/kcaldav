@@ -68,6 +68,44 @@ xml_ical_putc(int c, void *arg)
 	return(1);
 }
 
+static char
+parsehex(char ch)
+{
+
+	return(isdigit((int)ch) ? ch - '0' : 
+		tolower((int)ch) - 'a' + 10);
+}
+
+static void
+http_decode(const char *in, char **rp)
+{
+	size_t	 i, j, sz;
+
+	sz = strlen(in);
+	*rp = kcalloc(sz + 1, 1);
+
+	for (i = j = 0; i < sz; i++, j++) {
+		if ('+' == in[i]) {
+			(*rp)[j] = ' ';
+			continue;
+		} else if ('%' != in[i]) {
+			(*rp)[j] = in[i];
+			continue;
+		}
+		if ('\0' == in[i + 1] ||
+		    '\0' == in[i + 2] ||
+		    ! isalnum((int)in[i + 1]) ||
+		    ! isalnum((int)in[i + 2])) {
+			(*rp)[j] = in[i];
+			continue;
+		}
+		(*rp)[j] = 
+			parsehex(in[i + 1]) << 4 |
+			parsehex(in[i + 2]);
+		i += 2;
+	}
+}
+
 /*
  * Decompose a path into the principal, collection, and resource parts.
  * We manage this as follows:
@@ -99,10 +137,10 @@ http_paths(const char *in, char **pp, char **cp, char **rp)
 			memcpy(*cp, in, p - in);
 			(*cp)[p - in] = '\0';
 			in = p + 1;
-			*rp = strdup(in);
+			http_decode(in, rp);
 		} else {
 			*cp = strdup("");
-			*rp = strdup(in);
+			http_decode(in, rp);
 		}
 	} else {
 		*pp = strdup(in);
