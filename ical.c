@@ -1197,8 +1197,9 @@ static int
 icalnode_putc(int c, void *arg)
 {
 	int	 fd = *(int *)arg;
+	char	 ch = c;
 
-	return(write(fd, &c, 1));
+	return(write(fd, &ch, 1));
 }
 
 /*
