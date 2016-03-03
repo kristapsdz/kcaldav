@@ -1266,7 +1266,8 @@ err:
 
 /*
  * Delete a resource from the collection and update the ctag.
- * Only do this if the resource matches the given tag.
+ * Only do this if the resource matches the given tag or if the resource
+ * wasn't found (so it's kinda... already deleted?).
  * Returns zero on failure, non-zero on success.
  */
 int
@@ -1293,10 +1294,10 @@ db_resource_delete(const char *url, int64_t tag, int64_t colid)
 	rc = db_step(stmt);
 	db_finalise(&stmt);
 
-	if (SQLITE_ROW != rc) {
+	if (SQLITE_DONE == rc) {
 		db_trans_rollback();
-		return(0);
-	} else if (SQLITE_DONE == rc)
+		return(1);
+	} else if (SQLITE_ROW != rc)
 		goto err;
 
 	sql = "DELETE FROM resource WHERE "
