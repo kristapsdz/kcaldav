@@ -484,7 +484,7 @@ ical_wklist(const struct icalparse *p,
 			return(0);
 		pp = reallocarray
 			(*v, *vsz + 1, sizeof(struct icalwk));
-		if (NULL == p) {
+		if (NULL == pp) {
 			kerr(NULL);
 			return(0);
 		}
@@ -514,7 +514,7 @@ ical_llong(const struct icalparse *p, long **v,
 			return(0);
 		pp = reallocarray
 			(*v, *vsz + 1, sizeof(long));
-		if (NULL == p) {
+		if (NULL == pp) {
 			kerr(NULL);
 			return(0);
 		}
@@ -569,7 +569,7 @@ ical_lulong(const struct icalparse *p, unsigned long **v,
 			return(0);
 		pp = reallocarray
 			(*v, *vsz + 1, sizeof(unsigned long));
-		if (NULL == p) {
+		if (NULL == pp) {
 			kerr(NULL);
 			return(0);
 		}
