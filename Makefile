@@ -24,42 +24,42 @@
 
 # Use this for installing into a single directory.
 # I use this on my Mac OS X laptop (no chroot(2)).
-#CALDIR		 = /Users/kristaps/Sites/kcaldav
-#CALPREFIX	 = /Users/kristaps/Sites/kcaldav
-#HTDOCS	 	 = /~kristaps/kcaldav
-#HTDOCSPREFIX	 = /Users/kristaps/Sites/kcaldav
-#CGIURI		 = /~kristaps/kcaldav/kcaldav.cgi
-#CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
-#PREFIX		 = /usr/local
+CALDIR		 = /Users/kristaps/Sites/kcaldav
+CALPREFIX	 = /Users/kristaps/Sites/kcaldav
+HTDOCS	 	 = /~kristaps/kcaldav
+HTDOCSPREFIX	 = /Users/kristaps/Sites/kcaldav
+CGIURI		 = /~kristaps/kcaldav/kcaldav.cgi
+CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
+PREFIX		 = /usr/local
 
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
-CALDIR		 = /caldav
-CALPREFIX	 = /var/www/caldav
-HTDOCS	 	 = /kcaldav
-HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
-CGIURI		 = /cgi-bin/kcaldav.cgi
-CGIPREFIX	 = /var/www/cgi-bin
-PREFIX		 = /usr/local
+#CALDIR		 = /caldav
+#CALPREFIX	 = /var/www/caldav
+#HTDOCS	 	 = /kcaldav
+#HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
+#CGIURI		 = /cgi-bin/kcaldav.cgi
+#CGIPREFIX	 = /var/www/cgi-bin
+#PREFIX		 = /usr/local
 
 # Add any special dependency directives here.
 # The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
 # next to the date.
+# Many web servers provide this: others (e.g., OpenBSD httpd(8)) don't.
 # The -D DEBUG=1 directive produces debugging information on stderr.
 # The -D DEBUG=2 directive LOTS of debugging information.
-# Most web servers provide this; others (e.g., OpenBSD httpd(8)) don't.
 
 #### For OpenBSD:
-LIBS		 = -lexpat -lm -lsqlite3
-STATIC		 = -static
-CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-BINLDFLAGS	 = -L/usr/local/lib
+#LIBS		 = -lexpat -lm -lsqlite3
+#STATIC		 = -static
+#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
+#BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-#LIBS		 = -lexpat -lsqlite3
-#STATIC		 = 
-#CPPFLAGS	+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
-#BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
+LIBS		 = -lexpat -lsqlite3
+STATIC		 = 
+CPPFLAGS	+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
+BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lbsd -lm -lsqlite3
@@ -189,7 +189,7 @@ VERSIONS	 = version_0_0_4.xml \
 		   version_0_1_2.xml \
 		   version_0_1_3.xml \
 		   version_0_1_4.xml
-VERSION		 = 0.1.3
+VERSION		 = 0.1.4
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
