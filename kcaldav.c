@@ -79,45 +79,6 @@ const char *const valids[VALID__MAX] = {
 };
 
 /*
- * Algorithm for HTTP digest.
- */
-enum	httpalg {
-	HTTPALG_MD5 = 0,
-	HTTPALG_MD5_SESS,
-	HTTPALG__MAX
-};
-
-/*
- * Quality of protection (QOP) for HTTP digest.
- */
-enum	httpqop {
-	HTTPQOP_NONE = 0,
-	HTTPQOP_AUTH,
-	HTTPQOP_AUTH_INT,
-	HTTPQOP__MAX
-};
-
-/*
- * Parsed HTTP ``Authorization'' header (RFC 2617).
- * These are just copied over from kcgi's values.
- */
-struct	httpauth {
-	enum httpalg	 alg;
-	enum httpqop	 qop;
-	const char	*user;
-	const char	*uri;
-	const char	*realm;
-	const char	*nonce;
-	const char	*cnonce;
-	const char	*response;
-	size_t		 count;
-	const char	*opaque;
-	const char	*req;
-	size_t		 reqsz;
-	const char	*method;
-};
-
-/*
  * Run a series of checks for the nonce validity.
  * This requires us to first open the nonce database read-only and see
  * if we've seen the nonce or not.
@@ -129,7 +90,7 @@ struct	httpauth {
  * Return -2 on system failure, -1 on replay, 0 on stale, 1 on ok.
  */
 static int
-nonce_validate(const struct httpauth *auth, char **np)
+nonce_validate(const struct khttpdigest *auth, char **np)
 {
 	enum nonceerr	 er;
 
@@ -185,103 +146,6 @@ nonce_validate(const struct httpauth *auth, char **np)
 	} 
 
 	return(1);
-}
-
-/*
- * Hash validation.
- * This takes the HTTP digest fields in "auth", constructs the
- * "response" field given the information at hand, then compares the
- * response fields to see if they're different.
- * Depending on the HTTP options, this might involve a lot.
- * RFC 2617 has a handy source code guide on how to do this.
- */
-static int
-httpauth_validate(const struct prncpl *prncpl, 
-	const struct httpauth *auth)
-{
-	MD5_CTX	 	 ctx;
-	char		*hash;
-	unsigned char	 ha1[MD5_DIGEST_LENGTH],
-			 ha2[MD5_DIGEST_LENGTH],
-			 ha3[MD5_DIGEST_LENGTH];
-	char		 skey1[MD5_DIGEST_LENGTH * 2 + 1],
-			 skey2[MD5_DIGEST_LENGTH * 2 + 1],
-			 skey3[MD5_DIGEST_LENGTH * 2 + 1],
-			 count[9];
-	size_t		 i;
-
-	hash = prncpl->hash;
-
-	/*
-	 * MD5-sess hashes the nonce and client nonce as well as the
-	 * existing hash (user/real/pass).
-	 * Note that the existing hash is MD5_DIGEST_LENGTH * 2 as
-	 * validated by prncpl_pentry_check().
-	 */
-	if (HTTPALG_MD5_SESS == auth->alg) {
-		MD5Init(&ctx);
-		MD5Update(&ctx, hash, strlen(hash));
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, auth->cnonce, strlen(auth->cnonce));
-		MD5Final(ha1, &ctx);
-		for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
-			snprintf(&skey1[i * 2], 3, "%02x", ha1[i]);
-	} else 
-		strlcpy(skey1, hash, sizeof(skey1));
-
-	if (HTTPQOP_AUTH_INT == auth->qop) {
-		MD5Init(&ctx);
-		MD5Update(&ctx, auth->method, strlen(auth->method));
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, auth->uri, strlen(auth->uri));
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, auth->req, auth->reqsz);
-		MD5Final(ha2, &ctx);
-	} else {
-		MD5Init(&ctx);
-		MD5Update(&ctx, auth->method, strlen(auth->method));
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, auth->uri, strlen(auth->uri));
-		MD5Final(ha2, &ctx);
-	}
-
-	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
-		snprintf(&skey2[i * 2], 3, "%02x", ha2[i]);
-
-	if (HTTPQOP_AUTH_INT == auth->qop || HTTPQOP_AUTH == auth->qop) {
-		snprintf(count, sizeof(count), "%08lx", auth->count);
-		MD5Init(&ctx);
-		MD5Update(&ctx, skey1, MD5_DIGEST_LENGTH * 2);
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, count, strlen(count));
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, auth->cnonce, strlen(auth->cnonce));
-		MD5Update(&ctx, ":", 1);
-		if (HTTPQOP_AUTH_INT == auth->qop)
-			MD5Update(&ctx, "auth-int", 8);
-		else
-			MD5Update(&ctx, "auth", 4);
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, skey2, MD5_DIGEST_LENGTH * 2);
-		MD5Final(ha3, &ctx);
-	} else {
-		MD5Init(&ctx);
-		MD5Update(&ctx, skey1, MD5_DIGEST_LENGTH * 2);
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, auth->nonce, strlen(auth->nonce));
-		MD5Update(&ctx, ":", 1);
-		MD5Update(&ctx, skey2, MD5_DIGEST_LENGTH * 2);
-		MD5Final(ha3, &ctx);
-	}
-
-	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
-		snprintf(&skey3[i * 2], 3, "%02x", ha3[i]);
-
-	return(0 == strcmp(auth->response, skey3));
 }
 
 /*
@@ -452,7 +316,6 @@ main(void)
 		{ kvalid_hash, valids[VALID_PASS] },
 		{ kvalid_path, valids[VALID_PATH] } }; 
 	struct state	*st;
-	struct httpauth	 auth;
 	int		 rc;
 	char		*np;
 	size_t		 i, sz;
@@ -545,50 +408,6 @@ main(void)
 		goto out;
 	}
 
-	/* 
-	 * Copy HTTP authorisation. 
-	 * This is just a hack to prevent kcgi(3) from being pulled into
-	 * the supporting libraries for this system.
-	 * However, while here, we also pull other information into the
-	 * structure that we'll need for authentication: the request
-	 * itself, the HTTP method, etc.
-	 */
-	memset(&auth, 0, sizeof(struct httpauth));
-
-	if (r.rawauth.d.digest.alg == KHTTPALG_MD5_SESS)
-		auth.alg = HTTPALG_MD5_SESS;
-	else
-		auth.alg = HTTPALG_MD5;
-	if (r.rawauth.d.digest.qop == KHTTPQOP_NONE)
-		auth.qop = HTTPQOP_NONE;
-	else if (r.rawauth.d.digest.qop == KHTTPQOP_AUTH)
-		auth.qop = HTTPQOP_AUTH;
-	else 
-		auth.qop = HTTPQOP_AUTH_INT;
-
-	auth.user = r.rawauth.d.digest.user;
-	auth.uri = r.rawauth.d.digest.uri;
-	auth.realm = r.rawauth.d.digest.realm;
-	auth.nonce = r.rawauth.d.digest.nonce;
-	auth.cnonce = r.rawauth.d.digest.cnonce;
-	auth.response = r.rawauth.d.digest.response;
-	auth.count = r.rawauth.d.digest.count;
-	auth.opaque = r.rawauth.d.digest.opaque;
-	auth.method = kmethods[r.method];
-
-	if (NULL != r.fieldmap && 
-		 NULL != r.fieldmap[VALID_BODY]) {
-		auth.req = r.fieldmap[VALID_BODY]->val;
-		auth.reqsz = r.fieldmap[VALID_BODY]->valsz;
-	} else if (NULL != r.fieldnmap && 
-		 NULL != r.fieldnmap[VALID_BODY]) {
-		auth.req = r.fieldnmap[VALID_BODY]->val;
-		auth.reqsz = r.fieldnmap[VALID_BODY]->valsz;
-	} else {
-		auth.req = "";
-		auth.reqsz = 0;
-	}
-
 	if ('\0' == r.fullpath[0]) {
 		np = kutil_urlabs(r.scheme, r.host, r.port, r.pname);
 		khttp_head(&r, kresps[KRESP_STATUS], 
@@ -612,7 +431,7 @@ main(void)
 		goto out;
 
 	kdbg("%s: %s: /<%s>/<%s>/<%s>", 
-		auth.user, kmethods[r.method], 
+		r.rawauth.d.digest.user, kmethods[r.method], 
 		st->principal, st->collection, st->resource);
 
 	/* Copy over the calendar directory as well. */
@@ -629,16 +448,25 @@ main(void)
 	 * and other stuff.
 	 * We'll do all the authentication afterward: this just loads.
 	 */
-	if ((rc = state_load(st, auth.nonce, auth.user)) < 0) {
+	rc = state_load(st, 
+		r.rawauth.d.digest.nonce, 
+		r.rawauth.d.digest.user);
+
+	if (rc < 0) {
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (0 == rc) {
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 
-	
-	if (0 == (rc = httpauth_validate(st->prncpl, &auth))) {
-		kerrx("%s: bad authorisation", auth.user);
+
+	rc = khttpdigest_validate(&r, st->prncpl->hash);
+	if (rc < 0) {
+		kerrx("%s: bad authorisation sequence", st->prncpl->email);
+		http_error(&r, KHTTP_401);
+		goto out;
+	} else if (0 == rc) {
+		kerrx("%s: failed authorisation sequence", st->prncpl->email);
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 
@@ -659,7 +487,7 @@ main(void)
 	 * If this clears, that means that the principal is real and not
 	 * replaying prior HTTP authentications.
 	 */
-	if ((rc = nonce_validate(&auth, &np)) < -1) {
+	if ((rc = nonce_validate(&r.rawauth.d.digest, &np)) < -1) {
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (rc < 0) {
