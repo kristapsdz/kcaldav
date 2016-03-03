@@ -460,7 +460,7 @@ main(void)
 		goto out;
 	} 
 
-	rc = khttpdigest_validate(&r, st->prncpl->hash);
+	rc = khttpdigest_validatehash(&r, st->prncpl->hash);
 	if (rc < 0) {
 		kerrx("%s: bad authorisation sequence", st->prncpl->email);
 		http_error(&r, KHTTP_401);
