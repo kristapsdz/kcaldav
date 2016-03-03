@@ -46,7 +46,7 @@ For example, assume the script has been installed into
 .Pa /var/www/cgi-bin
 and is reachable at
 .Pp
-.Dl http://localhost/cgi-bin/kcaldav
+.Dl https://localhost/cgi-bin/kcaldav
 .Pp
 Moreover, assume your calendar root
 .Pa @CALDIR@
@@ -136,17 +136,19 @@ First, create the database and add principals as necessary.
 .Ss Web Calendar Administration
 .Nm
 has built-in support for web-based administration by logged-in
-principals.
-Principals can access the server root,
+(using HTTP authentication) principals through a web application of
+HTML5, JavaScript, and CSS pages using
+.Nm
+as a JSON backend.
+Let's assume these page have been installed into
+.Pa /var/www/htdocs/kcaldav .
+Principals can then access the server root,
 .Pp
-.Dl http://localhost/cgi-bin/kcaldav/
+.Dl http://localhost/kcaldav/home.html
 .Pp
-in our above example, to see their configuration.
+to see their configuration.
 .Pp
-The principal foo can modify collection information online, e.g.,
-.Pp
-.Dl http://localhost/cgi-bin/kcaldav/foo/calendar/
-.Pp
+The principal foo can modify collection information online.
 .Em Note :
 you will need to make sure that the calendar database is read-writable
 by the web server.
@@ -178,22 +180,21 @@ The
 header is processed and checks the file etag (MD5 sum).
 In all cases, the principal must have been delegated read access.
 .Pp
-For the HTML content-type (i.e., HTML resources),
+For the JSON content-type (i.e., web application resources),
 .Nm
 routes into a management framework.
 Only the
 .Pa index.html
-in the server root directory is supported.
-.Pp
-For calendar collections, GET requests are interpreted by a management
-framework emitting HTML.
-Requests for the server root are aliased to
+resource in the server root directory is supported.
+Requests for the empty root
+.Pq Dq \e
+are aliased to
 .Pa index.html .
 .Ss POST
 The POST method is supported only for text/html requests for specific
-management (HTML content-type) resources.
+management (JSON content-type) resources.
 POST methods on calendar collections are interpreted by the management
-framework as HTML form requests to change collection properties.
+framework as JSON form requests to change collection properties.
 The principal must have been delegated write access.
 .Ss PROPFIND
 The PROPFIND method queries collection or resource properties.
