@@ -24,23 +24,23 @@
 
 # Use this for installing into a single directory.
 # I use this on my Mac OS X laptop (no chroot(2)).
-CALDIR		 = /Users/kristaps/Sites/kcaldav
-CALPREFIX	 = /Users/kristaps/Sites/kcaldav
-HTDOCS	 	 = /~kristaps/kcaldav
-HTDOCSPREFIX	 = /Users/kristaps/Sites/kcaldav
-CGIURI		 = /~kristaps/kcaldav/kcaldav.cgi
-CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
-PREFIX		 = /usr/local
+#CALDIR		 = /Users/kristaps/Sites/kcaldav
+#CALPREFIX	 = /Users/kristaps/Sites/kcaldav
+#HTDOCS	 	 = /~kristaps/kcaldav
+#HTDOCSPREFIX	 = /Users/kristaps/Sites/kcaldav
+#CGIURI		 = /~kristaps/kcaldav/kcaldav.cgi
+#CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
+#PREFIX		 = /usr/local
 
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
-#CALDIR		 = /caldav
-#CALPREFIX	 = /var/www/caldav
-#HTDOCS	 	 = /kcaldav
-#HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
-#CGIURI		 = /cgi-bin/kcaldav.cgi
-#CGIPREFIX	 = /var/www/cgi-bin
-#PREFIX		 = /usr/local
+CALDIR		 = /caldav
+CALPREFIX	 = /var/www/caldav
+HTDOCS	 	 = /kcaldav
+HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
+CGIURI		 = /cgi-bin/kcaldav.cgi
+CGIPREFIX	 = /var/www/cgi-bin
+PREFIX		 = /usr/local
 
 # Add any special dependency directives here.
 # The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
@@ -50,16 +50,16 @@ PREFIX		 = /usr/local
 # The -D DEBUG=2 directive LOTS of debugging information.
 
 #### For OpenBSD:
-#LIBS		 = -lexpat -lm -lsqlite3
-#STATIC		 = -static
-#CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 
-#BINLDFLAGS	 = -L/usr/local/lib
+LIBS		 = -lexpat -lm -lsqlite3
+STATIC		 = -static
+CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 -DDEBUG=1
+BINLDFLAGS	 = -L/usr/local/lib
 
 #### For Mac OS X:
-LIBS		 = -lexpat -lsqlite3
-STATIC		 = 
-CPPFLAGS	+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
-BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
+#LIBS		 = -lexpat -lsqlite3
+#STATIC		 = 
+#CPPFLAGS	+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
+#BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
 
 #### For Linux:
 #LIBS		 = -lexpat -lbsd -lm -lsqlite3
