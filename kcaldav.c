@@ -262,12 +262,11 @@ kvalid_body(struct kpair *kp)
 		ical = ical_parse(NULL, kp->val, kp->valsz);
 		ical_free(ical);
 		return(NULL != ical);
-	case (KMIME_TEXT_XML):
+	default:
+		/* Try to parse an XML file. */
 		dav = caldav_parse(kp->val, kp->valsz);
 		caldav_free(dav);
 		return(NULL != dav);
-	default:
-		return(0);
 	}
 }
 
