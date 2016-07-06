@@ -155,6 +155,9 @@
 		for (i = 0, sz = list.length; i < sz; i++) {
 			replacen(list[i], location.protocol + '//' + 
 				window.location.hostname +
+				((80 !== window.location.port) &&
+				 (443 !== window.location.port) ?
+				 (':' + window.location.port) : '') +
 				'@CGIURI@/' + p.name + '/' + c.url);
 			list[i].href = '@HTDOCS@/collection.html?id=' + c.id;
 		}
@@ -209,6 +212,9 @@
 			replacen(list[i], 
 				location.protocol + '//' + 
 				window.location.hostname + 
+				((80 !== window.location.port) &&
+				 (443 !== window.location.port) ?
+				 (':' + window.location.port) : '') +
 				'@CGIURI@/' + p.name + '/');
 
 		list = document.getElementsByClassName
