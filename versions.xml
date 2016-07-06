@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.10</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-07">2015-04-07</time>
+		</header>
+		<aside>
+			A small fix for some clients who aren't smart enough to resend HTTP OPTIONS after receiving a code 403 for the same.
+			Fitted the XML (CalDAV, DAV, etc.) parser with proper namespace support via the <a
+				href="http://expat.sourceforge.net/">libexpat</a> namespace handlers.
+			Parsed documents are now properly checked for namespace and name of matching elements (e.g., <code>DAV::href</code>), not just
+			the name itself.
+			Run the XML parsing routines through <a href="http://lcamtuf.coredump.cx/afl/">AFL</a> for quite some time to shake out
+			stray bugs.
+			Add the ability to detect <a href="https://tools.ietf.org/html/rfc5545">iCalendar</a> components (<code>VCALENDAR</code>,
+			<code>VEVENT</code>, <code>VTODO</code>, etc.) and properties (<code>UID</code>, <code>DTSTART</code>, etc.) during parse and
+			stash references to them in linked component lists.
+			This paves the way for filtering capabilities in later versions.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.11</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-10">2015-04-10</time>
+		</header>
+		<aside>
+			Migrate the <a href="https://tools.ietf.org/html/rfc2617">RFC 2617</a> handling directly into <a
+				href="http://kristaps.bsd.lv/kcgi">kcgi</a>, making the parse sequence just a little safer.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.12</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-12">2015-04-12</time>
+		</header>
+		<aside>
+			Implement a nonce database to prevent replay attacks for digest authentication.
+			This follows <a href="https://tools.ietf.org/html/rfc2617">RFC 2617</a> in maintaining a (bounded) database of nonce values and
+			their counts.
+			On first authentication, a new nonce field is created for the principal (possibly evicting the oldest nonce).
+			Subsequent authentication must use this nonce as well as an increasing nonce-count.
+			The methods are described in <a href="kcaldav.8.html">kcaldav(8)</a>.
+			Also, have the gecos field in <a href="kcaldav.passwd.5">kcaldav.passwd(5)</a> contain the user's email address, then remove the
+			email address field from <a href="kcaldav.conf.5">kcaldav.conf(5)</a>.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.13</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-13">2015-04-13</time>
+		</header>
+		<aside>
+			When accessing the server from a web browser (i.e., for HTML content), respond by printing the logged-in user's information and
+			allow for changing of passwords or e-mail if the principal database has the correct permissions.
+			This allows new users to perform simple administrative tasks without needing to log into the underlying UNIX server.
+			See <a href="kcaldav.8.html">kcaldav(8)</a> for details.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.14</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-14">2015-04-14</time>
+		</header>
+		<aside>
+			Add a flag to <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a> to create new principal's home directories and populate them
+			with a simple <a href="kcaldav.conf.5.html">kcaldav.conf(5)</a> file.
+			Completely re-write the internal iCalendar parser to get ready for handling iCalendar dates.
+			Add a handler for the default time-zone, encouraging GMT use, and minimum accepted date (epoch).
+			Lastly, document each property we support (in the source) with a pointer to the RFC section.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.15</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-25">2015-04-25</time>
+		</header>
+		<aside>
+			Allow web-based viewing of collection data.
+			This works because GET isn't defined in calendar collections (according to <a href="https://tools.ietf.org/html/rfc4918">RFC
+				4918</a>, section 9.4), so we can send all GET requests for collections to an HTML dynamic handler.
+			Add initial <code>PROPPATCH</code> bits so that clients can (conditionally) set certain properties, e.g., iCal setting the
+			calendar display name and colour.
+			Add a framework for field-specific validation in the CalDAV parser to do so.
+		</aside>
+	</article>
+
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.16</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-27">2015-04-27</time>
+		</header>
+		<aside>
+			Support the <code>calendar-description</code> element.
+			Consolidate all properties into a single structure, allowing for flexible addition and removal of properties and property
+			behaviour.
+			This also removes a lot of conditional logic when responding to <code>PROPFIND</code> and <code>REPORT</code> methods.
+			The <code>DELETE</code> method has been cleaned up.
+			All HTTP methods are now described in <a href="kcaldav.8.html">kcaldav(8)</a>, including available properties.
+			Lots of internal support has been added for iCalendar <a href="https://tools.ietf.org/html/rfc2445#section-4.3.10">recurrence
+				rule</a> computation, which is the major stepping stone for processing iCalendar dates, but this is not hooked into
+			active use (yet).
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.4</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-03-23">2015-03-23</time>
+		</header>
+		<aside>
+			Initial public release.
+			This features only direct iCalendar access, tested on <a href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla
+				Lightning</a>.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.5</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-02">2015-04-02</time>
+		</header>
+		<aside>
+			Simple CalDAV access using Lightning and Mac OS X 10.7 (<q>Lion</q>) iCal.
+			The usual PUT, GET, and DELETE methods are supported, and a minimal (but functional) subset of PROPFIND and REPORT properties.
+			See the <a href="kcaldav.8.html">kcaldav(8)</a> manual for details.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.6</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-03">2015-04-03</time>
+		</header>
+		<aside>
+			Use the <a href="http://lcamtuf.coredump.cx/afl/">American fuzzy lop</a> to ferret out crashes and hangs in the <a
+				href="https://tools.ietf.org/html/rfc5545">iCalendar</a> parser.
+			Also move this parser to internally use a non-nil terminated buffer; thus, there's no additional copy necessary to a
+			nil-terminated buffer.
+			Support the <code>&lt;calendar-query&gt;</code> object for when the iPhone4 retrieves resources.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.7</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-04">2015-04-04</time>
+		</header>
+		<aside>
+			Linux support thanks to a lot of compatibility glue.
+			I'm especially displeased with Linux while doing this project: it doesn't even have <code>O_EXLOCK</code> and <code>O_SHLOCK</code>!
+			I'm just using <a href="http://libbsd.freedesktop.org/wiki/">libbsd</a> to prevent code duplication.
+			While refactoring, consolidate logging functions and add <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
+			Run the principal parsing routines through the <a href="http://lcamtuf.coredump.cx/afl/">American fuzzy lop</a> (nothing found).
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.8</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-05">2015-04-05</time>
+		</header>
+		<aside>
+			Verify that all <code>open()</code> invocations use advisory locks.
+			Simplify re-opening locked files with <code>fdopen()</code> into its own utility function.
+			Disallow symbolic links everywhere.
+			(This may be relaxed in the future...)
+			Drop privileges in <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>, making it sensitive to the <var>setuid</var> or
+			<var>setgid</var> bits.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.0.9</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-04-06">2015-04-06</time>
+		</header>
+		<aside>
+			Fully implement <a href="https://tools.ietf.org/html/rfc2617">RFC 2617</a> for authorisation.
+			This includes the <q>MD5-sess</q>, <q>auth</q>, and <q>auth-int</q> directives.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-05-02">2015-05-02</time>
+		</header>
+		<aside>
+			<div>
+				Migrate to using <a href="https://www.sqlite.org">SQLite</a> to store everything: nonces, collections, resources, configuration,
+				and so on.
+				This completely replaces the existing file-system based infrastructure, which was too brittle, with a single database file.
+				All existing functionality is preserved, but there are some changes to be aware of if you're already using <span class="nm">kcaldav</span>.
+				Foremost, you can now have multiple calendars.
+				To effect this change, all user calendars are now within subdirectories of the calendar root, e.g.,
+				<code>/cgi-bin/kcaldav/kristaps/calendar/</code> instead of directly in <code>.../kristaps/</code>.
+				iOS and iCal clients deal with this properly, but Thunderbird will need to point directly to the calendar collection.
+				Use the on-line interface or <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a> to add calendars and calendar files.
+			</div>
+			<div>
+				To migrate an existing installation, you'll need to create a new database file with <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
+				Make sure that it's read-writable by the web server process.
+				You'll then need to add your iCalendar files using the same tool.
+				To migrate this server, I simply re-created my principal, then added the calendar files.
+				In brief,
+			</div>
+			<pre>% cd /var/www/caldav
+	% kcaldav.passwd -f . -C
+	% kcaldav.passwd -f . -n `find kristaps -name \*.ics`</pre>
+			<div>
+				The unabridged form consists of using <code>sudo</code> and <code>-u kristaps</code>.
+				For testing, note that the <span class="file">kcaldav.db</span> file can live alongside an existing installation.  
+				So if you want to make sure it works, both can run alongside each other.
+			</div>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-05-12">2015-05-12</time>
+		</header>
+		<aside>
+			Split out the CalDAV and iCalendar parsing routines into their own library, which is installed but not yet properly documented.
+			The documentation will be fleshed out as <a href="libkcaldav.3.html">libkcaldav(3)</a>.
+			Also re-renamed the Makefile rule <q>updatecgi</q> back into <q>installcgi</q>.
+			This doesn't feature any updates to system functionality.
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-12-28">2015-12-28</time>
+		</header>
+		<aside>
+			Properly URL-encode and decode calendar entities.
+			This arises when some calendar systems (e.g., Google) use non-alphanumerics in their Calendar names.
+			Also relax an overly-strict rule when parsing the recursive rules as found by Reyk Floeter.  
+			(Right now, the system doesn't use the recursive rule, so it's safe to have insane dates.)
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.3</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2015-12-28">2015-12-28</time>
+		</header>
+		<aside>
+			<div>
+				<strong>Warning</strong>: you'll need to dump your
+				database and regenerate it with the included schema
+				file <span class="file">kcaldav.sql</span>.
+				New columns and constraints have been added to support delegation as described below.
+			</div>
+			<div>
+				Added proxy functionality (see <a
+					href="http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/doc/Extensions/caldav-proxy.txt">caldav-proxy.txt</a>).
+				This has been tested with Apple's iCal, but not with other systems.  
+				Delegation can be set from the client or from the web interface.
+			</div>
+			<div>
+				Make web-interface access to the <q>null</q> directory (e.g., /cgi-bin/kcaldav) automatically redirect to the root directory
+				instead of crashing the system.
+				Moreover, allow <q>probe</q> requests (<code>PROPFIND</code> on the script root) properly redirect to the authenticated principal.
+				While there, move the entire web interface to use JSON and JavaScript instead of dynamic HTML.
+				This makes it easier to extend or replace.
+			</div>
+			<div>
+				Updated the underlying database routines to better handle failure conditions and added more documentation to the code
+				and explanations of error conditions.
+				Sandbox the entire running process with <a
+					href="https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man3/sandbox_init.3.html">sandbox_init(3)</a>
+				(only applicable on Mac OS X).
+			</div>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.4</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2016-03-02">2016-03-02</time>
+		</header>
+		<aside>
+			<div>
+				This small version allows integration with new <a href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a> 0.7.5 facilities for
+				debugging.
+				This makes it easier to debug new CalDAV clients: see the <span class="file">Makefile</span> pre-processor options to
+				enable debugging.
+				If you have issues with a client, please enable full debugging and send me the exchange between the client and server.
+				I've removed the options parsed by <a href="kcaldav.8.html">kcaldav(8)</a>, instead relying on compile-time options as
+				defined (and documented) in the <span class="file">Makefile</span>.
+				Fix some small nits found with <a href="http://clang-analyzer.llvm.org/scan-build.html">scan-build</a>.
+				Add to <a href="https://github.com/kristapsdz/kcaldav">GitHub</a> and check with
+				<a href="https://scan.coverity.com/projects/kcaldav">Coverity</a>.
+			</div>
+		</aside>
+	</article>
+</articles>
