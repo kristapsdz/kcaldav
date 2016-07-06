@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
+<articles>
 	<article data-sblg-article="1" data-sblg-tags="version">
 		<header>
 			<h1>0.0.10</h1>
@@ -212,8 +213,8 @@
 				In brief,
 			</div>
 			<pre>% cd /var/www/caldav
-	% kcaldav.passwd -f . -C
-	% kcaldav.passwd -f . -n `find kristaps -name \*.ics`</pre>
+% kcaldav.passwd -f . -C
+% kcaldav.passwd -f . -n `find kristaps -name \*.ics`</pre>
 			<div>
 				The unabridged form consists of using <code>sudo</code> and <code>-u kristaps</code>.
 				For testing, note that the <span class="file">kcaldav.db</span> file can live alongside an existing installation.  
@@ -300,6 +301,21 @@
 				Fix some small nits found with <a href="http://clang-analyzer.llvm.org/scan-build.html">scan-build</a>.
 				Add to <a href="https://github.com/kristapsdz/kcaldav">GitHub</a> and check with
 				<a href="https://scan.coverity.com/projects/kcaldav">Coverity</a>.
+			</div>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.5</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2016-07-05">2016-07-05</time>
+		</header>
+		<aside>
+			<div>
+				Don't break multi-byte (UTF-8) streams.
+				For the time being, this assumes that we're going to be encoded with UTF-8
+				Also migrate to a <span class="file">GNUmakefile</span> instead of a <span class="file">Makefile</span>, which
+				allows easier portability between systems.  Use a LOGFILE directive instead of logging to stderr.
 			</div>
 		</aside>
 	</article>
