@@ -324,6 +324,7 @@ main(void)
 	 * This prevents spurrious line breaks from occuring in our
 	 * debug or error log output.
 	 */
+	freopen(LOGFILE, "a", stderr);
 	setlinebuf(stderr);
 
 	st = NULL;

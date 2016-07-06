@@ -32,6 +32,7 @@
 ifeq ($(shell uname), Darwin)
 # Use this for installing into a single directory.
 # I use this on my Mac OS X laptop (no chroot(2)).
+LOGFILE		 = /Users/kristaps/Sites/keqns_log
 CALDIR		 = /Users/kristaps/Sites/kcaldav
 CALPREFIX	 = /Users/kristaps/Sites/kcaldav
 HTDOCS	 	 = /~kristaps/kcaldav
@@ -46,6 +47,7 @@ BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
 else ifeq ($(shell uname), OpenBSD)
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
+LOGFILE		 = /logs/kcaldav-system.log
 CALDIR		 = /caldav
 CALPREFIX	 = /var/www/caldav
 HTDOCS	 	 = /kcaldav
@@ -58,6 +60,7 @@ STATIC		 = -static
 CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 -DDEBUG=1
 BINLDFLAGS	 = -L/usr/local/lib
 else 
+LOGFILE		 = /var/www/logs/kcaldav-system.log
 CALDIR		 = /caldav
 CALPREFIX	 = /var/www/caldav
 HTDOCS	 	 = /kcaldav
@@ -180,6 +183,7 @@ CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-string
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"
+CFLAGS		+= -DLOGFILE=\"$(LOGFILE)\"
 BHTMLS		 = collection.html \
 		   home.html
 
