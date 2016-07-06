@@ -43,7 +43,7 @@ LIBS		 = -lexpat -lsqlite3
 STATIC		 = 
 CPPFLAGS	+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
 BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
-else ifeq ($(shell uname), OpenBDS)
+else ifeq ($(shell uname), OpenBSD)
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
 CALDIR		 = /caldav
