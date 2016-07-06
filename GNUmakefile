@@ -21,11 +21,12 @@
 #CGIPREFIX	 = /var/www/cgi-bin/caldav
 # This is the file-system root for system programs and manpages.
 #PREFIX		 = /usr/local
+# Where do we put the system log?
+# This must be writable by the server process and relative to the
+# chroot(2), if applicable.
+#LOGFILE	= /logs/kcaldav-syslog.log
 
 # Then there are some special directives.
-# The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
-# next to the date.
-# Many web servers provide this: others (e.g., OpenBSD httpd(8)) don't.
 # The -D DEBUG=1 directive produces debugging information on stderr.
 # The -D DEBUG=2 directive LOTS of debugging information.
 
@@ -57,7 +58,7 @@ CGIPREFIX	 = /var/www/cgi-bin
 PREFIX		 = /usr/local
 LIBS		 = -lexpat -lm -lsqlite3
 STATIC		 = -static
-CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 -DDEBUG=1
+CPPFLAGS	+= -I/usr/local/include -DDEBUG=1
 BINLDFLAGS	 = -L/usr/local/lib
 else 
 LOGFILE		 = /var/www/logs/kcaldav-system.log
@@ -96,7 +97,8 @@ TESTOBJS 	 = test-caldav.o \
 HTMLS	 	 = index.html \
 		   kcaldav.8.html \
 		   kcaldav.passwd.1.html \
-		   libkcaldav.3.html
+		   libkcaldav.3.html \
+		   schema.html
 MANS		 = kcaldav.in.8 \
 		   kcaldav.passwd.in.1 \
 		   libkcaldav.3
@@ -108,7 +110,7 @@ JSMINS		 = collection.min.js \
 		   home.min.js \
 		   md5.min.js \
 		   script.min.js
-ALLSRCS		 = Makefile \
+ALLSRCS		 = GNUmakefile \
 		   $(TESTSRCS) \
 		   $(CTESTSRCS) \
 		   $(MANS) \
@@ -186,6 +188,9 @@ CFLAGS		+= -DVERSION=\"$(VERSION)\"
 CFLAGS		+= -DLOGFILE=\"$(LOGFILE)\"
 BHTMLS		 = collection.html \
 		   home.html
+DOTFLAGS	 = -h "BGCOLOR=\"red\"" \
+		   -t "CELLBORDER=\"0\"" \
+		   -t "CELLSPACING=\"0\""
 
 all: $(BINS) kcaldav.8 kcaldav.passwd.1 $(BHTMLS) $(JSMINS)
 
@@ -223,7 +228,7 @@ install: all
 
 installwww: www
 	mkdir -p $(PREFIX)/snapshots
-	install -m 0444 index.css $(HTMLS) $(PREFIX)
+	install -m 0444 index.css mandoc.css schema.css schema.png imageMapResizer.min.js $(HTMLS) $(PREFIX)
 	install -m 0444 kcaldav.tgz kcaldav.tgz.sha512 $(PREFIX)/snapshots/
 	install -m 0444 kcaldav.tgz $(PREFIX)/snapshots/kcaldav-$(VERSION).tgz
 	install -m 0444 kcaldav.tgz.sha512 $(PREFIX)/snapshots/kcaldav-$(VERSION).tgz.sha512
@@ -265,6 +270,15 @@ $(BINOBJS): kcaldav.h
 index.html: index.xml versions.xml
 	sblg -t index.xml -o- versions.xml | sed "s!@VERSION@!$(VERSION)!g" >$@
 
+schema.html: schema.xml schema.png kcaldav.sql
+	( sed -n '1,/@SCHEMA@/p' schema.xml ; \
+	  sqlite2html kcaldav.sql ; \
+	  sqlite2dot $(DOTFLAGS) kcaldav.sql | dot -Tcmapx ; \
+	  sed -n '/@SCHEMA@/,$$p' schema.xml ; ) >$@
+
+schema.png: kcaldav.sql
+	sqlite2dot $(DOTFLAGS) kcaldav.sql | dot -Tpng >$@
+
 kcaldav.8: kcaldav.in.8
 	sed -e "s!@CALDIR@!$(CALDIR)!g" \
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.in.8 >$@
@@ -289,9 +303,10 @@ clean:
 	rm -f $(HTMLS) $(BHTMLS) $(JSMINS) kcaldav.tgz kcaldav.tgz.sha512
 	rm -f test-memmem test-reallocarray test-explicit_bzero
 	rm -f config.h config.log
+	rm -f schema.png 
 
 .8.8.html .5.5.html .3.3.html .1.1.html:
-	mandoc -Wall -Thtml $< >$@
+	mandoc -Wall -Thtml -Ostyle=mandoc.css $< >$@
 
 .xml.html:
 	sed -e "s!@HTDOCS@!$(HTDOCS)!g" \
