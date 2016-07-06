@@ -294,7 +294,7 @@ kcaldav-sql.c: kcaldav.sql
 	  echo "#include <time.h>"; \
 	  echo "#include \"extern.h\""; \
 	  printf "const char *db_sql = \""; \
-	  sed 's!$$!\\n\\!' kcaldav.sql ; \
+	  grep -v '^[ 	]*--' kcaldav.sql | sed -e 's!$$!\\n\\!' ; \
 	  echo '";'; ) >$@
 
 clean:
