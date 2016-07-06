@@ -1226,6 +1226,126 @@ icalnode_putchar(char c, size_t *col, ical_putchar fp, void *arg)
 }
 
 /*
+ * This is tricky: we need to accept multi-byte (assume UTF-8)
+ * characters and not break them up.
+ * To do so, safely check the number of bytes.
+ * If the sequence isn't UTF-8, just print it as binary.
+ * The bit-patterns are from the W3C recommendation on form validation.
+ * Returns returns zero on failure, non-zero on success.
+ */
+static int
+icalnode_puts(const unsigned char *c, 
+	size_t *col, ical_putchar fp, void *arg)
+{
+
+	while ('\0' != *c) {
+		/* Start with printable ASCII. */
+		if (c[0] == 0x09 || c[0] == 0x0A || c[0] == 0x0D || 
+		    (0x20 <= c[0] && c[0] <= 0x7E)) {
+			if (*col + 1 >= 74) {
+				if ((*fp)('\r', arg) < 0 ||
+				    (*fp)('\n', arg) < 0 ||
+				    (*fp)(' ', arg) < 0)
+					return(0);
+				*col = 1;
+			}
+			if ((*fp)(c[0], arg) < 0)
+				return(0);
+			*col += 1;
+			c += 1;
+			continue;
+		}
+
+		/* Overlong 2-bytes. */
+		if ((0xC2 <= c[0] && c[0] <= 0xDF) && 
+		    (0x80 <= c[1] && c[1] <= 0xBF)) {
+			if (*col + 2 >= 74) {
+				if ((*fp)('\r', arg) < 0 ||
+				    (*fp)('\n', arg) < 0 ||
+				    (*fp)(' ', arg) < 0)
+					return(0);
+				*col = 1;
+			}
+			if ((*fp)(c[0], arg) < 0 ||
+			    (*fp)(c[1], arg) < 0)
+				return(0);
+			*col += 2;
+			c += 2;
+			continue;
+		}
+
+		/* No overlongs, straight 3-byte, no surrogate. */
+		if ((c[0] == 0xE0 && (0xA0 <= c[1] && c[1] <= 0xBF) && 
+		     (0x80 <= c[2] && c[2] <= 0xBF)) ||
+		    (((0xE1 <= c[0] && c[0] <= 0xEC) || 
+		      c[0] == 0xEE || c[0] == 0xEF) && 
+		     (0x80 <= c[1] && c[1] <= 0xBF) && 
+		     (0x80 <= c[2] && c[2] <= 0xBF)) ||
+		    (c[0] == 0xED && (0x80 <= c[1] && c[1] <= 0x9F) && 
+		     (0x80 <= c[2] && c[2] <= 0xBF))) {
+			if (*col + 3 >= 74) {
+				if ((*fp)('\r', arg) < 0 ||
+				    (*fp)('\n', arg) < 0 ||
+				    (*fp)(' ', arg) < 0)
+					return(0);
+				*col = 1;
+			}
+			if ((*fp)(c[0], arg) < 0 ||
+			    (*fp)(c[1], arg) < 0 ||
+			    (*fp)(c[2], arg) < 0)
+				return(0);
+			*col += 3;
+			c += 3;
+			continue;
+		}
+
+		/* All planes. */
+		if ((c[0] == 0xF0 &&
+		     (0x90 <= c[1] && c[1] <= 0xBF) &&
+		     (0x80 <= c[2] && c[2] <= 0xBF) &&
+		     (0x80 <= c[3] && c[3] <= 0xBF)) ||
+		    ((0xF1 <= c[0] && c[0] <= 0xF3) &&
+		     (0x80 <= c[1] && c[1] <= 0xBF) &&
+		     (0x80 <= c[2] && c[2] <= 0xBF) &&
+		     (0x80 <= c[3] && c[3] <= 0xBF)) ||
+                    (c[0] == 0xF4 && (0x80 <= c[1] && c[1] <= 0x8F) &&
+		     (0x80 <= c[2] && c[2] <= 0xBF) &&
+		     (0x80 <= c[3] && c[3] <= 0xBF))) {
+			if (*col + 4 >= 74) {
+				if ((*fp)('\r', arg) < 0 ||
+				    (*fp)('\n', arg) < 0 ||
+				    (*fp)(' ', arg) < 0)
+					return(0);
+				*col = 1;
+			}
+			if ((*fp)(c[0], arg) < 0 ||
+			    (*fp)(c[1], arg) < 0 ||
+			    (*fp)(c[2], arg) < 0 ||
+			    (*fp)(c[3], arg) < 0)
+				return(0);
+			*col += 4;
+			c += 4;
+			continue;
+		}
+
+		/* Fall-through: invalid bytes. */
+		if (*col + 1 >= 74) {
+			if ((*fp)('\r', arg) < 0 ||
+			    (*fp)('\n', arg) < 0 ||
+			    (*fp)(' ', arg) < 0)
+				return(0);
+			*col = 1;
+		}
+		if ((*fp)(c[0], arg) < 0)
+			return(0);
+		*col += 1;
+		c += 1;
+	}
+
+	return(1);
+}
+
+/*
  * Print an iCalendar using the given callback "fp".
  * We only return zero when "fp" returns <0.
  * Otherwise return non-zero.
@@ -1240,23 +1360,20 @@ icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 		return(1);
 
 	col = 0;
-	for (cp = p->name; '\0' != *cp; cp++) 
-		if (icalnode_putchar(*cp, &col, fp, arg) < 0)
-			return(0);
+	if ( ! icalnode_puts(p->name, &col, fp, arg))
+		return(0);
 
 	if (NULL != p->param) {
 		if (icalnode_putchar(';', &col, fp, arg) < 0)
 			return(0);
-		for (cp = p->param; '\0' != *cp; cp++) 
-			if (icalnode_putchar(*cp, &col, fp, arg) < 0)
-				return(0);
+		if ( ! icalnode_puts(p->param, &col, fp, arg))
+			return(0);
 	}
 
 	if (icalnode_putchar(':', &col, fp, arg) < 0)
 		return(0);
-	for (cp = p->val; '\0' != *cp; cp++) 
-		if (icalnode_putchar(*cp, &col, fp, arg) < 0)
-			return(0);
+	if ( ! icalnode_puts(p->val, &col, fp, arg))
+		return(0);
 	if ((*fp)('\r', arg) < 0)
 		return(0);
 	if ((*fp)('\n', arg) < 0)
