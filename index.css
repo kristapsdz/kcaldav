@@ -1,22 +1,16 @@
 body, html		{ margin: 0; }
 body			{ background-color: #313131; 
-			  font-family: Calibri,Candara,Segoe,Segoe UI,Optima,Arial,sans-serif;
-			  font-size: 16px;
-			  font-style: normal;
-			  font-variant: normal;
-			  font-weight: 400;
-			  line-height: 23px; }
+			  font-family: "Alegreya Sans", sans-serif;
+			  font-size: 12pt; }
 footer, header		{ padding: 12pt 24pt;
 			  color: #def; }
 footer a, header a	{ color: #FFBB51; }
 article > section	{ padding: 8pt 24pt; 
 			  background-color: #eee; }
-div.version		{ font-size: 20px; 
-			  line-height: 20px; }
-div.date		{ font-size: 14px;
-			  color: #666;
-			  line-height: 14px; }
-#intro			{ font-size: 17px; }
+div.version		{ font-size: 13pt; 
+			  margin-bottom: -6pt; }
+div.date		{ font-size: 11pt;
+			  color: #666; }
 #history		{ background-color: #ddd; 
 			  border-top: thin solid #aaa; }
 article a		{ color: blue; }
@@ -24,12 +18,11 @@ footer 			{ text-align: center;
 			  color: #abc; }
 a			{ text-decoration: none; }
 h1			{ margin: 0; 
-			  font-family: Georgia,Times,Times New Roman,serif;
-			  font-size: 48px;
+			  font-family: "Playfair Display", serif;
+			  font-size: 36pt;
 			  font-style: normal;
 			  font-variant: normal;
-			  font-weight: 500;
-			  line-height: 56px; }
+			  line-height: 40pt; }
 .file			{ font-style: italic; }
 nav[data-sblg-nav] ul	{ list-style-type: none; 
 			  color: #333;
@@ -39,3 +32,5 @@ nav[data-sblg-nav] a	{ color: #05f; }
 nav[data-sblg-nav] div + div 
 			{ margin-top: 8px; }
 aside			{ font-size: inherit; }
+pre,code		{ font-family: monospace;
+			  font-size: 11pt; }
