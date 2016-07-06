@@ -1354,24 +1354,28 @@ static int
 icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 {
 	size_t		 col;
+	const unsigned char *cp;
 
 	if (NULL == p) 
 		return(1);
 
 	col = 0;
-	if ( ! icalnode_puts(p->name, &col, fp, arg))
+	cp = (const unsigned char *)p->name;
+	if ( ! icalnode_puts(cp, &col, fp, arg))
 		return(0);
 
 	if (NULL != p->param) {
 		if (icalnode_putchar(';', &col, fp, arg) < 0)
 			return(0);
-		if ( ! icalnode_puts(p->param, &col, fp, arg))
+		cp = (const unsigned char *)p->param;
+		if ( ! icalnode_puts(cp, &col, fp, arg))
 			return(0);
 	}
 
 	if (icalnode_putchar(':', &col, fp, arg) < 0)
 		return(0);
-	if ( ! icalnode_puts(p->val, &col, fp, arg))
+	cp = (const unsigned char *)p->val;
+	if ( ! icalnode_puts(cp, &col, fp, arg))
 		return(0);
 	if ((*fp)('\r', arg) < 0)
 		return(0);
