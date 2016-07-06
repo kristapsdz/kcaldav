@@ -1353,7 +1353,6 @@ icalnode_puts(const unsigned char *c,
 static int
 icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 {
-	const char	*cp;
 	size_t		 col;
 
 	if (NULL == p) 
