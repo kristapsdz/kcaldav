@@ -5,7 +5,8 @@
 		<meta charset='utf-8' /> 
 		<title>kCalDAV: a simple CalDAV server</title>
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css" />
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pure/0.6.0/pure-min.css" />
+		<link href="https://fonts.googleapis.com/css?family=Alegreya+Sans:300,300italic,600" rel="stylesheet" />
+		<link href="https://fonts.googleapis.com/css?family=Playfair+Display:400,400italic" rel="stylesheet" />
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css" />
 		<link rel="stylesheet" href="index.css" />
 	</head>
@@ -32,19 +33,20 @@
 					shared between <a href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>, Mac OS
 					X iCal, and iOS7 (iPhone4) clients.
 					It compiles and runs on <a href="http://www.openbsd.org">OpenBSD</a>, Linux, and Mac OS X: see the <span
-						class="file">Makefile</span> for examples.
+						class="file">GNUmakefile</span> for examples.
 					To begin within, download the <a href="snapshots/kcaldav.tgz">sources</a> and verify the <a
 						href="snapshots/kcaldav.tgz.sha512">fingerprint</a>.
 				</p>
 				<ol>
 					<li>
-						Install dependencies <a href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a>, <a
+						Install dependencies <a href="http://kristaps.bsd.lv/kcgi">kcgi(3)</a>, 
+							<a href="https://www.gnu.org/software/make/">GNU make</a>, <a
 							href="https://www.sqlite.org">SQLite</a>, <a
 							href="http://expat.sourceforge.net">expat(3)</a>, and <a
 							href="http://libbsd.freedesktop.org/wiki/">bsd(3)</a> if using Linux.
 					</li>
 					<li>
-						Configure for your installation by editing the <span class="file">Makefile</span>.
+						Configure for your installation by editing the <span class="file">GNUmakefile</span>.
 						(You <strong>will</strong> need to do this: installation paths for CGI scripts differ vastly!)
 					</li>
 					<li>
@@ -57,14 +59,18 @@
 						interpreted by the web server.  
 						(<a href="https://stackoverflow.com/questions/3663520/php-auth-user-not-set">Example</a>.)
 					</li>
+					<li>
+						Read <a href="kcaldav.8.html">kcaldav(8)</a>.
+					</li>
 				</ol>
 				<p>
-					To use <span class="nm"><i>k</i>CalDAV</span>, consult the <a href="kcaldav.8.html">kcaldav(8)</a> manual.
-					This has a complete description of supported CalDAV features.
+					The <a href="kcaldav.8.html">kcaldav(8)</a> manual has a complete description of supported CalDAV
+					features.
 					You'll also want to read <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
 					If these manpages lack information or clarity, that's a bug.
 					For bug-reports and comments on usage (please let me know!), contact <a
 						href="http://kristaps.bsd.lv">Kristaps</a>.
+					For developers, you can peruse the <a href="schema.html">database schema</a> if you'd like to work on <i>k</i>CalDAV.
 				</p>
 			</section>
 			<section id="history">
@@ -82,7 +88,7 @@
 			</section>
 		</article>
 		<footer>
-			<div>&#169; 2015&#8211;2016 <a rel="author" href="http://kristaps.bsd.lv">Kristaps Dzonsons</a></div>
+			<div>&#169; 2015&#8211;2016 <a rel="author" href="https://kristaps.bsd.lv">Kristaps Dzonsons</a></div>
 			<div>
 				$Date$
 				<a href="snapshots/kcaldav.tgz"><i class="fa fa-fw fa-gears"></i></a>
