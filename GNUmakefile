@@ -22,16 +22,28 @@
 # This is the file-system root for system programs and manpages.
 #PREFIX		 = /usr/local
 
+# Then there are some special directives.
+# The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
+# next to the date.
+# Many web servers provide this: others (e.g., OpenBSD httpd(8)) don't.
+# The -D DEBUG=1 directive produces debugging information on stderr.
+# The -D DEBUG=2 directive LOTS of debugging information.
+
+ifeq ($(shell uname), Darwin)
 # Use this for installing into a single directory.
 # I use this on my Mac OS X laptop (no chroot(2)).
-#CALDIR		 = /Users/kristaps/Sites/kcaldav
-#CALPREFIX	 = /Users/kristaps/Sites/kcaldav
-#HTDOCS	 	 = /~kristaps/kcaldav
-#HTDOCSPREFIX	 = /Users/kristaps/Sites/kcaldav
-#CGIURI		 = /~kristaps/kcaldav/kcaldav.cgi
-#CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
-#PREFIX		 = /usr/local
-
+CALDIR		 = /Users/kristaps/Sites/kcaldav
+CALPREFIX	 = /Users/kristaps/Sites/kcaldav
+HTDOCS	 	 = /~kristaps/kcaldav
+HTDOCSPREFIX	 = /Users/kristaps/Sites/kcaldav
+CGIURI		 = /~kristaps/kcaldav/kcaldav.cgi
+CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
+PREFIX		 = /usr/local
+LIBS		 = -lexpat -lsqlite3
+STATIC		 = 
+CPPFLAGS	+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
+BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
+else ifeq ($(shell uname), OpenBDS)
 # ...and this for deployment on BSD.lv, which has its static files in a
 # virtual host and runs within a chroot(2).
 CALDIR		 = /caldav
@@ -41,31 +53,23 @@ HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
 CGIURI		 = /cgi-bin/kcaldav.cgi
 CGIPREFIX	 = /var/www/cgi-bin
 PREFIX		 = /usr/local
-
-# Add any special dependency directives here.
-# The -D LOGTIMESTAMP directive instructs the logger to log a timestamp
-# next to the date.
-# Many web servers provide this: others (e.g., OpenBSD httpd(8)) don't.
-# The -D DEBUG=1 directive produces debugging information on stderr.
-# The -D DEBUG=2 directive LOTS of debugging information.
-
-#### For OpenBSD:
 LIBS		 = -lexpat -lm -lsqlite3
 STATIC		 = -static
 CPPFLAGS	+= -I/usr/local/include -DLOGTIMESTAMP=1 -DDEBUG=1
 BINLDFLAGS	 = -L/usr/local/lib
-
-#### For Mac OS X:
-#LIBS		 = -lexpat -lsqlite3
-#STATIC		 = 
-#CPPFLAGS	+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
-#BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
-
-#### For Linux:
-#LIBS		 = -lexpat -lbsd -lm -lsqlite3
-#STATIC		 = 
-#CPPFLAGS	+= -I/usr/local/include 
-#BINLDFLAGS	 = -L/usr/local/lib
+else 
+CALDIR		 = /caldav
+CALPREFIX	 = /var/www/caldav
+HTDOCS	 	 = /kcaldav
+HTDOCSPREFIX	 = /var/www/htdocs/kcaldav
+CGIURI		 = /cgi-bin/kcaldav
+CGIPREFIX	 = /var/www/cgi-bin
+PREFIX		 = /usr/local
+LIBS		 = -lexpat -lbsd -lm -lsqlite3
+STATIC		 = 
+CPPFLAGS	+= -I/usr/local/include 
+BINLDFLAGS	 = -L/usr/local/lib
+endif
 
 # ####################################################################
 # You probably don't want to change anything after this point.       #
@@ -171,24 +175,6 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(BINOBJS) \
 		   $(OBJS) \
 		   kcaldav.passwd.o
-VERSIONS	 = version_0_0_4.xml \
-		   version_0_0_5.xml \
-		   version_0_0_6.xml \
-		   version_0_0_7.xml \
-		   version_0_0_8.xml \
-		   version_0_0_9.xml \
-		   version_0_0_10.xml \
-		   version_0_0_11.xml \
-		   version_0_0_12.xml \
-		   version_0_0_13.xml \
-		   version_0_0_14.xml \
-		   version_0_0_15.xml \
-		   version_0_0_16.xml \
-		   version_0_1_0.xml \
-		   version_0_1_1.xml \
-		   version_0_1_2.xml \
-		   version_0_1_3.xml \
-		   version_0_1_4.xml
 VERSION		 = 0.1.4
 CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
@@ -272,8 +258,8 @@ $(ALLOBJS): extern.h libkcaldav.h md5.h config.h
 
 $(BINOBJS): kcaldav.h
 
-index.html: index.xml $(VERSIONS)
-	sblg -t index.xml -o- $(VERSIONS) | sed "s!@VERSION@!$(VERSION)!g" >$@
+index.html: index.xml versions.xml
+	sblg -t index.xml -o- versions.xml | sed "s!@VERSION@!$(VERSION)!g" >$@
 
 kcaldav.8: kcaldav.in.8
 	sed -e "s!@CALDIR@!$(CALDIR)!g" \
