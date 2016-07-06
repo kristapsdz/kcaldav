@@ -22,9 +22,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef LOGTIMESTAMP
 #include <time.h>
-#endif
 
 #include "libkcaldav.h"
 
@@ -48,14 +46,9 @@ kverrx(const char *file, size_t line, const char *fmt, ...)
 {
 	va_list	 ap;
 	char	 buf[32];
-#ifdef LOGTIMESTAMP
 	time_t	 t = time(NULL);
 
 	strftime(buf, sizeof(buf), "[%F %R]:", localtime(&t));
-#else
-	buf[0] = '\0';
-#endif
-
 	fprintf(stderr, "%s%s:%zu: WARNING: ", buf, file, line);
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
@@ -69,14 +62,9 @@ kverr(const char *file, size_t line, const char *fmt, ...)
 	int	 er = errno;
 	va_list	 ap;
 	char	 buf[32];
-#ifdef LOGTIMESTAMP
 	time_t	 t = time(NULL);
 
 	strftime(buf, sizeof(buf), "[%F %R]:", localtime(&t));
-#else
-	buf[0] = '\0';
-#endif
-
 	fprintf(stderr, "%s%s:%zu: ERROR: ", buf, file, line);
 	if (NULL != fmt) {
 		va_start(ap, fmt);
@@ -91,14 +79,9 @@ kvinfo(const char *file, size_t line, const char *fmt, ...)
 {
 	va_list	 ap;
 	char	 buf[32];
-#ifdef LOGTIMESTAMP
 	time_t	 t = time(NULL);
 
 	strftime(buf, sizeof(buf), "[%F %R]:", localtime(&t));
-#else
-	buf[0] = '\0';
-#endif
-
 	fprintf(stderr, "%s%s:%zu: ", buf, file, line);
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
