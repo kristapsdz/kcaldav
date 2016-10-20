@@ -17,6 +17,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
 
