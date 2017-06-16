@@ -56,7 +56,7 @@ HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
 CGIURI		 = /cgi-bin/kcaldav.cgi
 CGIPREFIX	 = /var/www/cgi-bin
 PREFIX		 = /usr/local
-LIBS		 = -lexpat -lm -lsqlite3
+LIBS		 = -lexpat -lm -lsqlite3 -lpthread
 STATIC		 = -static
 CPPFLAGS	+= -I/usr/local/include -DDEBUG=1
 BINLDFLAGS	 = -L/usr/local/lib
