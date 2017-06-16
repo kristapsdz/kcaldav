@@ -78,9 +78,9 @@ ical_printrrule(const struct icalcomp *c,
 			ical_datefmt(&r->until),
 			ctime(&r->until.tm));
 	if (0 != r->count)
-		printf("%sCOUNT = %lu", buf, r->count);
+		printf("%sCOUNT = %lu\n", buf, r->count);
 	if (0 != r->interval)
-		printf("%sINTERVAL = %lu", buf, r->interval);
+		printf("%sINTERVAL = %lu\n", buf, r->interval);
 	if (0 != r->bwkdsz) {
 		printf("%sBYDAY =", buf);
 		for (j = 0; j < r->bwkdsz; j++)
