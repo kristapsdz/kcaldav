@@ -68,7 +68,7 @@
 					You'll also want to read <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
 					If these manpages lack information or clarity, that's a bug.
 					For bug-reports and comments on usage (please let me know!), contact <a
-						href="https://kristaps.bsd.lv">Kristaps</a>.
+						href="https://github.com/kristapsdz">Kristaps</a>.
 					For developers, you can peruse the <a href="schema.html">database schema</a> if you'd like to work on <i>k</i>CalDAV.
 				</p>
 			</section>
@@ -87,7 +87,7 @@
 			</section>
 		</article>
 		<footer>
-			<div>&#169; 2015&#8211;2016 <a rel="author" href="https://kristaps.bsd.lv">Kristaps Dzonsons</a></div>
+			<div>&#169; 2015&#8211;2016 <a rel="author" href="https://github.com/kristapsdz">Kristaps Dzonsons</a></div>
 			<div>
 				$Date$
 				<a href="snapshots/kcaldav.tgz"><i class="fa fa-fw fa-gears"></i></a>
