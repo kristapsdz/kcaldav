@@ -54,7 +54,7 @@ sinclude Makefile.local
 # You probably don't want to change anything after this point.
 # ####################################################################
 
-LIBS		 = -lexpat -lsqlite3 -lm -lpthread
+LIBS		 = -lexpat -lsqlite3 -lm -lpthread $(LDADD)
 BINLIBS		 = -lkcgi -lkcgixml -lkcgijson -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
