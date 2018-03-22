@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2015, 2016 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2015, 2016, 2018 Kristaps Dzonsons <kristaps@bsd.lv>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -32,6 +32,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#if HAVE_PLEDGE
+# include <unistd.h>
+#endif
 
 #include <kcgi.h>
 #include <kcgixml.h>
@@ -334,6 +337,12 @@ main(void)
 		 SANDBOX_NAMED, &np);
 	if (-1 == rc) {
 		kerrx("sandbox_init: %s", np);
+		goto out;
+	}
+#endif
+#if HAVE_PLEDGE
+	if (-1 == pledge("stdio rpath cpath wpath flock fattr", NULL)) {
+		kerr("pledge");
 		goto out;
 	}
 #endif
