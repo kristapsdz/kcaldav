@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2015 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2015, 2018 Kristaps Dzonsons <kristaps@bsd.lv>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -171,11 +171,11 @@ method_proppatch(struct kreq *r)
 		for (i = 0; i < dav->propsz; i++) {
 			if (accepted[dav->props[i].key])
 				continue;
-			khttp_puts(xml.req, "<X:");
-			khttp_puts(xml.req, dav->props[i].name);
-			khttp_puts(xml.req, " xmlns:X=\"");
-			khttp_puts(xml.req, dav->props[i].xmlns);
-			khttp_puts(xml.req, "\" />");
+			khttp_puts(r, "<X:");
+			khttp_puts(r, dav->props[i].name);
+			khttp_puts(r, " xmlns:X=\"");
+			khttp_puts(r, dav->props[i].xmlns);
+			khttp_puts(r, "\" />");
 		}
 		kxml_pop(&xml);
 		kxml_push(&xml, XML_DAV_STATUS);
@@ -195,11 +195,11 @@ method_proppatch(struct kreq *r)
 		for (i = 0; i < dav->propsz; i++) {
 			if (dav->props[i].valid >= 0)
 				continue;
-			khttp_puts(xml.req, "<X:");
-			khttp_puts(xml.req, dav->props[i].name);
-			khttp_puts(xml.req, " xmlns:X=\"");
-			khttp_puts(xml.req, dav->props[i].xmlns);
-			khttp_puts(xml.req, "\" />");
+			khttp_puts(r, "<X:");
+			khttp_puts(r, dav->props[i].name);
+			khttp_puts(r, " xmlns:X=\"");
+			khttp_puts(r, dav->props[i].xmlns);
+			khttp_puts(r, "\" />");
 		}
 		kxml_pop(&xml);
 		kxml_push(&xml, XML_DAV_STATUS);
