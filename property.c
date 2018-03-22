@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2015 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2015, 2018 Kristaps Dzonsons <kristaps@bsd.lv>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -38,7 +38,8 @@
  * Used by Apple's clients.
  */
 static void
-collection_calendar_colour(struct kxmlreq *xml, const struct coln *c)
+collection_calendar_colour(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_puts(xml, c->colour);
@@ -48,7 +49,8 @@ collection_calendar_colour(struct kxmlreq *xml, const struct coln *c)
  * RFC 4791, 5.2.1.
  */
 static void
-collection_calendar_description(struct kxmlreq *xml, const struct coln *c)
+collection_calendar_description(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_puts(xml, c->description);
@@ -58,12 +60,12 @@ collection_calendar_description(struct kxmlreq *xml, const struct coln *c)
  * RFC 4791, 6.2.1.
  */
 static void
-principal_calendar_home_set(struct kxmlreq *xml)
+principal_calendar_home_set(struct kreq *req, struct kxmlreq *xml)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, req->pname);
 	kxml_putc(xml, '/');
 	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
@@ -75,10 +77,11 @@ principal_calendar_home_set(struct kxmlreq *xml)
  * Route through to principal handler.
  */
 static void
-collection_calendar_home_set(struct kxmlreq *xml, const struct coln *c)
+collection_calendar_home_set(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
-	principal_calendar_home_set(xml);
+	principal_calendar_home_set(req, xml);
 }
 
 /*
@@ -86,27 +89,28 @@ collection_calendar_home_set(struct kxmlreq *xml, const struct coln *c)
  * Route through to principal handler.
  */
 static void
-resource_calendar_home_set(struct kxmlreq *xml, 
-	const struct coln *c, const struct res *p)
+resource_calendar_home_set(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c, 
+	const struct res *p)
 {
 
-	principal_calendar_home_set(xml);
+	principal_calendar_home_set(req, xml);
 }
 
 /*
  * caldav-proxy.txt, 5.3.1.
  */
 static void
-principal_calendar_proxy_read_for(struct kxmlreq *xml)
+principal_calendar_proxy_read_for(struct kreq *req, struct kxmlreq *xml)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 	size_t		 i;
 
 	for (i = 0; i < st->rprncpl->rproxiesz; i++) {
 		if (PROXY_WRITE != st->rprncpl->rproxies[i].bits)
 			continue;
 		kxml_push(xml, XML_DAV_HREF);
-		kxml_puts(xml, xml->req->pname);
+		kxml_puts(xml, req->pname);
 		kxml_putc(xml, '/');
 		kxml_puts(xml, st->rprncpl->rproxies[i].name);
 		kxml_putc(xml, '/');
@@ -118,16 +122,16 @@ principal_calendar_proxy_read_for(struct kxmlreq *xml)
  * caldav-proxy.txt, 5.3.2.
  */
 static void
-principal_calendar_proxy_write_for(struct kxmlreq *xml)
+principal_calendar_proxy_write_for(struct kreq *req, struct kxmlreq *xml)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 	size_t		 i;
 
 	for (i = 0; i < st->rprncpl->rproxiesz; i++) {
 		if (PROXY_READ != st->rprncpl->rproxies[i].bits)
 			continue;
 		kxml_push(xml, XML_DAV_HREF);
-		kxml_puts(xml, xml->req->pname);
+		kxml_puts(xml, req->pname);
 		kxml_putc(xml, '/');
 		kxml_puts(xml, st->rprncpl->rproxies[i].name);
 		kxml_putc(xml, '/');
@@ -139,9 +143,9 @@ principal_calendar_proxy_write_for(struct kxmlreq *xml)
  * RFC 6638, 2.4.1.
  */
 static void
-principal_calendar_user_address_set(struct kxmlreq *xml)
+principal_calendar_user_address_set(struct kreq *req, struct kxmlreq *xml)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
 	kxml_puts(xml, "mailto:");
@@ -153,33 +157,35 @@ principal_calendar_user_address_set(struct kxmlreq *xml)
  * RFC 6638, 2.4.1.
  */
 static void
-collection_calendar_user_address_set(struct kxmlreq *xml, const struct coln *c)
+collection_calendar_user_address_set(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
-	principal_calendar_user_address_set(xml);
+	principal_calendar_user_address_set(req, xml);
 }
 
 /*
  * RFC 6638, 2.4.1.
  */
 static void
-resource_calendar_user_address_set(struct kxmlreq *xml, 
-	const struct coln *c, const struct res *p)
+resource_calendar_user_address_set(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c, 
+	const struct res *p)
 {
 
-	principal_calendar_user_address_set(xml);
+	principal_calendar_user_address_set(req, xml);
 }
 
 /*
  * RFC 5379, 3.
  */
 static void
-principal_current_user_principal(struct kxmlreq *xml)
+principal_current_user_principal(struct kreq *req, struct kxmlreq *xml)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, req->pname);
 	kxml_putc(xml, '/');
 	kxml_puts(xml, st->prncpl->name);
 	kxml_putc(xml, '/');
@@ -190,30 +196,33 @@ principal_current_user_principal(struct kxmlreq *xml)
  * RFC 5379, 3.
  */
 static void
-collection_current_user_principal(struct kxmlreq *xml, const struct coln *c)
+collection_current_user_principal(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
-	principal_current_user_principal(xml);
+	principal_current_user_principal(req, xml);
 }
 
 /*
  * RFC 5379, 3.
  */
 static void
-resource_current_user_principal(struct kxmlreq *xml, 
-	const struct coln *c, const struct res *p)
+resource_current_user_principal(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c, 
+	const struct res *p)
 {
 
-	principal_current_user_principal(xml);
+	principal_current_user_principal(req, xml);
 }
 
 /*
  * RFC 3744, 5.4.
  */
 static void
-collection_current_user_privilege_set(struct kxmlreq *xml, const struct coln *c)
+collection_current_user_privilege_set(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 
 	kxml_push(xml, XML_DAV_PRIVILEGE);
 	kxml_pushnull(xml, XML_DAV_READ_CURRENT_USER_PRIVILEGE_SET);
@@ -245,18 +254,20 @@ collection_current_user_privilege_set(struct kxmlreq *xml, const struct coln *c)
  * We define this over the whole collection for now.
  */
 static void
-resource_current_user_privilege_set(struct kxmlreq *xml, 
-	const struct coln *c, const struct res *p)
+resource_current_user_privilege_set(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c, 
+	const struct res *p)
 {
 
-	collection_current_user_privilege_set(xml, c);
+	collection_current_user_privilege_set(req, xml, c);
 }
 
 /*
  * RFC 4918, 15.2.
  */
 static void
-collection_displayname(struct kxmlreq *xml, const struct coln *c)
+collection_displayname(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_puts(xml, c->displayname);
@@ -266,7 +277,8 @@ collection_displayname(struct kxmlreq *xml, const struct coln *c)
  * caldav-ctag-02, 4.1.
  */
 static void
-collection_getctag(struct kxmlreq *xml, const struct coln *c)
+collection_getctag(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 	char	 buf[22];
 
@@ -278,7 +290,7 @@ collection_getctag(struct kxmlreq *xml, const struct coln *c)
  * RFC 4918, 15.6.
  */
 static void
-resource_getetag(struct kxmlreq *xml, 
+resource_getetag(struct kreq *req, struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 	char	 buf[22];
@@ -292,12 +304,13 @@ resource_getetag(struct kxmlreq *xml,
  * This only refers to locks, but provide it anyway.
  */
 static void
-collection_owner(struct kxmlreq *xml, const struct coln *c)
+collection_owner(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, req->pname);
 	kxml_putc(xml, '/');
 	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
@@ -309,23 +322,23 @@ collection_owner(struct kxmlreq *xml, const struct coln *c)
  * This only refers to locks, but provide it anyway.
  */
 static void
-resource_owner(struct kxmlreq *xml, 
+resource_owner(struct kreq *req, struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
-	collection_owner(xml, c);
+	collection_owner(req, xml, c);
 }
 
 /*
  * RFC 3744, 4.2.
  */
 static void
-principal_principal_url(struct kxmlreq *xml)
+principal_principal_url(struct kreq *req, struct kxmlreq *xml)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, req->pname);
 	kxml_putc(xml, '/');
 	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
@@ -336,10 +349,11 @@ principal_principal_url(struct kxmlreq *xml)
  * RFC 3744, 4.2.
  */
 static void
-collection_principal_url(struct kxmlreq *xml, const struct coln *c)
+collection_principal_url(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
-	principal_principal_url(xml);
+	principal_principal_url(req, xml);
 }
 
 /*
@@ -348,11 +362,11 @@ collection_principal_url(struct kxmlreq *xml, const struct coln *c)
  * assume that it is.
  */
 static void
-resource_principal_url(struct kxmlreq *xml, 
+resource_principal_url(struct kreq *req, struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
-	principal_principal_url(xml);
+	principal_principal_url(req, xml);
 }
 
 /*
@@ -360,16 +374,16 @@ resource_principal_url(struct kxmlreq *xml,
  * Also, caldav-proxy.txt, 5.2.
  */
 static void
-principal_group_membership(struct kxmlreq *xml)
+principal_group_membership(struct kreq *req, struct kxmlreq *xml)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 	size_t	 	 i;
 
 	for (i = 0; i < st->rprncpl->rproxiesz; i++) {
 		if (PROXY_READ == 
 		    st->rprncpl->rproxies[i].bits) {
 			kxml_push(xml, XML_DAV_HREF);
-			kxml_puts(xml, xml->req->pname);
+			kxml_puts(xml, req->pname);
 			kxml_putc(xml, '/');
 			kxml_puts(xml, st->rprncpl->rproxies[i].name);
 			kxml_puts(xml, "/calendar-proxy-read/");
@@ -377,7 +391,7 @@ principal_group_membership(struct kxmlreq *xml)
 		} else if (PROXY_WRITE == 
 			   st->rprncpl->rproxies[i].bits) {
 			kxml_push(xml, XML_DAV_HREF);
-			kxml_puts(xml, xml->req->pname);
+			kxml_puts(xml, req->pname);
 			kxml_putc(xml, '/');
 			kxml_puts(xml, st->rprncpl->rproxies[i].name);
 			kxml_puts(xml, "/calendar-proxy-write/");
@@ -392,9 +406,10 @@ principal_group_membership(struct kxmlreq *xml)
  * calls through here.
  */
 static void
-collection_quota_available_bytes(struct kxmlreq *xml, const struct coln *c)
+collection_quota_available_bytes(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 	char	 	 buf[32];
 
 	snprintf(buf, sizeof(buf), "%" PRIu64, 
@@ -406,11 +421,11 @@ collection_quota_available_bytes(struct kxmlreq *xml, const struct coln *c)
  * RFC 4331, 3.
  */
 static void
-resource_quota_available_bytes(struct kxmlreq *xml, 
+resource_quota_available_bytes(struct kreq *req, struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
-	collection_quota_available_bytes(xml, c);
+	collection_quota_available_bytes(req, xml, c);
 }
 
 /*
@@ -419,9 +434,10 @@ resource_quota_available_bytes(struct kxmlreq *xml,
  * calls through here.
  */
 static void
-collection_quota_used_bytes(struct kxmlreq *xml, const struct coln *c)
+collection_quota_used_bytes(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
-	struct state	*st = xml->req->arg;
+	struct state	*st = req->arg;
 	char	 	 buf[32];
 
 	snprintf(buf, sizeof(buf), "%"
@@ -433,11 +449,11 @@ collection_quota_used_bytes(struct kxmlreq *xml, const struct coln *c)
  * RFC 4331, 4.
  */
 static void
-resource_quota_used_bytes(struct kxmlreq *xml, 
+resource_quota_used_bytes(struct kreq *req, struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
-	collection_quota_used_bytes(xml, c);
+	collection_quota_used_bytes(req, xml, c);
 }
 
 /*
@@ -445,7 +461,7 @@ resource_quota_used_bytes(struct kxmlreq *xml,
  * Moreover see RFC 3744, 4 and caldav-proxy.txt.
  */
 static void
-principal_resourcetype(struct kxmlreq *xml)
+principal_resourcetype(struct kreq *req, struct kxmlreq *xml)
 {
 
 	kxml_pushnull(xml, XML_DAV_PRINCIPAL);
@@ -457,7 +473,8 @@ principal_resourcetype(struct kxmlreq *xml)
  * This is specific to collections; resource have their own.
  */
 static void
-collection_resourcetype(struct kxmlreq *xml, const struct coln *c)
+collection_resourcetype(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_pushnull(xml, XML_DAV_COLLECTION);
@@ -468,7 +485,7 @@ collection_resourcetype(struct kxmlreq *xml, const struct coln *c)
  * RFC 4918, 15.9.
  */
 static void
-resource_resourcetype(struct kxmlreq *xml, 
+resource_resourcetype(struct kreq *req, struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
@@ -484,7 +501,8 @@ resource_resourcetype(struct kxmlreq *xml,
  * default value is OPAQUE.
  */
 static void
-collection_schedule_calendar_transp(struct kxmlreq *xml, const struct coln *c)
+collection_schedule_calendar_transp(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_pushnull(xml, XML_CALDAV_OPAQUE);
@@ -494,7 +512,8 @@ collection_schedule_calendar_transp(struct kxmlreq *xml, const struct coln *c)
  * RFC 4791, 5.2.3.
  */
 static void
-collection_supported_calendar_component_set(struct kxmlreq *xml, const struct coln *c)
+collection_supported_calendar_component_set(struct kreq *req,
+	struct kxmlreq *xml, const struct coln *c)
 {
 	enum icaltype	 i;
 
@@ -508,7 +527,8 @@ collection_supported_calendar_component_set(struct kxmlreq *xml, const struct co
  * RFC 4791, 5.2.4.
  */
 static void
-collection_supported_calendar_data(struct kxmlreq *xml, const struct coln *c)
+collection_supported_calendar_data(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
 	/* Use the canonical type. */
@@ -521,7 +541,8 @@ collection_supported_calendar_data(struct kxmlreq *xml, const struct coln *c)
  * RFC 4791, 5.2.2.
  */
 static void
-collection_calendar_timezone(struct kxmlreq *xml, const struct coln *c)
+collection_calendar_timezone(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
 	/* 
@@ -548,7 +569,8 @@ collection_calendar_timezone(struct kxmlreq *xml, const struct coln *c)
  * RFC 4791, 5.2.6.
  */
 static void
-collection_min_date_time(struct kxmlreq *xml, const struct coln *c)
+collection_min_date_time(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_puts(xml, "19700101T000000Z");
@@ -558,7 +580,7 @@ collection_min_date_time(struct kxmlreq *xml, const struct coln *c)
  * RFC 4791, 9.6.
  */
 static void
-resource_calendar_data(struct kxmlreq *xml, 
+resource_calendar_data(struct kreq *req, struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
@@ -572,7 +594,7 @@ resource_calendar_data(struct kxmlreq *xml,
  * The RFC is silent on this matter.
  */
 static void
-principal_getcontenttype(struct kxmlreq *xml)
+principal_getcontenttype(struct kreq *req, struct kxmlreq *xml)
 {
 
 	kxml_puts(xml, "httpd/unix-directory");
@@ -583,7 +605,8 @@ principal_getcontenttype(struct kxmlreq *xml)
  * See principal_getcontenttype()
  */
 static void
-collection_getcontenttype(struct kxmlreq *xml, const struct coln *c)
+collection_getcontenttype(struct kreq *req, 
+	struct kxmlreq *xml, const struct coln *c)
 {
 
 	kxml_puts(xml, "httpd/unix-directory");
@@ -593,7 +616,7 @@ collection_getcontenttype(struct kxmlreq *xml, const struct coln *c)
  * RFC 4918, 15.5.
  */
 static void
-resource_getcontenttype(struct kxmlreq *xml, 
+resource_getcontenttype(struct kreq *req, struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
 
