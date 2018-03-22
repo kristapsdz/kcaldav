@@ -195,7 +195,7 @@ db_bindtext(sqlite3_stmt *stmt, size_t pos, const char *name)
  * Returns the sqlite3 error code, reporting the error if it doesn't
  * equal SQLITE_OK.
  */
-int
+static int
 db_exec(const char *sql)
 {
 	size_t	attempt = 0;
