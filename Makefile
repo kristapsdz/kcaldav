@@ -3,49 +3,45 @@
 include Makefile.configure
 
 # You WILL need to edit this for your needs.
-# I have added defaults for all of the systems that I use.
+# Put your overrides in Makefile.local.
+# I have added defaults for a straightforward OpenBSD installation.
 # Good luck!
 
 # This is the directory prepended to all calendar requests.
 # It is relative to the CGI process's file-system root.
 # It contains the database.
-# An example follows:
-#CALDIR		 = /caldav
+# You want it to be mode-rwx for the SQLite files.
+CALDIR		 = /caldav
+
 # This is the file-system directory of CALDIR.
-#CALPREFIX	 = /var/www/caldav
+CALPREFIX	 = /var/www/caldav
+
 # This is the URI of the static (CSS, JS) files.
-#HTDOCS	 	 = /
+HTDOCS	 	 = /kcaldav
+#HTDOCS		 = /
+
 # This is the file-system directory of HTDOCS.
+HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
 #HTDOCSPREFIX	 = /var/www/htdocs
+
 # This is the relative URI of the server executable.
-#CGIURI		 = /cgi-bin/caldav/kcaldav.cgi
+CGIURI		 = /cgi-bin/kcaldav.cgi
+
 # This is the file-system directory of the CGI script.
-#CGIPREFIX	 = /var/www/cgi-bin/caldav
-# This is the file-system root for system programs and manpages.
-#PREFIX		 = /usr/local
+CGIPREFIX	 = /var/www/cgi-bin
+
 # Where do we put the system log?
 # This must be writable by the server process and relative to the
 # chroot(2), if applicable.
-#LOGFILE	= /logs/kcaldav-syslog.log
+LOGFILE	= /logs/kcaldav-syslog.log
 
-# Then there are some special directives.
+# Then there are some special CFLAGS.
 # The -D DEBUG=1 directive produces debugging information on stderr.
 # The -D DEBUG=2 directive LOTS of debugging information.
+CFLAGS		+= -DDEBUG=1
 
-# ...and this for deployment on BSD.lv, which has its static files in a
-# virtual host and runs within a chroot(2).
-LOGFILE		 = /logs/kcaldav-system.log
-CALDIR		 = /caldav
-CALPREFIX	 = /var/www/caldav
-HTDOCS	 	 = /kcaldav
-HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
-CGIURI		 = /cgi-bin/kcaldav.cgi
-CGIPREFIX	 = /var/www/cgi-bin
-PREFIX		 = /usr/local
-LIBS		 = -lexpat -lsqlite3 -lm -lpthread
+# Lastly, we set whether we're statically compiling.
 STATIC		 = -static
-CFLAGS		+= -I/usr/local/include -DDEBUG=1
-BINLDFLAGS	 = -L/usr/local/lib -L/usr/local/opt/lib
 
 sinclude Makefile.local
 
@@ -53,6 +49,7 @@ sinclude Makefile.local
 # You probably don't want to change anything after this point.       #
 # ####################################################################
 
+LIBS		 = -lexpat -lsqlite3 -lm -lpthread
 BINLIBS		 = -lkcgi -lkcgixml -lkcgijson -lz $(LIBS) 
 BINS		 = kcaldav \
 		   kcaldav.passwd \
@@ -205,22 +202,22 @@ libkcaldav.a: $(LIBOBJS)
 	$(AR) -rs $@ $(LIBOBJS)
 
 kcaldav: $(BINOBJS) $(OBJS) libkcaldav.a
-	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) libkcaldav.a $(BINLDFLAGS) $(BINLIBS) 
+	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) libkcaldav.a $(LDFLAGS) $(BINLIBS) 
 
 kcaldav.passwd: kcaldav.passwd.o md5.o $(OBJS) libkcaldav.a
-	$(CC) -o $@ kcaldav.passwd.o md5.o $(OBJS) libkcaldav.a $(LIBS)
+	$(CC) -o $@ kcaldav.passwd.o md5.o $(OBJS) libkcaldav.a $(LDFLAGS) $(LIBS)
 
 test-ical: test-ical.o libkcaldav.a
-	$(CC) -o $@ test-ical.o libkcaldav.a $(LIBS)
+	$(CC) -o $@ test-ical.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
 test-rrule: test-rrule.o libkcaldav.a
-	$(CC) -o $@ test-rrule.o libkcaldav.a $(LIBS)
+	$(CC) -o $@ test-rrule.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
 test-nonce: test-nonce.o $(OBJS) libkcaldav.a
-	$(CC) -o $@ test-nonce.o $(OBJS) libkcaldav.a $(LIBS)
+	$(CC) -o $@ test-nonce.o $(OBJS) libkcaldav.a $(LDFLAGS) $(LIBS)
 
 test-caldav: test-caldav.o libkcaldav.a
-	$(CC) -o $@ test-caldav.o libkcaldav.a $(LIBS)
+	$(CC) -o $@ test-caldav.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
 $(ALLOBJS): extern.h libkcaldav.h md5.h config.h
 
