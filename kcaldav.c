@@ -16,13 +16,6 @@
  */
 #include "config.h"
 
-#if 0
-#include <sys/types.h>
-#include <sys/param.h>
-#include <sys/uio.h>
-#include <sys/ktrace.h>
-#endif
-
 #include <assert.h>
 #include <ctype.h>
 #include <limits.h>
@@ -34,12 +27,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef __linux__
-#include <bsd/string.h>
-#endif
-#ifdef KTRACE
-#include <unistd.h>
-#endif
 
 #include <kcgi.h>
 #include <kcgixml.h>
@@ -341,21 +328,6 @@ main(void)
 	     KREQ_DEBUG_WRITE | KREQ_DEBUG_READ_BODY : 0, 
 	     NULL))
 		return(EXIT_FAILURE);
-
-#if 0
-	ktrace("/tmp/kcaldav.trace", KTROP_SET,
-		KTRFAC_SYSCALL |
-		KTRFAC_SYSRET |
-		KTRFAC_NAMEI |
-		KTRFAC_GENIO |
-		KTRFAC_PSIG |
-		KTRFAC_EMUL |
-		KTRFAC_CSW |
-		KTRFAC_STRUCT |
-		KTRFAC_USER |
-		KTRFAC_INHERIT, 
-		getpid());
-#endif
 
 #if HAVE_SANDBOX_INIT
 	rc = sandbox_init

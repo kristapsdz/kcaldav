@@ -23,9 +23,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#ifdef __linux__
-#include <bsd/string.h>
-#endif
 #include <string.h>
 #include <unistd.h>
 
