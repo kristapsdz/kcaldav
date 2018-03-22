@@ -105,8 +105,6 @@ ALLSRCS		 = Makefile \
 		   kcaldav.passwd.c \
 		   kcaldav.sql \
 		   libkcaldav.h \
-		   md5.c \
-		   md5.h \
 		   md5.js \
 		   options.c \
 		   principal.c \
@@ -133,7 +131,6 @@ BINOBJS		 = delete.o \
 		   dynamic.o \
 		   get.o \
 		   kcaldav.o \
-		   md5.o \
 		   options.o \
 		   propfind.o \
 		   property.o \
@@ -209,8 +206,8 @@ libkcaldav.a: $(LIBOBJS)
 kcaldav: $(BINOBJS) $(OBJS) libkcaldav.a
 	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) libkcaldav.a $(LDFLAGS) $(BINLIBS) 
 
-kcaldav.passwd: kcaldav.passwd.o md5.o $(OBJS) libkcaldav.a
-	$(CC) -o $@ kcaldav.passwd.o md5.o $(OBJS) libkcaldav.a $(LDFLAGS) $(LIBS)
+kcaldav.passwd: kcaldav.passwd.o $(OBJS) libkcaldav.a
+	$(CC) -o $@ kcaldav.passwd.o $(OBJS) libkcaldav.a $(LDFLAGS) $(LIBS)
 
 test-ical: test-ical.o libkcaldav.a
 	$(CC) -o $@ test-ical.o libkcaldav.a $(LDFLAGS) $(LIBS)
@@ -224,7 +221,7 @@ test-nonce: test-nonce.o $(OBJS) libkcaldav.a
 test-caldav: test-caldav.o libkcaldav.a
 	$(CC) -o $@ test-caldav.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
-$(ALLOBJS): extern.h libkcaldav.h md5.h config.h
+$(ALLOBJS): extern.h libkcaldav.h config.h
 
 $(BINOBJS): kcaldav.h
 
