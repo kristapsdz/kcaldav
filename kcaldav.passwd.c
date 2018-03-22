@@ -24,6 +24,9 @@
 #include <getopt.h>
 #include <inttypes.h>
 #include <limits.h>
+#if HAVE_MD5
+# include <md5.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

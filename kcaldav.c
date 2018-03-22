@@ -16,9 +16,14 @@
  */
 #include "config.h"
 
+#include <sys/types.h>
+
 #include <assert.h>
 #include <ctype.h>
 #include <limits.h>
+#if HAVE_MD5
+# include <md5.h>
+#endif
 #if HAVE_SANDBOX_INIT
 # include <sandbox.h>
 #endif
