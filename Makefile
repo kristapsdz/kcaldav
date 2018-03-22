@@ -5,7 +5,12 @@ include Makefile.configure
 # You WILL need to edit this for your needs.
 # Put your overrides in Makefile.local.
 # I have added defaults for a straightforward OpenBSD installation.
-# Good luck!
+# For compile-time variables like PREFIX, CFLAGS, etc., see the
+# configure script.
+
+# ####################################################################
+# Stuff to override in Makefile.local...
+# ####################################################################
 
 # This is the directory prepended to all calendar requests.
 # It is relative to the CGI process's file-system root.
@@ -46,7 +51,7 @@ STATIC		 = -static
 sinclude Makefile.local
 
 # ####################################################################
-# You probably don't want to change anything after this point.       #
+# You probably don't want to change anything after this point.
 # ####################################################################
 
 LIBS		 = -lexpat -lsqlite3 -lm -lpthread
@@ -77,7 +82,7 @@ JSMINS		 = collection.min.js \
 		   home.min.js \
 		   md5.min.js \
 		   script.min.js
-ALLSRCS		 = GNUmakefile \
+ALLSRCS		 = Makefile \
 		   $(TESTSRCS) \
 		   $(MANS) \
 		   buf.c \
@@ -85,7 +90,6 @@ ALLSRCS		 = GNUmakefile \
 		   collection.js \
 		   collection.xml \
 		   compats.c \
-		   configure \
 		   datetime.c \
 		   db.c \
 		   delete.c \
@@ -194,7 +198,8 @@ kcaldav.tgz.sha512: kcaldav.tgz
 
 kcaldav.tgz:
 	mkdir -p .dist/kcaldav-$(VERSION)
-	cp $(ALLSRCS) .dist/kcaldav-$(VERSION)
+	install -m 0644 $(ALLSRCS) .dist/kcaldav-$(VERSION)
+	install -m 0755 configure .dist/kcaldav-$(VERSION)
 	(cd .dist && tar zcf ../$@ kcaldav-$(VERSION))
 	rm -rf .dist
 
