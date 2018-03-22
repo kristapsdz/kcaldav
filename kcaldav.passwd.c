@@ -35,7 +35,6 @@
 #include <unistd.h>
 
 #include "extern.h"
-#include "md5.h"
 
 int verbose = 0;
 
@@ -189,11 +188,11 @@ gethash(int new, char *digest,
 
 	/* Hash according to RFC 2069's HA1. */
 	MD5Init(&ctx);
-	MD5Update(&ctx, user, strlen(user));
-	MD5Update(&ctx, ":", 1);
-	MD5Update(&ctx, realm, strlen(realm));
-	MD5Update(&ctx, ":", 1);
-	MD5Update(&ctx, pbuf, strlen(pbuf));
+	MD5Update(&ctx, (const u_int8_t *)user, strlen(user));
+	MD5Update(&ctx, (const u_int8_t *)":", 1);
+	MD5Update(&ctx, (const u_int8_t *)realm, strlen(realm));
+	MD5Update(&ctx, (const u_int8_t *)":", 1);
+	MD5Update(&ctx, (const u_int8_t *)pbuf, strlen(pbuf));
 	MD5Final(ha, &ctx);
 
 	/* Convert to hex format. */

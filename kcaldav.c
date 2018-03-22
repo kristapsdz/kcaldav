@@ -34,7 +34,6 @@
 
 #include "extern.h"
 #include "kcaldav.h"
-#include "md5.h"
 
 #ifndef CALDIR
 #error "CALDIR token not defined!"
