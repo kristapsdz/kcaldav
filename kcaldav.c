@@ -310,12 +310,7 @@ main(void)
 	char		*np;
 	size_t		 i, sz;
 
-	/* 
-	 * This prevents spurrious line breaks from occuring in our
-	 * debug or error log output.
-	 */
-	freopen(LOGFILE, "a", stderr);
-	setlinebuf(stderr);
+	kutil_openlog(LOGFILE);
 
 	st = NULL;
 #if defined DEBUG && DEBUG > 1
