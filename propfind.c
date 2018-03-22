@@ -38,7 +38,6 @@
 #include "kcaldav.h"
 
 struct	cbarg {
-	struct state *st;
 	struct kxmlreq	*xml;
 	struct kreq *req;
 	const struct caldav *dav;
@@ -75,10 +74,10 @@ req2caldav(struct kreq *req)
 }
 
 static void
-propfind_coln(struct state *st, struct kreq *req,
-	struct kxmlreq *xml, const struct caldav *dav, 
-	const struct coln *coln)
+propfind_coln(struct kreq *req, struct kxmlreq *xml, 
+	const struct caldav *dav, const struct coln *coln)
 {
+	struct state	*st = req->arg;
 	size_t	 	 i;
 	int		 nf;
 	enum proptype	 key;
@@ -107,7 +106,7 @@ propfind_coln(struct state *st, struct kreq *req,
 		khttp_puts(req, " xmlns:X=\"");
 		khttp_puts(req, dav->props[i].xmlns);
 		khttp_puts(req, "\">");
-		(*properties[key].cgetfp)(xml, coln);
+		(*properties[key].cgetfp)(req, xml, coln);
 		khttp_puts(req, "</X:");
 		khttp_puts(req, dav->props[i].name);
 		khttp_putc(req, '>');
@@ -147,10 +146,11 @@ propfind_coln(struct state *st, struct kreq *req,
 }
 
 static void
-propfind_resource(struct state *st, struct kreq *req,
+propfind_resource(struct kreq *req,
 	struct kxmlreq *xml, const struct caldav *dav, 
 	const struct coln *c, const struct res *r)
 {
+	struct state	*st = req->arg;
 	size_t		 i;
 	int		 nf;
 	enum proptype	 key;
@@ -179,7 +179,7 @@ propfind_resource(struct state *st, struct kreq *req,
 		khttp_puts(req, " xmlns:X=\"");
 		khttp_puts(req, dav->props[i].xmlns);
 		khttp_puts(req, "\">");
-		(*properties[key].rgetfp)(xml, c, r);
+		(*properties[key].rgetfp)(req, xml, c, r);
 		khttp_puts(req, "</X:");
 		khttp_puts(req, dav->props[i].name);
 		khttp_putc(req, '>');
@@ -223,7 +223,7 @@ propfind_resource_cb(const struct res *r, void *arg)
 {
 	struct cbarg	*d = arg;
 
-	propfind_resource(d->st, d->req, d->xml, d->dav, d->c, r);
+	propfind_resource(d->req, d->xml, d->dav, d->c, r);
 }
 
 /*
@@ -232,9 +232,10 @@ propfind_resource_cb(const struct res *r, void *arg)
  * (e.g., GET /principal/collection/resource).
  */
 static struct res *
-propfind_resource_lookup(struct state *st, struct kreq *req,
-	struct kxmlreq *xml, const char *cp)
+propfind_resource_lookup(struct kreq *req, struct kxmlreq *xml, 
+	const char *cp)
 {
+	struct state	*st = req->arg;
 	char		*p, *c, *r;
 	int		 rc;
 	size_t		 i, sz;
@@ -291,9 +292,10 @@ err:
 }
 
 static void
-propfind_prncpl(struct state *st, struct kreq *req,
-	struct kxmlreq *xml, const struct caldav *dav)
+propfind_prncpl(struct kreq *req, struct kxmlreq *xml, 
+	const struct caldav *dav)
 {
+	struct state	*st = req->arg;
 	size_t	 	 i;
 	int		 nf;
 	enum proptype	 key;
@@ -321,7 +323,7 @@ propfind_prncpl(struct state *st, struct kreq *req,
 		khttp_puts(req, " xmlns:X=\"");
 		khttp_puts(req, dav->props[i].xmlns);
 		khttp_puts(req, "\">");
-		(*properties[key].pgetfp)(xml);
+		(*properties[key].pgetfp)(req, xml);
 		khttp_puts(req, "</X:");
 		khttp_puts(req, dav->props[i].name);
 		khttp_putc(req, '>');
@@ -362,10 +364,10 @@ propfind_prncpl(struct state *st, struct kreq *req,
  * This functionality is documented in caldav-proxy.txt.
  */
 static void
-propfind_proxy(struct state *st, struct kreq *req,
-	struct kxmlreq *xml, const struct caldav *dav, 
-	const char *proxy)
+propfind_proxy(struct kreq *req, struct kxmlreq *xml, 
+	const struct caldav *dav, const char *proxy)
 {
+	struct state	*st = req->arg;
 	size_t	 	 i, j, nf;
 	int		 bits;
 	enum xml	 type;
@@ -471,10 +473,10 @@ propfind_proxy(struct state *st, struct kreq *req,
  * resources, and principal collections that contain calendars.
  */
 static void
-propfind_directory(struct state *st, struct kreq *req,
-	struct kxmlreq *xml, const struct caldav *dav, 
-	const struct coln *c)
+propfind_directory(struct kreq *req, struct kxmlreq *xml, 
+	const struct caldav *dav, const struct coln *c)
 {
+	struct state	*st = req->arg;
 	size_t		 i, depth;
 	struct cbarg	 carg;
 
@@ -490,9 +492,9 @@ propfind_directory(struct state *st, struct kreq *req,
 
 	/* Look up the root collection/principal. */
 	if (NULL == c)
-		propfind_prncpl(st, req, xml, dav);
+		propfind_prncpl(req, xml, dav);
 	else
-		propfind_coln(st, req, xml, dav, c);
+		propfind_coln(req, xml, dav, c);
 
 	if (0 == depth)
 		return;
@@ -505,18 +507,17 @@ propfind_directory(struct state *st, struct kreq *req,
 		carg.xml = xml;
 		carg.c = c;
 		carg.dav = dav;
-		carg.st = st;
 		carg.req = req;
 		db_collection_resources
 			(propfind_resource_cb, c->id, &carg);
 		return;
 	} 
 
-	propfind_proxy(st, req, xml, dav, "calendar-proxy-read");
-	propfind_proxy(st, req, xml, dav, "calendar-proxy-write");
+	propfind_proxy(req, xml, dav, "calendar-proxy-read");
+	propfind_proxy(req, xml, dav, "calendar-proxy-write");
 	for (i = 0; i < st->rprncpl->colsz; i++)
-		propfind_coln(st, req, xml, 
-			dav, &st->rprncpl->cols[i]);
+		propfind_coln(req, xml, dav, 
+			&st->rprncpl->cols[i]);
 }
 
 /*
@@ -525,23 +526,24 @@ propfind_directory(struct state *st, struct kreq *req,
  * This occurs within a multi-response.
  */
 static void
-propfind_list(struct state *st, struct kreq *req,
-	struct kxmlreq *xml, const struct caldav *dav)
+propfind_list(struct kreq *req, struct kxmlreq *xml, 
+	const struct caldav *dav)
 {
+	struct state	*st = req->arg;
 	size_t		 i, j;
 	struct res	*res;
 	char		*cp;
 
 	for (i = 0; i < dav->hrefsz; i++) {
 		res = propfind_resource_lookup
-			(st, req, xml, dav->hrefs[i]);
+			(req, xml, dav->hrefs[i]);
 		if (NULL != res) {
 			for (j = 0; j < st->rprncpl->colsz; j++)
 				if (res->collection == 
 				    st->rprncpl->cols[j].id)
 					break;
 			assert(j < st->rprncpl->colsz);
-			propfind_resource(st, req, xml, dav, 
+			propfind_resource(req, xml, dav, 
 				&st->rprncpl->cols[j], res);
 			res_free(res);
 			continue;
@@ -624,11 +626,11 @@ method_report(struct kreq *req)
 
 	if (NULL == res) {
 		if (TYPE_CALMULTIGET == dav->type)
-			propfind_list(st, req, &xml, dav);
+			propfind_list(req, &xml, dav);
 		else if (TYPE_CALQUERY == dav->type)
-			propfind_directory(st, req, &xml, dav, st->cfg);
+			propfind_directory(req, &xml, dav, st->cfg);
 	} else
-		propfind_resource(st, req, &xml, dav, st->cfg, res);
+		propfind_resource(req, &xml, dav, st->cfg, res);
 
 	caldav_free(dav);
 	kxml_popall(&xml);
@@ -701,16 +703,16 @@ method_propfind(struct kreq *req)
 	    (0 == strcmp(st->collection, "calendar-proxy-read") ||
 	     0 == strcmp(st->collection, "calendar-proxy-write")))
 		/* Proxy requests. */
-		propfind_proxy(st, req, &xml, dav, st->collection);
+		propfind_proxy(req, &xml, dav, st->collection);
 	else if (NULL == res && NULL != st->cfg)
 		/* Collections. */
-		propfind_directory(st, req, &xml, dav, st->cfg);
+		propfind_directory(req, &xml, dav, st->cfg);
 	else if (NULL != res && NULL != st->cfg)
 		/* Resources. */
-		propfind_resource(st, req, &xml, dav, st->cfg, res);
+		propfind_resource(req, &xml, dav, st->cfg, res);
 	else 
 		/* Root (principal). */
-		propfind_directory(st, req, &xml, dav, NULL);
+		propfind_directory(req, &xml, dav, NULL);
 
 	caldav_free(dav);
 	kxml_popall(&xml);
