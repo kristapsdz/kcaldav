@@ -292,7 +292,7 @@ ical_rrule_byday(const struct icaltm *cur,
 		 * Second, see if we're counting from the end of the
 		 * month or from the beginning.
 		 */
-		if (abs(rrule->bwkd[i].wk) - 1 >= (long)wdaysz[wday])
+		if (labs(rrule->bwkd[i].wk) - 1 >= (long)wdaysz[wday])
 			continue;
 		cmp.mday = rrule->bwkd[i].wk > 0 ?
 			wdays[wday][rrule->bwkd[i].wk] :
@@ -334,7 +334,7 @@ ical_rrule_bymonthday(const struct icaltm *cur,
 		 * e.g., -31 for February.
 		 */
 		if (rrule->bmnd[i] < 0 && mdayss[cmp.mon - 1] < 
-			(unsigned long)abs(rrule->bmnd[i]))
+			(unsigned long)labs(rrule->bmnd[i]))
 			continue;
 
 		cmp.mday = rrule->bmnd[i] < 0 ?
