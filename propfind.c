@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2015 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2015, 2018 Kristaps Dzonsons <kristaps@bsd.lv>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -38,7 +38,9 @@
 #include "kcaldav.h"
 
 struct	cbarg {
+	struct state *st;
 	struct kxmlreq	*xml;
+	struct kreq *req;
 	const struct caldav *dav;
 	const struct coln *c;
 };
@@ -50,40 +52,40 @@ struct	cbarg {
  * So we really only check its media type.
  */
 static struct caldav *
-req2caldav(struct kreq *r)
+req2caldav(struct kreq *req)
 {
-	struct state	*st = r->arg;
+	struct state	*st = req->arg;
 
-	if (NULL == r->fieldmap[VALID_BODY]) {
+	if (NULL == req->fieldmap[VALID_BODY]) {
 		kerrx("%s: failed parse CalDAV XML "
 			"in client request", st->prncpl->email);
-		http_error(r, KHTTP_400);
+		http_error(req, KHTTP_400);
 		return(NULL);
 	} 
 
-	if (KMIME_TEXT_XML != r->fieldmap[VALID_BODY]->ctypepos) {
+	if (KMIME_TEXT_XML != req->fieldmap[VALID_BODY]->ctypepos) {
 		kerrx("%s: not CalDAV MIME", st->prncpl->email);
-		http_error(r, KHTTP_415);
+		http_error(req, KHTTP_415);
 		return(NULL);
 	}
 
 	return(caldav_parse
-		(r->fieldmap[VALID_BODY]->val, 
-		 r->fieldmap[VALID_BODY]->valsz));
+		(req->fieldmap[VALID_BODY]->val, 
+		 req->fieldmap[VALID_BODY]->valsz));
 }
 
 static void
-propfind_coln(struct kxmlreq *xml, 
-	const struct caldav *dav, const struct coln *coln)
+propfind_coln(struct state *st, struct kreq *req,
+	struct kxmlreq *xml, const struct caldav *dav, 
+	const struct coln *coln)
 {
-	struct state	*st = xml->req->arg;
 	size_t	 	 i;
 	int		 nf;
 	enum proptype	 key;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, req->pname);
 	kxml_putc(xml, '/');
 	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
@@ -100,15 +102,15 @@ propfind_coln(struct kxmlreq *xml,
 			continue;
 		} else if (NULL == properties[key].cgetfp)
 			continue;
-		khttp_puts(xml->req, "<X:");
-		khttp_puts(xml->req, dav->props[i].name);
-		khttp_puts(xml->req, " xmlns:X=\"");
-		khttp_puts(xml->req, dav->props[i].xmlns);
-		khttp_puts(xml->req, "\">");
+		khttp_puts(req, "<X:");
+		khttp_puts(req, dav->props[i].name);
+		khttp_puts(req, " xmlns:X=\"");
+		khttp_puts(req, dav->props[i].xmlns);
+		khttp_puts(req, "\">");
 		(*properties[key].cgetfp)(xml, coln);
-		khttp_puts(xml->req, "</X:");
-		khttp_puts(xml->req, dav->props[i].name);
-		khttp_putc(xml->req, '>');
+		khttp_puts(req, "</X:");
+		khttp_puts(req, dav->props[i].name);
+		khttp_putc(req, '>');
 	}
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_STATUS);
@@ -127,11 +129,11 @@ propfind_coln(struct kxmlreq *xml,
 		for (i = 0; i < dav->propsz; i++) {
 			if (PROP__MAX != dav->props[i].key)
 				continue;
-			khttp_puts(xml->req, "<X:");
-			khttp_puts(xml->req, dav->props[i].name);
-			khttp_puts(xml->req, " xmlns:X=\"");
-			khttp_puts(xml->req, dav->props[i].xmlns);
-			khttp_puts(xml->req, "\" />");
+			khttp_puts(req, "<X:");
+			khttp_puts(req, dav->props[i].name);
+			khttp_puts(req, " xmlns:X=\"");
+			khttp_puts(req, dav->props[i].xmlns);
+			khttp_puts(req, "\" />");
 		}
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_STATUS);
@@ -145,18 +147,17 @@ propfind_coln(struct kxmlreq *xml,
 }
 
 static void
-propfind_resource(struct kxmlreq *xml, 
-	const struct caldav *dav, 
+propfind_resource(struct state *st, struct kreq *req,
+	struct kxmlreq *xml, const struct caldav *dav, 
 	const struct coln *c, const struct res *r)
 {
-	struct state	*st = xml->req->arg;
 	size_t		 i;
 	int		 nf;
 	enum proptype	 key;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, req->pname);
 	kxml_putc(xml, '/');
 	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
@@ -173,15 +174,15 @@ propfind_resource(struct kxmlreq *xml,
 			continue;
 		} else if (NULL == properties[key].rgetfp) 
 			continue;
-		khttp_puts(xml->req, "<X:");
-		khttp_puts(xml->req, dav->props[i].name);
-		khttp_puts(xml->req, " xmlns:X=\"");
-		khttp_puts(xml->req, dav->props[i].xmlns);
-		khttp_puts(xml->req, "\">");
+		khttp_puts(req, "<X:");
+		khttp_puts(req, dav->props[i].name);
+		khttp_puts(req, " xmlns:X=\"");
+		khttp_puts(req, dav->props[i].xmlns);
+		khttp_puts(req, "\">");
 		(*properties[key].rgetfp)(xml, c, r);
-		khttp_puts(xml->req, "</X:");
-		khttp_puts(xml->req, dav->props[i].name);
-		khttp_putc(xml->req, '>');
+		khttp_puts(req, "</X:");
+		khttp_puts(req, dav->props[i].name);
+		khttp_putc(req, '>');
 	}
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_STATUS);
@@ -200,11 +201,11 @@ propfind_resource(struct kxmlreq *xml,
 		for (i = 0; i < dav->propsz; i++) {
 			if (PROP__MAX != dav->props[i].key)
 				continue;
-			khttp_puts(xml->req, "<X:");
-			khttp_puts(xml->req, dav->props[i].name);
-			khttp_puts(xml->req, " xmlns:X=\"");
-			khttp_puts(xml->req, dav->props[i].xmlns);
-			khttp_puts(xml->req, "\" />");
+			khttp_puts(req, "<X:");
+			khttp_puts(req, dav->props[i].name);
+			khttp_puts(req, " xmlns:X=\"");
+			khttp_puts(req, dav->props[i].xmlns);
+			khttp_puts(req, "\" />");
 		}
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_STATUS);
@@ -222,7 +223,7 @@ propfind_resource_cb(const struct res *r, void *arg)
 {
 	struct cbarg	*d = arg;
 
-	propfind_resource(d->xml, d->dav, d->c, r);
+	propfind_resource(d->st, d->req, d->xml, d->dav, d->c, r);
 }
 
 /*
@@ -231,16 +232,16 @@ propfind_resource_cb(const struct res *r, void *arg)
  * (e.g., GET /principal/collection/resource).
  */
 static struct res *
-propfind_resource_lookup(struct kxmlreq *xml, const char *cp)
+propfind_resource_lookup(struct state *st, struct kreq *req,
+	struct kxmlreq *xml, const char *cp)
 {
-	struct state	*st = xml->req->arg;
 	char		*p, *c, *r;
 	int		 rc;
 	size_t		 i, sz;
 	struct res	*res;
 
-	sz = strlen(xml->req->pname);
-	if (strncmp(xml->req->pname, cp, sz)) {
+	sz = strlen(req->pname);
+	if (strncmp(req->pname, cp, sz)) {
 		kerrx("%s: bad script name: %s",
 			st->prncpl->email, cp);
 		return(NULL);
@@ -290,9 +291,9 @@ err:
 }
 
 static void
-propfind_prncpl(struct kxmlreq *xml, const struct caldav *dav)
+propfind_prncpl(struct state *st, struct kreq *req,
+	struct kxmlreq *xml, const struct caldav *dav)
 {
-	struct state	*st = xml->req->arg;
 	size_t	 	 i;
 	int		 nf;
 	enum proptype	 key;
@@ -301,7 +302,7 @@ propfind_prncpl(struct kxmlreq *xml, const struct caldav *dav)
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, req->pname);
 	kxml_putc(xml, '/');
 	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
@@ -315,15 +316,15 @@ propfind_prncpl(struct kxmlreq *xml, const struct caldav *dav)
 			continue;
 		} else if (NULL == properties[key].pgetfp)
 			continue;
-		khttp_puts(xml->req, "<X:");
-		khttp_puts(xml->req, dav->props[i].name);
-		khttp_puts(xml->req, " xmlns:X=\"");
-		khttp_puts(xml->req, dav->props[i].xmlns);
-		khttp_puts(xml->req, "\">");
+		khttp_puts(req, "<X:");
+		khttp_puts(req, dav->props[i].name);
+		khttp_puts(req, " xmlns:X=\"");
+		khttp_puts(req, dav->props[i].xmlns);
+		khttp_puts(req, "\">");
 		(*properties[key].pgetfp)(xml);
-		khttp_puts(xml->req, "</X:");
-		khttp_puts(xml->req, dav->props[i].name);
-		khttp_putc(xml->req, '>');
+		khttp_puts(req, "</X:");
+		khttp_puts(req, dav->props[i].name);
+		khttp_putc(req, '>');
 	}
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_STATUS);
@@ -338,11 +339,11 @@ propfind_prncpl(struct kxmlreq *xml, const struct caldav *dav)
 		for (i = 0; i < dav->propsz; i++) {
 			if (PROP__MAX != dav->props[i].key)
 				continue;
-			khttp_puts(xml->req, "<X:");
-			khttp_puts(xml->req, dav->props[i].name);
-			khttp_puts(xml->req, " xmlns:X=\"");
-			khttp_puts(xml->req, dav->props[i].xmlns);
-			khttp_puts(xml->req, "\" />");
+			khttp_puts(req, "<X:");
+			khttp_puts(req, dav->props[i].name);
+			khttp_puts(req, " xmlns:X=\"");
+			khttp_puts(req, dav->props[i].xmlns);
+			khttp_puts(req, "\" />");
 		}
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_STATUS);
@@ -361,10 +362,10 @@ propfind_prncpl(struct kxmlreq *xml, const struct caldav *dav)
  * This functionality is documented in caldav-proxy.txt.
  */
 static void
-propfind_proxy(struct kxmlreq *xml, 
-	const struct caldav *dav, const char *proxy)
+propfind_proxy(struct state *st, struct kreq *req,
+	struct kxmlreq *xml, const struct caldav *dav, 
+	const char *proxy)
 {
-	struct state	*st = xml->req->arg;
 	size_t	 	 i, j, nf;
 	int		 bits;
 	enum xml	 type;
@@ -381,7 +382,7 @@ propfind_proxy(struct kxmlreq *xml,
 	/* Response is for the requested resource. */
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
-	kxml_puts(xml, xml->req->pname);
+	kxml_puts(xml, req->pname);
 	kxml_putc(xml, '/');
 	kxml_puts(xml, st->rprncpl->name);
 	kxml_putc(xml, '/');
@@ -408,27 +409,27 @@ propfind_proxy(struct kxmlreq *xml,
 		 * RFC 3744, 4.3.
 		 * Specifically, caldav-proxy.txt, 5.2.
 		 */
-		khttp_puts(xml->req, "<X:");
-		khttp_puts(xml->req, dav->props[i].name);
-		khttp_puts(xml->req, " xmlns:X=\"");
-		khttp_puts(xml->req, dav->props[i].xmlns);
-		khttp_puts(xml->req, "\">");
+		khttp_puts(req, "<X:");
+		khttp_puts(req, dav->props[i].name);
+		khttp_puts(req, " xmlns:X=\"");
+		khttp_puts(req, dav->props[i].xmlns);
+		khttp_puts(req, "\">");
 
 		/* All of the readers or writers. */
 		for (j = 0; j < st->rprncpl->proxiesz; j++) {
 			if (bits != st->rprncpl->proxies[j].bits)
 				continue;
 			kxml_push(xml, XML_DAV_HREF);
-			kxml_puts(xml, xml->req->pname);
+			kxml_puts(xml, req->pname);
 			kxml_putc(xml, '/');
 			kxml_puts(xml, st->rprncpl->proxies[j].name);
 			kxml_putc(xml, '/');
 			kxml_pop(xml);
 		}
 
-		khttp_puts(xml->req, "</X:");
-		khttp_puts(xml->req, dav->props[i].name);
-		khttp_putc(xml->req, '>');
+		khttp_puts(req, "</X:");
+		khttp_puts(req, dav->props[i].name);
+		khttp_putc(req, '>');
 	}
 	kxml_pop(xml);
 	kxml_push(xml, XML_DAV_STATUS);
@@ -445,11 +446,11 @@ propfind_proxy(struct kxmlreq *xml,
 			if (PROP_RESOURCETYPE == dav->props[i].key ||
 			    PROP_GROUP_MEMBER_SET == dav->props[i].key)
 				continue;
-			khttp_puts(xml->req, "<X:");
-			khttp_puts(xml->req, dav->props[i].name);
-			khttp_puts(xml->req, " xmlns:X=\"");
-			khttp_puts(xml->req, dav->props[i].xmlns);
-			khttp_puts(xml->req, "\" />");
+			khttp_puts(req, "<X:");
+			khttp_puts(req, dav->props[i].name);
+			khttp_puts(req, " xmlns:X=\"");
+			khttp_puts(req, dav->props[i].xmlns);
+			khttp_puts(req, "\" />");
 		}
 		kxml_pop(xml);
 		kxml_push(xml, XML_DAV_STATUS);
@@ -470,16 +471,16 @@ propfind_proxy(struct kxmlreq *xml,
  * resources, and principal collections that contain calendars.
  */
 static void
-propfind_directory(struct kxmlreq *xml, 
-	const struct caldav *dav, const struct coln *c)
+propfind_directory(struct state *st, struct kreq *req,
+	struct kxmlreq *xml, const struct caldav *dav, 
+	const struct coln *c)
 {
 	size_t		 i, depth;
-	struct state	*st = xml->req->arg;
 	struct cbarg	 carg;
 
-	if (NULL == xml->req->reqmap[KREQU_DEPTH])
+	if (NULL == req->reqmap[KREQU_DEPTH])
 		depth = 1;
-	else if (0 == strcmp(xml->req->reqmap[KREQU_DEPTH]->val, "0"))
+	else if (0 == strcmp(req->reqmap[KREQU_DEPTH]->val, "0"))
 		depth = 0;
 	else
 		depth = 1;
@@ -489,9 +490,9 @@ propfind_directory(struct kxmlreq *xml,
 
 	/* Look up the root collection/principal. */
 	if (NULL == c)
-		propfind_prncpl(xml, dav);
+		propfind_prncpl(st, req, xml, dav);
 	else
-		propfind_coln(xml, dav, c);
+		propfind_coln(st, req, xml, dav, c);
 
 	if (0 == depth)
 		return;
@@ -504,15 +505,18 @@ propfind_directory(struct kxmlreq *xml,
 		carg.xml = xml;
 		carg.c = c;
 		carg.dav = dav;
+		carg.st = st;
+		carg.req = req;
 		db_collection_resources
 			(propfind_resource_cb, c->id, &carg);
 		return;
 	} 
 
-	propfind_proxy(xml, dav, "calendar-proxy-read");
-	propfind_proxy(xml, dav, "calendar-proxy-write");
+	propfind_proxy(st, req, xml, dav, "calendar-proxy-read");
+	propfind_proxy(st, req, xml, dav, "calendar-proxy-write");
 	for (i = 0; i < st->rprncpl->colsz; i++)
-		propfind_coln(xml, dav, &st->rprncpl->cols[i]);
+		propfind_coln(st, req, xml, 
+			dav, &st->rprncpl->cols[i]);
 }
 
 /*
@@ -521,22 +525,24 @@ propfind_directory(struct kxmlreq *xml,
  * This occurs within a multi-response.
  */
 static void
-propfind_list(struct kxmlreq *xml, const struct caldav *dav)
+propfind_list(struct state *st, struct kreq *req,
+	struct kxmlreq *xml, const struct caldav *dav)
 {
-	struct state	*st = xml->req->arg;
 	size_t		 i, j;
 	struct res	*res;
 	char		*cp;
 
 	for (i = 0; i < dav->hrefsz; i++) {
-		res = propfind_resource_lookup(xml, dav->hrefs[i]);
+		res = propfind_resource_lookup
+			(st, req, xml, dav->hrefs[i]);
 		if (NULL != res) {
-			for (j = 0; j < st->rprncpl->colsz; j++) {
-				if (res->collection == st->rprncpl->cols[j].id)
+			for (j = 0; j < st->rprncpl->colsz; j++)
+				if (res->collection == 
+				    st->rprncpl->cols[j].id)
 					break;
-			}
 			assert(j < st->rprncpl->colsz);
-			propfind_resource(xml, dav, &st->rprncpl->cols[j], res);
+			propfind_resource(st, req, xml, dav, 
+				&st->rprncpl->cols[j], res);
 			res_free(res);
 			continue;
 		}
@@ -544,7 +550,7 @@ propfind_list(struct kxmlreq *xml, const struct caldav *dav)
 			st->prncpl->email, dav->hrefs[i]);
 		kxml_push(xml, XML_DAV_RESPONSE);
 		kxml_push(xml, XML_DAV_HREF);
-		kxml_puts(xml, xml->req->pname);
+		kxml_puts(xml, req->pname);
 		/* Remember to URL encode! */
 		cp = kutil_urlencode(dav->hrefs[i]);
 		kxml_puts(xml, cp);
@@ -563,10 +569,10 @@ propfind_list(struct kxmlreq *xml, const struct caldav *dav)
  * It's defined by RFC 4791, section 7.1.
  */
 void
-method_report(struct kreq *r)
+method_report(struct kreq *req)
 {
 	struct caldav	*dav;
-	struct state	*st = r->arg;
+	struct state	*st = req->arg;
 	struct kxmlreq	 xml;
 	struct res	*res;
 	int		 rc;
@@ -575,15 +581,15 @@ method_report(struct kreq *r)
 		/* Disallow non-calendar collection. */
 		kerrx("%s: REPORT of non-calendar "
 			"collection", st->prncpl->email);
-		http_error(r, KHTTP_403);
+		http_error(req, KHTTP_403);
 		return;
-	} else if (NULL == (dav = req2caldav(r)))
+	} else if (NULL == (dav = req2caldav(req)))
 		return;
 
 	if (TYPE_CALMULTIGET != dav->type &&
 		 TYPE_CALQUERY != dav->type) {
 		kerrx("%s: unknown request type", st->prncpl->email);
-		http_error(r, KHTTP_415);
+		http_error(req, KHTTP_415);
 		caldav_free(dav);
 		return;
 	}
@@ -592,25 +598,25 @@ method_report(struct kreq *r)
 		rc = db_resource_load(&res, st->resource, st->cfg->id);
 		if (rc < 0) {
 			kerrx("%s: failed resource", st->prncpl->email);
-			http_error(r, KHTTP_505);
+			http_error(req, KHTTP_505);
 			return;
 		} else if (0 == rc) {
 			kerrx("%s: bad resource", st->prncpl->email);
-			http_error(r, KHTTP_404);
+			http_error(req, KHTTP_404);
 			return;
 		}
 	} else
 		res = NULL;
 
-	khttp_head(r, kresps[KRESP_STATUS], 
+	khttp_head(req, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
 	/* FIXME: remove this? */
-	khttp_head(r, "DAV", "1, access-control, "
+	khttp_head(req, "DAV", "1, access-control, "
 		"calendar-access, calendar-proxy");
-	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+	khttp_head(req, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
-	khttp_body(r);
-	kxml_open(&xml, r, xmls, XML__MAX);
+	khttp_body(req);
+	kxml_open(&xml, req, xmls, XML__MAX);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
 		"xmlns:B", "http://calendarserver.org/ns/",
 		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
@@ -618,11 +624,11 @@ method_report(struct kreq *r)
 
 	if (NULL == res) {
 		if (TYPE_CALMULTIGET == dav->type)
-			propfind_list(&xml, dav);
+			propfind_list(st, req, &xml, dav);
 		else if (TYPE_CALQUERY == dav->type)
-			propfind_directory(&xml, dav, st->cfg);
+			propfind_directory(st, req, &xml, dav, st->cfg);
 	} else
-		propfind_resource(&xml, dav, st->cfg, res);
+		propfind_resource(st, req, &xml, dav, st->cfg, res);
 
 	caldav_free(dav);
 	kxml_popall(&xml);
@@ -637,20 +643,20 @@ method_report(struct kreq *r)
  * We also accept for meta-collections, e.g., proxy paths.
  */
 void
-method_propfind(struct kreq *r)
+method_propfind(struct kreq *req)
 {
 	struct caldav	*dav;
-	struct state	*st = r->arg;
+	struct state	*st = req->arg;
 	struct kxmlreq	 xml;
 	struct res	*res;
 	int		 rc;
 
-	if (NULL == (dav = req2caldav(r)))
+	if (NULL == (dav = req2caldav(req)))
 		return;
 
 	if (TYPE_PROPFIND != dav->type) {
 		kerrx("%s: unknown request type", st->prncpl->email);
-		http_error(r, KHTTP_415);
+		http_error(req, KHTTP_415);
 		caldav_free(dav);
 		return;
 	} else if (st->cfg && st->resource[0]) {
@@ -658,15 +664,15 @@ method_propfind(struct kreq *r)
 		rc = db_resource_load
 			(&res, st->resource, st->cfg->id);
 		if (rc < 0) {
-			http_error(r, KHTTP_403);
+			http_error(req, KHTTP_403);
 			return;
 		} else if (0 == rc) {
-			http_error(r, KHTTP_404);
+			http_error(req, KHTTP_404);
 			return;
 		}
 	} else if (NULL == st->cfg && st->resource[0]) {
 		/* Resource in non-calendar collection. */
-		http_error(r, KHTTP_403);
+		http_error(req, KHTTP_403);
 		return;
 	} else 
 		res = NULL;
@@ -678,14 +684,14 @@ method_propfind(struct kreq *r)
 	 * then route to the relevant handler.
 	 * Otherwise, we're a root (principal) request.
 	 */
-	khttp_head(r, kresps[KRESP_STATUS], 
+	khttp_head(req, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
-	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+	khttp_head(req, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_XML]);
-	khttp_head(r, "DAV", "1, access-control, "
+	khttp_head(req, "DAV", "1, access-control, "
 		"calendar-access, calendar-proxy");
-	khttp_body(r);
-	kxml_open(&xml, r, xmls, XML__MAX);
+	khttp_body(req);
+	kxml_open(&xml, req, xmls, XML__MAX);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
 		"xmlns:B", "http://calendarserver.org/ns/",
 		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
@@ -695,16 +701,16 @@ method_propfind(struct kreq *r)
 	    (0 == strcmp(st->collection, "calendar-proxy-read") ||
 	     0 == strcmp(st->collection, "calendar-proxy-write")))
 		/* Proxy requests. */
-		propfind_proxy(&xml, dav, st->collection);
+		propfind_proxy(st, req, &xml, dav, st->collection);
 	else if (NULL == res && NULL != st->cfg)
 		/* Collections. */
-		propfind_directory(&xml, dav, st->cfg);
+		propfind_directory(st, req, &xml, dav, st->cfg);
 	else if (NULL != res && NULL != st->cfg)
 		/* Resources. */
-		propfind_resource(&xml, dav, st->cfg, res);
+		propfind_resource(st, req, &xml, dav, st->cfg, res);
 	else 
 		/* Root (principal). */
-		propfind_directory(&xml, dav, NULL);
+		propfind_directory(st, req, &xml, dav, NULL);
 
 	caldav_free(dav);
 	kxml_popall(&xml);
