@@ -38,11 +38,12 @@ CGIPREFIX	 = /var/www/cgi-bin
 # Where do we put the system log?
 # This must be writable by the server process and relative to the
 # chroot(2), if applicable.
-LOGFILE	= /logs/kcaldav-syslog.log
+LOGFILE	= /logs/kcaldav-system.log
 
 # Then there are some special CFLAGS.
 # The -D DEBUG=1 directive produces debugging information on stderr.
 # The -D DEBUG=2 directive LOTS of debugging information.
+# If you want to send me a debug report, please use DDEBUG=2.
 CFLAGS		+= -DDEBUG=1
 
 # Lastly, we set whether we're statically compiling.
@@ -160,6 +161,11 @@ www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 afl: all
 	install -m 0555 test-ical afl/test-ical
 	install -m 0555 test-caldav afl/test-caldav
+
+updatecgi: all
+	mkdir -p $(CGIPREFIX)
+	install -m 0555 kcaldav $(CGIPREFIX)
+	install -m 0555 kcaldav $(CGIPREFIX)/kcaldav.cgi
 
 installcgi: all
 	mkdir -p $(CGIPREFIX)
