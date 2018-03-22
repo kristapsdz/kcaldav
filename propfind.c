@@ -616,6 +616,7 @@ method_report(struct kreq *req)
 		"%s", kmimetypes[KMIME_TEXT_XML]);
 	khttp_body(req);
 	kxml_open(&xml, req, xmls, XML__MAX);
+	kxml_prologue(&xml);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
 		"xmlns:B", "http://calendarserver.org/ns/",
 		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
@@ -691,6 +692,7 @@ method_propfind(struct kreq *req)
 		"calendar-access, calendar-proxy");
 	khttp_body(req);
 	kxml_open(&xml, req, xmls, XML__MAX);
+	kxml_prologue(&xml);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
 		"xmlns:B", "http://calendarserver.org/ns/",
 		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
