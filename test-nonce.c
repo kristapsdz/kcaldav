@@ -21,9 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef __linux__
-#include <bsd/string.h>
-#endif
 #include <unistd.h>
 
 #include "extern.h"

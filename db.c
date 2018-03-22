@@ -17,7 +17,7 @@
 #include "config.h"
 
 #ifdef __linux__
-#include <sys/vfs.h>
+# include <sys/vfs.h>
 #else
 #include <sys/param.h>
 #include <sys/mount.h>
@@ -31,10 +31,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef __linux__
-#include <bsd/stdlib.h>
-#include <bsd/string.h>
-#endif
 #include <unistd.h>
 
 #include <kcgi.h>
