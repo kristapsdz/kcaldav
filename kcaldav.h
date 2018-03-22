@@ -81,10 +81,10 @@ enum	valid {
 	VALID__MAX
 };
 
-typedef	 void (*principalfp)(struct kxmlreq *);
-typedef	 void (*collectionfp)(struct kxmlreq *, 
+typedef	 void (*principalfp)(struct kreq *, struct kxmlreq *);
+typedef	 void (*collectionfp)(struct kreq *, struct kxmlreq *, 
 		const struct coln *);
-typedef	 void (*resourcefp)(struct kxmlreq *, 
+typedef	 void (*resourcefp)(struct kreq *, struct kxmlreq *, 
 		const struct coln *, const struct res *);
 
 /*
