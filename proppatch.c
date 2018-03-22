@@ -107,6 +107,7 @@ method_proppatch(struct kreq *r)
 		"calendar-access, calendar-proxy");
 	khttp_body(r);
 	kxml_open(&xml, r, xmls, XML__MAX);
+	kxml_prologue(&xml);
 	kxml_pushattrs(&xml, XML_DAV_MULTISTATUS, 
 		"xmlns:B", "http://calendarserver.org/ns/",
 		"xmlns:C", "urn:ietf:params:xml:ns:caldav",
