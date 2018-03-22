@@ -27,7 +27,7 @@
 			<header>
 				<div>
 					<h1>
-						<a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> <span class="bigonly">Management</span>
+						<a href="https://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a> <span class="bigonly">Management</span>
 					</h1><nav>
 						<a href="@HTDOCS@/home.html">home</a>
 						<a href="#" onclick="logout();">logout</a>
@@ -37,7 +37,7 @@
 			<article>
 				<p>
 					Welcome, <span class="kcalendar-field kcalendar-principal-name"></span>.
-					This is your online administrative interface to the <a href="http://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a>
+					This is your online administrative interface to the <a href="https://kristaps.bsd.lv/kcaldav"><i>k</i>CalDAV</a>
 					(version @VERSION@) installation.
 					Your principal has <span class="kcalendar-field kcalendar-principal-quota-used"></span> used and <span
 						class="kcalendar-field kcalendar-principal-quota-avail"></span> available.
@@ -127,7 +127,7 @@
 				</section>
 			</article>
 			<footer>
-				&copy; 2015 <a href="http://kristaps.bsd.lv">Kristaps Dzonsons</a>
+				&copy; 2015 <a href="https://github.com/kristapsdz">Kristaps Dzonsons</a>
 			</footer>
 		</section>
 	</body>

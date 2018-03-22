@@ -27,7 +27,7 @@
 			</div>
 		</article>
 		<footer>
-			<div>&copy; 2016, <a href="https://kristaps.bsd.lv">Kristaps Dzonsons</a></div>
+			<div>&copy; 2016, <a href="https://github.com/kristapsdz">Kristaps Dzonsons</a></div>
 			<div>Generated with <a href="https://kristaps.bsd.lv/sqliteconvert">sqliteconvert</a></div>
 		</footer>
 		<script>
