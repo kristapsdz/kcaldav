@@ -26,8 +26,8 @@
 #include <assert.h>
 #include <ctype.h>
 #include <limits.h>
-#ifdef HAVE_SANDBOX_INIT
-#include <sandbox.h>
+#if HAVE_SANDBOX_INIT
+# include <sandbox.h>
 #endif
 #include <stdio.h>
 #include <stdarg.h>
@@ -357,7 +357,7 @@ main(void)
 		getpid());
 #endif
 
-#ifdef HAVE_SANDBOX_INIT
+#if HAVE_SANDBOX_INIT
 	rc = sandbox_init
 		(kSBXProfileNoInternet, 
 		 SANDBOX_NAMED, &np);

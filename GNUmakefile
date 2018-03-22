@@ -1,5 +1,7 @@
 .SUFFIXES: .3 .3.html .5 .8 .5.html .8.html .1 .1.html .xml .html .min.js .js
 
+include Makefile.configure
+
 # You WILL need to edit this for your needs.
 # I have added defaults for all of the systems that I use.
 # Good luck!
@@ -43,7 +45,7 @@ CGIPREFIX	 = /Users/kristaps/Sites/kcaldav
 PREFIX		 = /usr/local
 LIBS		 = -lexpat -lsqlite3
 STATIC		 = 
-CPPFLAGS	+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
+CFLAGS		+= -I/usr/local/opt/sqlite/include -I/usr/local/include 
 BINLDFLAGS	 = -L/usr/local/opt/sqlite/lib -L/usr/local/lib
 else ifeq ($(shell uname), OpenBSD)
 # ...and this for deployment on BSD.lv, which has its static files in a
@@ -58,7 +60,7 @@ CGIPREFIX	 = /var/www/cgi-bin
 PREFIX		 = /usr/local
 LIBS		 = -lexpat -lm -lsqlite3 -lpthread
 STATIC		 = -static
-CPPFLAGS	+= -I/usr/local/include -DDEBUG=1
+CFLAGS		+= -I/usr/local/include -DDEBUG=1
 BINLDFLAGS	 = -L/usr/local/lib
 else 
 LOGFILE		 = /var/www/logs/kcaldav-system.log
@@ -71,7 +73,7 @@ CGIPREFIX	 = /var/www/cgi-bin
 PREFIX		 = /usr/local
 LIBS		 = -lexpat -lbsd -lm -lsqlite3
 STATIC		 = 
-CPPFLAGS	+= -I/usr/local/include 
+CFLAGS		+= -I/usr/local/include 
 BINLDFLAGS	 = -L/usr/local/lib
 endif
 
@@ -102,28 +104,19 @@ HTMLS	 	 = index.html \
 MANS		 = kcaldav.in.8 \
 		   kcaldav.passwd.in.1 \
 		   libkcaldav.3
-CTESTSRCS	 = test-explicit_bzero.c \
-		   test-memmem.c \
-		   test-reallocarray.c \
-		   test-sandbox_init.c
 JSMINS		 = collection.min.js \
 		   home.min.js \
 		   md5.min.js \
 		   script.min.js
 ALLSRCS		 = GNUmakefile \
 		   $(TESTSRCS) \
-		   $(CTESTSRCS) \
 		   $(MANS) \
 		   buf.c \
 		   caldav.c \
 		   collection.js \
 		   collection.xml \
-		   compat-explicit_bzero.c \
-		   compat-memmem.c \
-		   compat-reallocarray.c \
+		   compats.c \
 		   configure \
-		   config.h.post \
-		   config.h.pre \
 		   datetime.c \
 		   db.c \
 		   delete.c \
@@ -151,12 +144,11 @@ ALLSRCS		 = GNUmakefile \
 		   resource.c \
 		   script.js \
 		   style.css \
+		   tests.c \
 		   util.c
 LIBOBJS		 = buf.o \
 		   caldav.o \
-		   compat-explicit_bzero.o \
-		   compat-memmem.o \
-		   compat-reallocarray.o \
+		   compats.o \
 		   datetime.o \
 		   err.o \
 		   ical.o
@@ -181,7 +173,6 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(OBJS) \
 		   kcaldav.passwd.o
 VERSION		 = 0.1.4
-CFLAGS 		+= -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"
@@ -199,10 +190,6 @@ www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 afl: all
 	install -m 0555 test-ical afl/test-ical
 	install -m 0555 test-caldav afl/test-caldav
-
-config.h: config.h.pre config.h.post configure $(CTESTSRCS)
-	rm -f config.log
-	CC="$(CC)" CFLAGS="$(CFLAGS)" ./configure
 
 installcgi: all
 	mkdir -p $(CGIPREFIX)
@@ -302,8 +289,10 @@ clean:
 	rm -rf *.dSYM
 	rm -f $(HTMLS) $(BHTMLS) $(JSMINS) kcaldav.tgz kcaldav.tgz.sha512
 	rm -f test-memmem test-reallocarray test-explicit_bzero
-	rm -f config.h config.log
 	rm -f schema.png 
+
+distclean: clean
+	rm -f config.h config.log Makefile.configure
 
 .8.8.html .5.5.html .3.3.html .1.1.html:
 	mandoc -Wall -Thtml -Ostyle=mandoc.css $< >$@
