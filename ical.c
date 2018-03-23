@@ -164,8 +164,27 @@ ical_free(struct ical *p)
 }
 
 /*
+ * From kcgi(3).
+ * Originally from:
+ * http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap04.html#tag_04_15
+ */
+static time_t
+ical_mkdate(time_t d, time_t m, time_t y)
+{
+	time_t	 v;
+
+	m = (m + 9) % 12;
+	y = y - m / 10;
+	v = 365 * y + y / 4 - y / 100 + 
+		y / 400 + (m * 306 + 5) / 10 + (d - 1);
+	return(v * 86400);
+}
+
+/*
  * Try to parse the numeric date and time (assumed UTC) into the "tm"
  * value, seconds since epoch.
+ * The date and time must be in the format:
+ *  YYYYMMDD ['T' HHMMSS]
  * Return zero on failure, non-zero on success.
  */
 static int
@@ -183,6 +202,7 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 	memset(tm, 0, sizeof(struct icaltm));
 
 	/* Sanity-check the date component length and ctype. */
+
 	if ((sz = strlen(cp)) < 8) {
 		kerrx("%s:%zu: invalid date size", p->file, p->line);
 		return(0);
@@ -292,14 +312,10 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 	 * Specification", Base definitions (4: General concepts), part
 	 * 15: Seconds since epoch.
 	 */
-	if (tm->year >= 70) {
-		tm->tm = tm->sec + tm->min * 60 + tm->hour * 3600 + 
-			tm->day * 86400 + (tm->year - 70) * 31536000 + 
-			((tm->year - 69) / 4) * 86400 -
-			((tm->year - 1) / 100) * 86400 + 
-			((tm->year + 299) / 400) * 86400;
-	} else
-		kerrx("%s:%zu: pre-epoch year", p->file, p->line);
+	tm->tm = 
+		(ical_mkdate(tm->mday, tm->mon, tm->year + 1900)  -
+		 ical_mkdate(1, 1, 1970)) +
+		tm->sec + tm->min * 60 + tm->hour * 3600;
 
 	/*
 	 * Use Zeller's congruence to compute the weekday starting on
