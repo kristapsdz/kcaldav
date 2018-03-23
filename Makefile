@@ -26,6 +26,7 @@ HTDOCS	 	 = /kcaldav
 #HTDOCS		 = /
 
 # This is the file-system directory of HTDOCS.
+# I'm pretty sure you want to override this...
 HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
 #HTDOCSPREFIX	 = /var/www/htdocs
 
@@ -40,11 +41,10 @@ CGIPREFIX	 = /var/www/cgi-bin
 # chroot(2), if applicable.
 LOGFILE	= /logs/kcaldav-system.log
 
-# Then there are some special CFLAGS.
-# The -D DEBUG=1 directive produces debugging information on stderr.
-# The -D DEBUG=2 directive LOTS of debugging information.
-# If you want to send me a debug report, please use DDEBUG=2.
-CFLAGS		+= -DDEBUG=1
+# Set -D DEBUG=1 to produce debugging information in LOGFILE.
+# Set -D DEBUG=2 for LOTS of debugging information.
+# If you want to send me a debug report, please use -DDEBUG=2.
+#CFLAGS		+= -DDEBUG=1
 
 # Lastly, we set whether we're statically compiling.
 STATIC		 = -static
@@ -71,7 +71,8 @@ TESTOBJS 	 = test-caldav.o \
 		   test-ical.o \
 		   test-nonce.o \
 		   test-rrule.o
-HTMLS	 	 = index.html \
+HTMLS	 	 = archive.html \
+		   index.html \
 		   kcaldav.8.html \
 		   kcaldav.passwd.1.html \
 		   libkcaldav.3.html \
@@ -234,6 +235,9 @@ $(BINOBJS): kcaldav.h
 index.html: index.xml versions.xml
 	sblg -t index.xml -o- versions.xml | sed "s!@VERSION@!$(VERSION)!g" >$@
 
+archive.html: archive.xml versions.xml
+	sblg -t archive.xml -o- versions.xml | sed "s!@VERSION@!$(VERSION)!g" >$@
+
 schema.html: schema.xml schema.png kcaldav.sql
 	( sed -n '1,/@SCHEMA@/p' schema.xml ; \
 	  sqlite2html kcaldav.sql ; \
@@ -272,7 +276,7 @@ distclean: clean
 	rm -f config.h config.log Makefile.configure
 
 .8.8.html .5.5.html .3.3.html .1.1.html:
-	mandoc -Wall -Thtml -Ostyle=mandoc.css $< >$@
+	mandoc -Thtml -Ostyle=mandoc.css $< >$@
 
 .xml.html:
 	sed -e "s!@HTDOCS@!$(HTDOCS)!g" \
