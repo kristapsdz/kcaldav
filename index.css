@@ -1,26 +1,28 @@
 body, html		{ margin: 0; }
 body			{ background-color: #313131; 
 			  font-family: "Alegreya Sans", sans-serif;
-			  font-size: 12pt; }
-footer, header		{ padding: 12pt 24pt;
+			  font-weight: 400;
+			  font-size: 14pt; }
+footer, header		{ padding: 12pt 25%;
 			  color: #def; }
 footer a, header a	{ color: #FFBB51; }
-article > section	{ padding: 8pt 24pt; 
-			  background-color: #eee; }
+article > section	{ padding: 8pt 25%; 
+			  background-color: #f6f6f6; }
 div.version		{ font-size: 13pt; 
 			  margin-bottom: -6pt; }
-div.date		{ font-size: 11pt;
+div.date		{ font-size: 12pt;
 			  color: #666; }
 #history		{ background-color: #ddd; 
 			  border-top: thin solid #aaa; }
 article a		{ color: blue; }
 footer 			{ text-align: center; 
-			  color: #abc; }
+			  opacity: 0.7;
+			  font-size: 12pt; }
 a			{ text-decoration: none; }
 h1			{ margin: 0; 
-			  font-family: "Playfair Display", serif;
 			  font-size: 36pt;
 			  font-style: normal;
+			  font-weight: 500;
 			  font-variant: normal;
 			  line-height: 40pt; }
 .file			{ font-style: italic; }
@@ -33,4 +35,12 @@ nav[data-sblg-nav] div + div
 			{ margin-top: 8px; }
 aside			{ font-size: inherit; }
 pre,code		{ font-family: monospace;
-			  font-size: 11pt; }
+			  font-size: 12pt; }
+#intro			{ font-size: 15pt;
+			  line-height: 20pt; }
+
+@media only screen and (max-width: 768px), only screen and (max-device-width: 768px) {
+ footer, header		{ padding: 12pt 2%; }
+ article > section	{ padding: 8pt 2%; }
+ header			{ text-align: center; }
+}

@@ -1,13 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 	<head>
 		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
-		<meta charset='utf-8' /> 
+		<meta charset="utf-8" /> 
 		<title>kCalDAV: a simple CalDAV server</title>
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css" />
-		<link href="https://fonts.googleapis.com/css?family=Alegreya+Sans:300,300italic,600" rel="stylesheet" />
-		<link href="https://fonts.googleapis.com/css?family=Playfair+Display:400,400italic" rel="stylesheet" />
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css" />
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Alegreya+Sans:400,400italic,500,700" />
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" />
 		<link rel="stylesheet" href="index.css" />
 	</head>
 	<body itemscope="itemscope" itemtype="http://schema.org/SoftwareApplication">
@@ -25,33 +23,36 @@
 			<section id="intro">
 				<p>
 					<span class="nm"><i>k</i>CalDAV</span> is a simple, safe, and minimal CalDAV server depending only on <a
-						href="https://kristaps.bsd.lv/kcgi">kcgi(3)</a>, <a
+						href="https://kristaps.bsd.lv/kcgi">kcgi</a>, <a
 						href="https://www.sqlite.org">SQLite</a>, and <a
-						href="http://expat.sourceforge.net/">expat(3)</a>.
-					The ISO C source code is <a href="http://opensource.org/licenses/ISC" rel="license">ISC licensed</a>.
-					For the time being, it works only for <strong>simple</strong> setups, for example, a calendar collection
+						href="https://libexpat.github.io//">expat</a>.
+					It is <a href="http://opensource.org/licenses/ISC" rel="license">open source</a>.
+					For the time being, it works only for <strong>simple</strong> setups&#8212;for example, a calendar collection
 					shared between <a href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>, Mac OS
-					X iCal, and iOS7 (iPhone4) clients.
+					X iCal, and iOS (iPhone) clients.
 					It compiles and runs on <a href="https://www.openbsd.org">OpenBSD</a>, Linux, and Mac OS X.
-					To begin within, download the <a href="snapshots/kcaldav.tgz">sources</a> and verify the <a
-						href="snapshots/kcaldav.tgz.sha512">fingerprint</a>.
+					(Any others?  <a href="https://github.com/kristapsdz/kcaldav">Let me know</a>!)
 				</p>
 				<ol>
 					<li>
-						Install dependencies <a href="https://kristaps.bsd.lv/kcgi">kcgi(3)</a>, <a
+						Install dependencies <a href="https://kristaps.bsd.lv/kcgi">kcgi</a>, <a
 							href="https://www.sqlite.org">SQLite</a>, <a
-							href="http://expat.sourceforge.net">expat(3)</a>, and <a
-							href="http://libbsd.freedesktop.org/wiki/">bsd(3)</a> if using Linux.
+							href="https://libexpat.github.io/">expat</a>, and <a
+							href="http://libbsd.freedesktop.org/wiki/">libbsd</a> if using Linux.
+					</li>
+					<li>
+						Cownload the <a href="snapshots/kcaldav.tgz">sources</a> and verify the <a
+						href="snapshots/kcaldav.tgz.sha512">fingerprint</a>.
 					</li>
 					<li>
 						Configure for your installation by creating a <span class="file">Makefile.local</span> using
-						variables documented in the <span class="file">Makefile</a>.
+						variables documented in the <span class="file">Makefile</span>.
 						(You <strong>will</strong> need to do this: installation paths for CGI scripts differ vastly!)
 					</li>
 					<li>
-						Compile with <code>make</code>, install manpages and administration tools with
-						<code>make install</code>, then install the CGI script and its data files with
-						<code>make installcgi</code>.
+						Configure with <code>./configure</code>.
+						Compile with <code>make</code>, install with <code>make install</code>, then install the CGI
+						script and its data files with <code>make installcgi</code>.
 					</li>
 					<li>
 						If using <a href="https://www.apache.org/">Apache</a>, make sure that HTTP authorisation is not
@@ -73,7 +74,7 @@
 				</p>
 			</section>
 			<section id="history">
-				<nav data-sblg-nav="1" data-sblg-navcontent="1">
+				<nav data-sblg-nav="1" data-sblg-navcontent="1" data-sblg-navsz="3">
 					<div>
 						<div class="version">
 							Version <span class="version">${sblg-title}</span>
@@ -84,20 +85,18 @@
 					</div>
 					<div>${sblg-aside}</div>
 				</nav>
+				<p>
+					(<a href="archive.html">See all releases</a>.)
+				</p>
 			</section>
 		</article>
 		<footer>
-			<div>&#169; 2015&#8211;2016 <a rel="author" href="https://github.com/kristapsdz">Kristaps Dzonsons</a></div>
+			<div>&#169; 2015&#8211;2016, 2018 <a rel="author" href="https://github.com/kristapsdz">Kristaps Dzonsons</a></div>
 			<div>
 				$Date$
 				<a href="snapshots/kcaldav.tgz"><i class="fa fa-fw fa-gears"></i></a>
 				<a href="snapshots/kcaldav.tgz.sha512"><i class="fa fa-fw fa-lock"></i></a>
 				<a href="snapshots"><i class="fa fa-fw fa-archive"></i></a>
-			</div>
-			<div>
-				<a href="https://scan.coverity.com/projects/kcaldav">
-					<img alt="Coverity Scan Build Status" src="https://scan.coverity.com/projects/8091/badge.svg" />
-				</a>
 			</div>
 		</footer>
 	</body>
