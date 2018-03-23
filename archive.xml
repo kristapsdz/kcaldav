@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+		<meta charset='utf-8' /> 
+		<title>kCalDAV: a simple CalDAV server</title>
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Alegreya+Sans:400,400italic,500,700" />
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" />
+		<link rel="stylesheet" href="index.css" />
+	</head>
+	<body itemscope="itemscope" itemtype="http://schema.org/SoftwareApplication">
+		<header>
+			<h1 itemprop="name"><i>k</i>CalDAV</h1>
+			<nav>
+				<a itemprop="downloadURL" href="snapshots/kcaldav.tgz"><i class="fa fa-fw fa-gears"></i></a>
+				<a href="snapshots/kcaldav.tgz.sha512"><i class="fa fa-fw fa-lock"></i></a>
+				<a href="snapshots"><i class="fa fa-fw fa-archive"></i></a>
+				<a href="https://github.com/kristapsdz/kcaldav"><i class="fa fa-fw fa-github"></i></a>
+				<span itemprop="softwareVersion">Version @VERSION@</span>
+			</nav>
+		</header>
+		<article>
+			<section id="history">
+				<nav data-sblg-nav="1" data-sblg-navcontent="1">
+					<div>
+						<div class="version">
+							Version <span class="version">${sblg-title}</span>
+						</div>
+						<div class="date">
+							<i class="fa fa-fw fa-clock-o"></i><time datetime="${sblg-date}">${sblg-date}</time>
+						</div>
+					</div>
+					<div>${sblg-aside}</div>
+				</nav>
+			</section>
+		</article>
+		<footer>
+			<div>&#169; 2015&#8211;2016 <a rel="author" href="https://github.com/kristapsdz">Kristaps Dzonsons</a></div>
+			<div>
+				$Date$
+				<a href="snapshots/kcaldav.tgz"><i class="fa fa-fw fa-gears"></i></a>
+				<a href="snapshots/kcaldav.tgz.sha512"><i class="fa fa-fw fa-lock"></i></a>
+				<a href="snapshots"><i class="fa fa-fw fa-archive"></i></a>
+			</div>
+			<div>
+				<a href="https://scan.coverity.com/projects/kcaldav">
+					<img alt="Coverity Scan Build Status" src="https://scan.coverity.com/projects/8091/badge.svg" />
+				</a>
+			</div>
+		</footer>
+	</body>
+</html>
