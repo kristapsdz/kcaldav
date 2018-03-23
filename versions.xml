@@ -323,7 +323,7 @@
 		<header>
 			<h1>0.1.6</h1>
 			<address>Kristaps Dzonsons</address>
-			<time datetime="2016-07-05">2016-07-05</time>
+			<time datetime="2018-03-23">2018-03-23</time>
 		</header>
 		<aside>
 			<div>
@@ -331,9 +331,12 @@
 				This brings us up to date with <a href="https://kristaps.bsd.lv/kcgi">kcgi(3)</a> along with some simplifications.
 			</div>
 			<div>
-				First, kick out the <span class="file">GNUmakefile</span> in favour of a simple <span class="file">Makefile</a>.
+				First, kick out the <span class="file">GNUmakefile</span> in favour of a simple <span class="file">Makefile</span>.
 				Then, bring in <a href="https://github.com/kristapsdz/oconfigure">oconfigure</a> for compatibility.
 				Lastly, relegate per-system changes to a <span class="file">Makefile.local</span>, making it easier for maintainers.
+			</div>
+			<div>
+				Lastly, start using <a href="https://man.openbsd.org/pledge.2">pledge(2)</a>
 			</div>
 		</aside>
 	</article>
