@@ -30,6 +30,10 @@ HTDOCS	 	 = /kcaldav
 HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
 #HTDOCSPREFIX	 = /var/www/htdocs
 
+# File-system directory where "installwww" installs.
+# You probably aren't going to use that!
+WWWDIR		 = /var/www/vhosts/kristaps.bsd.lv/htdocs/kcaldav
+
 # This is the relative URI of the server executable.
 CGIURI		 = /cgi-bin/kcaldav.cgi
 
@@ -191,11 +195,11 @@ install: all
 	install -m 0444 libkcaldav.h $(PREFIX)/include
 
 installwww: www
-	mkdir -p $(PREFIX)/snapshots
-	install -m 0444 index.css mandoc.css schema.css schema.png imageMapResizer.min.js $(HTMLS) $(PREFIX)
-	install -m 0444 kcaldav.tgz kcaldav.tgz.sha512 $(PREFIX)/snapshots/
-	install -m 0444 kcaldav.tgz $(PREFIX)/snapshots/kcaldav-$(VERSION).tgz
-	install -m 0444 kcaldav.tgz.sha512 $(PREFIX)/snapshots/kcaldav-$(VERSION).tgz.sha512
+	mkdir -p $(WWWDIR)/snapshots
+	install -m 0444 index.css mandoc.css schema.css schema.png imageMapResizer.min.js $(HTMLS) $(WWWDIR)
+	install -m 0444 kcaldav.tgz kcaldav.tgz.sha512 $(WWWDIR)/snapshots/
+	install -m 0444 kcaldav.tgz $(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz
+	install -m 0444 kcaldav.tgz.sha512 $(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz.sha512
 
 kcaldav.tgz.sha512: kcaldav.tgz
 	openssl dgst -sha512 kcaldav.tgz >$@
