@@ -308,16 +308,23 @@ main(void)
 		{ kvalid_name, valids[VALID_NAME] },
 		{ kvalid_hash, valids[VALID_PASS] },
 		{ kvalid_path, valids[VALID_PATH] } }; 
-	struct state	*st;
+	struct state	*st = NULL;
 	int		 rc;
 	char		*np;
 	size_t		 i, sz;
+
+#if HAVE_PLEDGE
+	if (-1 == pledge("proc stdio rpath "
+	    "cpath wpath flock fattr", NULL)) {
+		kerr("pledge");
+		return(EXIT_FAILURE);
+	}
+#endif
 
 #if defined LOGFILE
 	kutil_openlog(LOGFILE);
 #endif
 
-	st = NULL;
 #if defined DEBUG && DEBUG > 1
 	verbose = 2;
 #elif defined DEBUG && DEBUG > 0
@@ -343,7 +350,8 @@ main(void)
 	}
 #endif
 #if HAVE_PLEDGE
-	if (-1 == pledge("stdio rpath cpath wpath flock fattr", NULL)) {
+	if (-1 == pledge("stdio rpath cpath "
+	    "wpath flock fattr", NULL)) {
 		kerr("pledge");
 		goto out;
 	}
