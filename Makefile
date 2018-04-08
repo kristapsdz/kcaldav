@@ -43,7 +43,7 @@ CGIPREFIX	 = /var/www/cgi-bin
 # Where do we put the system log?
 # This must be writable by the server process and relative to the
 # chroot(2), if applicable.
-LOGFILE	= /logs/kcaldav-system.log
+LOGFILE		 = /logs/kcaldav-system.log
 
 # Set -D DEBUG=1 to produce debugging information in LOGFILE.
 # Set -D DEBUG=2 for LOTS of debugging information.
