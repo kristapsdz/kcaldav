@@ -313,7 +313,9 @@ main(void)
 	char		*np;
 	size_t		 i, sz;
 
+#if defined LOGFILE
 	kutil_openlog(LOGFILE);
+#endif
 
 	st = NULL;
 #if defined DEBUG && DEBUG > 1
