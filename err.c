@@ -48,7 +48,7 @@ kverrx(const char *file, size_t line, const char *fmt, ...)
 	char	 buf[32];
 	time_t	 t = time(NULL);
 
-	strftime(buf, sizeof(buf), "[%F %R]:", localtime(&t));
+	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
 	fprintf(stderr, "%s%s:%zu: WARNING: ", buf, file, line);
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
@@ -64,7 +64,7 @@ kverr(const char *file, size_t line, const char *fmt, ...)
 	char	 buf[32];
 	time_t	 t = time(NULL);
 
-	strftime(buf, sizeof(buf), "[%F %R]:", localtime(&t));
+	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
 	fprintf(stderr, "%s%s:%zu: ERROR: ", buf, file, line);
 	if (NULL != fmt) {
 		va_start(ap, fmt);
@@ -81,7 +81,7 @@ kvinfo(const char *file, size_t line, const char *fmt, ...)
 	char	 buf[32];
 	time_t	 t = time(NULL);
 
-	strftime(buf, sizeof(buf), "[%F %R]:", localtime(&t));
+	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
 	fprintf(stderr, "%s%s:%zu: ", buf, file, line);
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
