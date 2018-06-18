@@ -48,7 +48,7 @@ LOGFILE		 = /logs/kcaldav-system.log
 # Set -D DEBUG=1 to produce debugging information in LOGFILE.
 # Set -D DEBUG=2 for LOTS of debugging information.
 # If you want to send me a debug report, please use -DDEBUG=2.
-#CFLAGS		+= -DDEBUG=1
+#CPPFLAGS	+= -DDEBUG=1
 
 # Lastly, we set whether we're statically compiling.
 STATIC		 = -static
