@@ -48,7 +48,7 @@ struct	cbarg {
  * So we really only check its media type.
  */
 static struct caldav *
-req2caldav(struct kreq *req)
+req2caldav(struct kreq *req, enum kmime *mime)
 {
 	struct state	*st = req->arg;
 
@@ -59,11 +59,14 @@ req2caldav(struct kreq *req)
 		return(NULL);
 	} 
 
-	if (KMIME_TEXT_XML != req->fieldmap[VALID_BODY]->ctypepos) {
+	if (KMIME_TEXT_XML != req->fieldmap[VALID_BODY]->ctypepos &&
+	    KMIME_APP_XML != req->fieldmap[VALID_BODY]->ctypepos) {
 		kerrx("%s: not CalDAV MIME", st->prncpl->email);
 		http_error(req, KHTTP_415);
 		return(NULL);
 	}
+
+	*mime = req->fieldmap[VALID_BODY]->ctypepos;
 
 	return(caldav_parse
 		(req->fieldmap[VALID_BODY]->val, 
@@ -574,6 +577,7 @@ method_report(struct kreq *req)
 	struct state	*st = req->arg;
 	struct kxmlreq	 xml;
 	struct res	*res;
+	enum kmime	 mime;
 	int		 rc;
 
 	if (NULL == st->cfg) {
@@ -582,7 +586,7 @@ method_report(struct kreq *req)
 			"collection", st->prncpl->email);
 		http_error(req, KHTTP_403);
 		return;
-	} else if (NULL == (dav = req2caldav(req)))
+	} else if (NULL == (dav = req2caldav(req, &mime)))
 		return;
 
 	if (TYPE_CALMULTIGET != dav->type &&
@@ -613,7 +617,7 @@ method_report(struct kreq *req)
 	khttp_head(req, "DAV", "1, access-control, "
 		"calendar-access, calendar-proxy");
 	khttp_head(req, kresps[KRESP_CONTENT_TYPE], 
-		"%s", kmimetypes[KMIME_TEXT_XML]);
+		"%s", kmimetypes[mime]);
 	khttp_body(req);
 	kxml_open(&xml, req, xmls, XML__MAX);
 	kxml_prologue(&xml);
@@ -650,8 +654,9 @@ method_propfind(struct kreq *req)
 	struct kxmlreq	 xml;
 	struct res	*res;
 	int		 rc;
+	enum kmime	 mime;
 
-	if (NULL == (dav = req2caldav(req)))
+	if (NULL == (dav = req2caldav(req, &mime)))
 		return;
 
 	if (TYPE_PROPFIND != dav->type) {
@@ -687,7 +692,7 @@ method_propfind(struct kreq *req)
 	khttp_head(req, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
 	khttp_head(req, kresps[KRESP_CONTENT_TYPE], 
-		"%s", kmimetypes[KMIME_TEXT_XML]);
+		"%s", kmimetypes[mime]);
 	khttp_head(req, "DAV", "1, access-control, "
 		"calendar-access, calendar-proxy");
 	khttp_body(req);

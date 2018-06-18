@@ -40,7 +40,7 @@
  * So we really only check its media type.
  */
 static struct caldav *
-req2caldav(struct kreq *r)
+req2caldav(struct kreq *r, enum kmime *mime)
 {
 	struct state	*st = r->arg;
 
@@ -51,11 +51,14 @@ req2caldav(struct kreq *r)
 		return(NULL);
 	} 
 
-	if (KMIME_TEXT_XML != r->fieldmap[VALID_BODY]->ctypepos) {
+	if (KMIME_TEXT_XML != r->fieldmap[VALID_BODY]->ctypepos &&
+	    KMIME_APP_XML != r->fieldmap[VALID_BODY]->ctypepos) {
 		kerrx("%s: not CalDAV MIME", st->prncpl->email);
 		http_error(r, KHTTP_415);
 		return(NULL);
 	}
+
+	*mime = r->fieldmap[VALID_BODY]->ctypepos;
 
 	return(caldav_parse
 		(r->fieldmap[VALID_BODY]->val, 
@@ -76,13 +79,14 @@ method_proppatch(struct kreq *r)
 	size_t		 nf, df, bf, i;
 	int		 accepted[PROP__MAX + 1];
 	struct coln	 cfg;
+	enum kmime	 mime;
 
 	if (NULL == st->cfg) {
 		kerrx("%s: PROPPATCH for non-calendar "
 			"collection", st->prncpl->email);
 		http_error(r, KHTTP_403);
 		return;
-	} else if (NULL == (dav = req2caldav(r)))
+	} else if (NULL == (dav = req2caldav(r, &mime)))
 		return;
 
 	cfg = *st->cfg;
@@ -102,7 +106,7 @@ method_proppatch(struct kreq *r)
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_207]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
-		"%s", kmimetypes[KMIME_TEXT_XML]);
+		"%s", kmimetypes[mime]);
 	khttp_head(r, "DAV", "1, access-control, "
 		"calendar-access, calendar-proxy");
 	khttp_body(r);
