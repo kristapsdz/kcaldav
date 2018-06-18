@@ -340,4 +340,22 @@
 			</div>
 		</aside>
 	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.7</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2018-06-18">2018-06-18</time>
+		</header>
+		<aside>
+			<div>
+				Merge fixes from <a href="https://github.com/mk-f">mk-f@</a> to
+				handle <code>application/xml</code>, which requires the newest
+				version of <a href="https://kristaps.bsd.lv/kcgi">kcgi</a>.
+				He was also awesome in fixing another subtle bug (in <a
+					href="https://kristaps.bsd.lv/kcgi">kcgi</a>) in parsing the
+				<code>nc</code> value when performing certain types of validation.
+				An awesome set of fixes, thank you!
+			</div>
+		</aside>
+	</article>
 </articles>
