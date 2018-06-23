@@ -287,6 +287,19 @@ struct	icaltime {
 };
 
 /*
+ * rfc5545 does not specify ordering of components. It is possible to
+ * encounter date-time properties with Time-Zone-Identifiers (TZID)
+ * before the according VTIMEZONE-component has been parsed.
+ * This structure keeps track of these icaltime-objects.
+ *
+ */
+struct icaltime_incomplete {
+	const struct icalnode *np;
+	struct icaltime *tm;
+	struct icaltime_incomplete *next;
+};
+
+/*
  * An iCalendar component.
  * Each of these may be associated with component properties such as the
  * UID or DTSTART, which are referenced here.

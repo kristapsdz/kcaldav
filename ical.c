@@ -97,7 +97,22 @@ struct	icalparse {
 	struct ical	*ical; /* result structure */
 	struct icalnode	*cur; /* current node parse */
 	struct icalcomp	*comps[ICALTYPE__MAX]; /* current comps */
+	struct icaltime_incomplete *tmi;
 };
+
+static void
+icaltime_incomplete_free(struct icaltime_incomplete *tmi)
+{
+	struct icaltime_incomplete *np;
+
+	if (NULL == tmi)
+		return;
+
+	np = tmi->next;
+	free(tmi);
+
+	icaltime_incomplete_free(np);
+}
 
 /*
  * Free the icalnode "p" and, if "first" is zero, all of its siblings in
@@ -344,6 +359,7 @@ static int
 ical_tzdatetime(struct icalparse *p, 
 	struct icaltime *tm, const struct icalnode *np)
 {
+	struct icaltime_incomplete *tmi;
 
 	memset(tm, 0, sizeof(struct icaltime));
 
@@ -375,8 +391,20 @@ ical_tzdatetime(struct icalparse *p,
 			break;
 
 	if (NULL == tm->tz) {
-		kerrx("%s:%zu: timezone not found", p->file, p->line);
-		return(0);
+		if (NULL == ( tmi = calloc(1, sizeof(struct icaltime_incomplete)))) {
+			kerr(NULL);
+			return(0);
+		}
+
+		tmi->np = np;
+		tmi->tm = tm;
+
+		if (NULL == p->tmi)
+			p->tmi = tmi;
+		else {
+			tmi->next = p->tmi;
+			p->tmi = tmi;
+		}
 	}
 
 	return(1);
@@ -1053,6 +1081,9 @@ ical_parsetz(struct icalparse *p, enum icaltztype type)
  * Fully parse an individual component, such as a VCALENDAR, VEVENT,
  * or VTIMEZONE, and any components it may contain.
  * Return when all of the component parts have been consumed.
+ *
+ * TODO@mk-f:
+ * 	- iCal compontent MUST contain PRODID and VERSION (5545, 3.4)
  */
 static int
 ical_parsecomp(struct icalparse *p, enum icaltype type)
@@ -1163,6 +1194,37 @@ ical_parsecomp(struct icalparse *p, enum icaltype type)
 	return(1);
 }
 
+static int
+ical_validate_tzid(struct icalparse *p)
+{
+	struct icaltime_incomplete *tmi;
+	struct icalcomp *tz;
+
+	tmi = p->tmi;
+	for ( ; NULL != tmi; tmi = tmi->next) {
+		tz = p->ical->comps[ICALTYPE_VTIMEZONE];
+		for ( ; NULL != tz; tz = tz->next) {
+			if (0 == strcasecmp(tz->tzid, tmi->np->param + 5)) {
+				tmi->tm->tz = tz;
+				break;
+			}
+		}
+
+		if (NULL == tz) {
+			kerrx("%s:%zu: missing timezone for tzid %s",
+					p->file, p->line, tmi->np->param +5);
+			break;
+		}
+	}
+
+	icaltime_incomplete_free(p->tmi);
+
+	if (NULL != tmi)
+		return(0);
+
+	return(1);
+}
+
 /*
  * Parse a binary buffer "cp" of size "sz" from a file (which may be
  * NULL if there's no file--it's for reporting purposes only) into a
@@ -1205,10 +1267,11 @@ ical_parse(const char *file, const char *cp, size_t sz)
 
 	free(pp.buf.buf);
 
-	if (pp.pos == pp.sz)
+	if (pp.pos == pp.sz && ical_validate_tzid(&pp))
 		return(p);
 
 	kerrx("%s: parse failed", pp.file);
+
 	ical_free(p);
 	return(NULL);
 }
