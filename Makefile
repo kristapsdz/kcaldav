@@ -125,7 +125,6 @@ ALLSRCS		 = Makefile \
 		   util.c
 LIBOBJS		 = buf.o \
 		   caldav.o \
-		   compats.o \
 		   datetime.o \
 		   err.o \
 		   ical.o
@@ -217,8 +216,8 @@ libkcaldav.a: $(LIBOBJS)
 kcaldav: $(BINOBJS) $(OBJS) libkcaldav.a
 	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) libkcaldav.a $(LDFLAGS) $(BINLIBS) 
 
-kcaldav.passwd: kcaldav.passwd.o $(OBJS) libkcaldav.a
-	$(CC) -o $@ kcaldav.passwd.o $(OBJS) libkcaldav.a $(LDFLAGS) $(LIBS)
+kcaldav.passwd: kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a
+	$(CC) -o $@ kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
 test-ical: test-ical.o libkcaldav.a
 	$(CC) -o $@ test-ical.o libkcaldav.a $(LDFLAGS) $(LIBS)
