@@ -513,7 +513,7 @@ ical_rrule_param(const struct icalparse *p,
 			return(1);
 		kerrx("%s:%zu: bad \"BYSECOND\"", p->file, p->line);
 	} else if (0 == strcmp(key, "BYSETPOS")) {
-		if (ical_llong(p, &vp->bsp, &vp->bspsz, v, 1, 366))
+		if (ical_llong(p, &vp->bsp, &vp->bspsz, v, -366, 366))
 			return(1);
 		kerrx("%s:%zu: bad \"BYSETPOS\"", p->file, p->line);
 	} else if (0 == strcmp(key, "BYWEEKNO")) {
