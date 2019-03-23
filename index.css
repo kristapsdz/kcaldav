@@ -1,46 +1,95 @@
 body, html		{ margin: 0; }
-body			{ background-color: #313131; 
-			  font-family: "Alegreya Sans", sans-serif;
+body			{ font-family: "Alegreya Sans", sans-serif;
 			  font-weight: 400;
 			  font-size: 14pt; }
-footer, header		{ padding: 12pt 25%;
-			  color: #def; }
-footer a, header a	{ color: #FFBB51; }
-article > section	{ padding: 8pt 25%; 
-			  background-color: #f6f6f6; }
+#breadcrumbs 		{ text-align: center; 
+			  margin-bottom: 2em; }
+#breadcrumbs > span	{ display: inline-block;
+			  color: #666;
+			  padding: 0.5em 2em;
+			  box-shadow: 0 0 4px #666;
+			  border-bottom-left-radius: 8pt;
+			  border-bottom-right-radius: 8pt;
+			  background-color: #fff; }
+#breadcrumbs a		{ color: #000;
+			  text-decoration: underline; }
+header			{ background-color: #6a6a6a; }
+header + nav		{ text-align: center; 
+			  margin-bottom: 2em; }
+header + nav > div	{ background-color: #f0f0f0; 
+			  border: thin solid #ddd;
+			  border-top: none;
+			  border-bottom-left-radius: 4pt;
+			  border-bottom-right-radius: 4pt;
+			  padding: 0.5em 2em;
+			  display: inline-block; }
+header + nav a		{ color: #000; }
+header + nav span	{ color: #666; 
+			  padding-left: 1em; }
+footer, header		{ padding: 0 25%; }
+article > section	{ padding: 0 25%; 
+			  margin: 3em 0; }
 div.version		{ font-size: 13pt; 
 			  margin-bottom: -6pt; }
 div.date		{ font-size: 12pt;
 			  color: #666; }
-#history		{ background-color: #ddd; 
-			  border-top: thin solid #aaa; }
 article a		{ color: blue; }
 footer 			{ text-align: center; 
-			  opacity: 0.7;
-			  font-size: 12pt; }
+			  padding-bottom: 2rem;
+			  font-size: smaller;
+			  opacity: 0.7; }
 a			{ text-decoration: none; }
+#headline		{ font-size: 175%;  
+			  text-align: center;
+			  padding: 1em 0 0.5em 0; 
+			  color: #fff; }
+#headline span		{ color: #ddd; }
+#intro			{ font-size: 140%;
+			  margin-bottom: 1.5em;
+			  color: #444; }
 h1			{ margin: 0; 
-			  font-size: 36pt;
-			  font-style: normal;
-			  font-weight: 500;
-			  font-variant: normal;
-			  line-height: 40pt; }
+			  display: inline-block;
+			  font-size: inherit;
+			  font-weight: inherit; }
 .file			{ font-style: italic; }
+#versions	 	{ margin: 3em 0; 
+			  background-color: #fcfcfc;
+			  border-bottom: thin solid #eee; 
+			  border-top: thin solid #eee; }
+#versions > div		{ text-align: center; }
+h2			{ margin: 0;
+			  font-weight: inherit;
+			  font-variant: small-caps;
+			  display: inline-block;
+			  padding: 0.2em 3em;
+			  border-bottom-left-radius: 8pt;
+			  border-bottom-right-radius: 8pt;
+			  background-color: #fff;
+			  border: thin solid #eee;
+			  border-top: none;
+			  font-size: 110%;
+			  text-align: center; }
 nav[data-sblg-nav] ul	{ list-style-type: none; 
 			  color: #333;
+			  margin: 2em 0;
 			  padding-left: 0; }
-nav[data-sblg-nav] li	{ margin-bottom: 1em; }
+nav[data-sblg-nav] li	{ margin-bottom: 1.5em; 
+			  opacity: 0.7; }
+nav[data-sblg-nav] li:first-child
+			{ opacity: 1.0; 
+			  margin-bottom: 2em; }
 nav[data-sblg-nav] a	{ color: #05f; }
 nav[data-sblg-nav] div + div 
 			{ margin-top: 8px; }
+nav[data-sblg-nav] .date i
+			{ font-size: smaller; }
 aside			{ font-size: inherit; }
 pre,code		{ font-family: monospace;
 			  font-size: 12pt; }
-#intro			{ font-size: 15pt;
-			  line-height: 20pt; }
 
 @media only screen and (max-width: 768px), only screen and (max-device-width: 768px) {
- footer, header		{ padding: 12pt 2%; }
- article > section	{ padding: 8pt 2%; }
- header			{ text-align: center; }
+ #headline		{ font-size: 120%; }	 
+ #intro			{ font-size: 120%; }
+ footer, header		{ padding: 0 2%; }
+ article > section	{ padding: 0 2%; }
 }
