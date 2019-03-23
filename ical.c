@@ -154,6 +154,8 @@ ical_free(struct ical *p)
 			icalrrule_free(&c->rrule);
 			for (j = 0; j < c->tzsz; j++)
 				icalrrule_free(&c->tzs[j].rrule);
+			free(c->dtstart.tzstr);
+			free(c->dtend.tzstr);
 			free(c->tzs);
 			free(c);
 		}
@@ -368,14 +370,14 @@ ical_tzdatetime(struct icalparse *p,
 		return(0);
 	}
 
-	/* Try looking up the timezone in our database. */
-	tm->tz = p->ical->comps[ICALTYPE_VTIMEZONE];
-	for ( ; NULL != tm->tz; tm->tz = tm->tz->next)
-		if (0 == strcasecmp(tm->tz->tzid, np->param + 5))
-			break;
+	/*
+	 * The RFC doesn't impose any ordering on components, so we may
+	 * parse a time with a timezone before we parse the timezone.
+	 * Save the timezone and we'll look it up later.
+	 */
 
-	if (NULL == tm->tz) {
-		kerrx("%s:%zu: timezone not found", p->file, p->line);
+	if (NULL == (tm->tzstr = strdup(np->param + 5))) {
+		kerr(NULL);
 		return(0);
 	}
 
@@ -1164,6 +1166,53 @@ ical_parsecomp(struct icalparse *p, enum icaltype type)
 }
 
 /*
+ * Look up timezones, filling in "tz" if "tzstr" is set.
+ * Returns zero on failure (timezone not found), nonzero on success.
+ */
+static int
+ical_postparse_tz(struct icalparse *pp, struct icaltime *tm)
+{
+
+	if (NULL == tm->tzstr)
+		return(1);
+
+	/* Try looking up the timezone in our database. */
+
+	tm->tz = pp->ical->comps[ICALTYPE_VTIMEZONE];
+	for ( ; NULL != tm->tz; tm->tz = tm->tz->next)
+		if (0 == strcasecmp(tm->tz->tzid, tm->tzstr))
+			return(1);
+
+	assert(NULL == tm->tz);
+	kerrx("%s: timezone not found: %s", pp->file, tm->tzstr);
+	return(0);
+}
+
+/*
+ * Some postrocessing must happen after the parse because RFC 5545 does
+ * not impose any ordering constraints.
+ * Returns zero on failure, non-zero on success.
+ */
+static int
+ical_postparse(struct icalparse *pp)
+{
+	struct icalcomp	*c;
+	size_t		 i;
+
+	/* Post-process: look up timezone. */
+
+	for (i = 0; i < ICALTYPE__MAX; i++)
+		while (NULL != (c = pp->ical->comps[i])) {
+			if ( ! ical_postparse_tz(pp, &c->dtstart))
+				return(0);
+			if ( ! ical_postparse_tz(pp, &c->dtend))
+				return(0);
+		}
+
+	return(1);
+}
+
+/*
  * Parse a binary buffer "cp" of size "sz" from a file (which may be
  * NULL if there's no file--it's for reporting purposes only) into a
  * well-formed iCalendar structure.
@@ -1205,7 +1254,7 @@ ical_parse(const char *file, const char *cp, size_t sz)
 
 	free(pp.buf.buf);
 
-	if (pp.pos == pp.sz)
+	if (pp.pos == pp.sz && ical_postparse(&pp))
 		return(p);
 
 	kerrx("%s: parse failed", pp.file);

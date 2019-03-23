@@ -282,8 +282,9 @@ struct	icaltz {
  * It also contains the time within the timezone (or UTC).
  */
 struct	icaltime {
-	struct icalcomp	*tz;
+	const struct icalcomp *tz;
 	struct icaltm	 time;
+	char		*tzstr; /* string representation of "tz" */
 };
 
 /*
