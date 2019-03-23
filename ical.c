@@ -166,23 +166,6 @@ ical_free(struct ical *p)
 }
 
 /*
- * From kcgi(3).
- * Originally from:
- * http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap04.html#tag_04_15
- */
-static time_t
-ical_mkdate(time_t d, time_t m, time_t y)
-{
-	time_t	 v;
-
-	m = (m + 9) % 12;
-	y = y - m / 10;
-	v = 365 * y + y / 4 - y / 100 + 
-		y / 400 + (m * 306 + 5) / 10 + (d - 1);
-	return(v * 86400);
-}
-
-/*
  * Try to parse the numeric date and time (assumed UTC) into the "tm"
  * value, seconds since epoch.
  * The date and time must be in the format:
@@ -192,147 +175,26 @@ ical_mkdate(time_t d, time_t m, time_t y)
 static int
 ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 {
-	size_t		 sz, i;
-	unsigned long	 m, K, J;
-	unsigned	 mdaysa[12] = {  0,  31,  59,  90, 
-				       120, 151, 181, 212, 
-				       243, 273, 304, 334 };
-	unsigned	 mdayss[12] = { 31,  28,  31,  30, 
-				        31,  30,  31,  31,
-					30,  31,  30,  31 };
+	struct tm	 tmm;
 
-	memset(tm, 0, sizeof(struct icaltm));
+	memset(&tmm, 0, sizeof(struct tm));
 
-	/* Sanity-check the date component length and ctype. */
-
-	if ((sz = strlen(cp)) < 8) {
-		kerrx("%s:%zu: invalid date size", p->file, p->line);
-		return(0);
-	} 
-	for (i = 0; i < 8; i++)
-		if ( ! isdigit(cp[i])) {
-			kerrx("%s:%zu: non-digits in date "
-				"string", p->file, p->line);
-			return(0);
-		}
-
-	/* Sanitise the year. */
-	tm->year += 1000 * (cp[0] - 48);
-	tm->year += 100 * (cp[1] - 48);
-	tm->year += 10 * (cp[2] - 48);
-	tm->year += 1 * (cp[3] - 48);
-	if (tm->year < 1900) {
-		kerrx("%s:%zu: bad year (before 1900)", p->file, p->line);
+	if (NULL == strptime(cp, "%Y%m%dT%H%M%S", &tmm)) {
+		kerrx("%s:%zu: bad UTC time", p->file, p->line);
 		return(0);
 	}
 
-	/* 
-	 * Compute whether we're in a leap year.
-	 * If we are, adjust our monthly entry for February.
-	 */
+	tm->year = tmm.tm_year;
+	tm->mon = tmm.tm_mon;
+	tm->mday = tmm.tm_mday;
+	tm->hour = tmm.tm_hour;
+	tm->min = tmm.tm_min;
+	tm->sec = tmm.tm_sec;
+	tm->day = tmm.tm_yday;
+	tm->wday = tmm.tm_mday;
 	tm->ly = ((tm->year & 3) == 0 && 
 		((tm->year % 25) != 0 || (tm->year & 15) == 0));
-
-	if (tm->ly) {
-		mdayss[1] = 29;
-		for (i = 2; i < 12; i++)
-			mdaysa[i]++;
-	}
-
-	/* Sanitise the month. */
-	tm->mon += 10 * (cp[4] - 48);
-	tm->mon += 1 * (cp[5] - 48);
-	if (0 == tm->mon || tm->mon > 12) {
-		kerrx("%s:%zu: bad month", p->file, p->line);
-		return(0);
-	}
-
-	/* Sanitise the day of month. */
-	tm->mday += 10 * (cp[6] - 48);
-	tm->mday += 1 * (cp[7] - 48);
-	if (0 == tm->mday || tm->mday > mdayss[tm->mon - 1]) {
-		kerrx("%s:%zu: bad day", p->file, p->line);
-		return(0);
-	}
-
-	/*
-	 * If the 'T' follows the date, then we also have a time string,
-	 * so try to parse that as well.
-	 * (Otherwise, the time component is just zero.)
-	 */
-	if ('T' == cp[8]) {
-		/* Sanitise the length and ctype. */
-		if (sz < 8 + 1 + 6) {
-			kerrx("%s:%zu: bad time size", 
-				p->file, p->line);
-			return(0);
-		}
-		for (i = 0; i < 6; i++)
-			if ( ! isdigit(cp[9 + i])) {
-				kerrx("%s:%zu: non-digits in time "
-					"string", p->file, p->line);
-				return(0);
-			}
-
-		/* Sanitise the hour. */
-		tm->hour += 10 * (cp[9] - 48);
-		tm->hour += 1 * (cp[10] - 48);
-		if (tm->hour > 23) {
-			kerrx("%s:%zu: bad hour", p->file, p->line);
-			return(0);
-		}
-
-		/* Sanitise the minute. */
-		tm->min += 10 * (cp[11] - 48);
-		tm->min += 1 * (cp[12] - 48);
-		if (tm->min > 59) {
-			kerrx("%s:%zu: bad minute", p->file, p->line);
-			return(0);
-		}
-
-		/* Sanitise the second. */
-		tm->sec += 10 * (cp[13] - 48);
-		tm->sec += 1 * (cp[14] - 48);
-		if (tm->sec > 59) {
-			kerrx("%s:%zu: bad second", p->file, p->line);
-			return(0);
-		}
-	}
-
-	/* The year for "struct tm" is from 1900. */
-	tm->year -= 1900;
-
-	/* 
-	 * Compute the day in the year.
-	 * Note that the month and day in month both begin at one, as
-	 * they were parsed that way.
-	 */
-	tm->day = mdaysa[tm->mon - 1] + (tm->mday - 1);
-
-	/*
-	 * Now use the formula from the The Open Group, "Single Unix
-	 * Specification", Base definitions (4: General concepts), part
-	 * 15: Seconds since epoch.
-	 */
-	tm->tm = 
-		(ical_mkdate(tm->mday, tm->mon, tm->year + 1900)  -
-		 ical_mkdate(1, 1, 1970)) +
-		tm->sec + tm->min * 60 + tm->hour * 3600;
-
-	/*
-	 * Use Zeller's congruence to compute the weekday starting on
-	 * Saturday (zero).
-	 */
-	m = tm->mon < 3 ? tm->mon + 12 : tm->mon;
-	K = (tm->year + 1900) % 100;
-	J = floor((tm->year + 1900) / 100.0);
-	tm->wday = 
-		(tm->mday + 
-		 (unsigned long)floor((13 * (m + 1)) / 5.0) +
-		 K + 
-		 (unsigned long)floor(K / 4.0) + 
-		 (unsigned long)floor(J / 4.0) + 
-		 5 * J) % 7;
+	tm->tm = mktime(&tmm);
 	return(1);
 }
 
