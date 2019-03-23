@@ -163,21 +163,21 @@ all: $(BINS) kcaldav.8 kcaldav.passwd.1 $(BHTMLS) $(JSMINS)
 www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
 
 afl: all
-	install -m 0555 test-ical afl/test-ical
-	install -m 0555 test-caldav afl/test-caldav
+	$(INSTALL_PROGRAM) test-ical afl/test-ical
+	$(INSTALL_PROGRAM) test-caldav afl/test-caldav
 
 updatecgi: all
 	mkdir -p $(DESTDIR)$(CGIPREFIX)
-	install -m 0555 kcaldav $(DESTDIR)$(CGIPREFIX)
-	install -m 0555 kcaldav $(DESTDIR)$(CGIPREFIX)/kcaldav.cgi
+	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)
+	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)/kcaldav.cgi
 
 installcgi: all
 	mkdir -p $(DESTDIR)$(CGIPREFIX)
 	mkdir -p $(DESTDIR)$(HTDOCSPREFIX)
 	mkdir -p $(DESTDIR)$(CALPREFIX)
-	install -m 0555 kcaldav $(DESTDIR)$(CGIPREFIX)
-	install -m 0555 kcaldav $(DESTDIR)$(CGIPREFIX)/kcaldav.cgi
-	install -m 0444 $(JSMINS) $(BHTMLS) style.css $(DESTDIR)$(HTDOCSPREFIX)
+	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)
+	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)/kcaldav.cgi
+	$(INSTALL_DATA) $(JSMINS) $(BHTMLS) style.css $(DESTDIR)$(HTDOCSPREFIX)
 
 install: all
 	mkdir -p $(DESTDIR)$(BINDIR)
@@ -186,19 +186,19 @@ install: all
 	mkdir -p $(DESTDIR)$(MANDIR)/man8
 	mkdir -p $(DESTDIR)$(MANDIR)/man3
 	mkdir -p $(DESTDIR)$(MANDIR)/man1
-	install -m 0555 kcaldav.passwd $(DESTDIR)$(BINDIR)
-	install -m 0444 kcaldav.passwd.1 $(DESTDIR)$(MANDIR)/man1
-	install -m 0444 kcaldav.8 $(DESTDIR)$(MANDIR)/man8
-	install -m 0444 libkcaldav.3 $(DESTDIR)$(MANDIR)/man3
-	install -m 0444 libkcaldav.a $(DESTDIR)$(LIBDIR)
-	install -m 0444 libkcaldav.h $(DESTDIR)$(INCLUDEDIR)
+	$(INSTALL_PROGRAM) kcaldav.passwd $(DESTDIR)$(BINDIR)
+	$(INSTALL_MAN) kcaldav.passwd.1 $(DESTDIR)$(MANDIR)/man1
+	$(INSTALL_MAN) kcaldav.8 $(DESTDIR)$(MANDIR)/man8
+	$(INSTALL_MAN) libkcaldav.3 $(DESTDIR)$(MANDIR)/man3
+	$(INSTALL_LIB) libkcaldav.a $(DESTDIR)$(LIBDIR)
+	$(INSTALL_DATA) libkcaldav.h $(DESTDIR)$(INCLUDEDIR)
 
 installwww: www
 	mkdir -p $(DESTDIR)$(WWWDIR)/snapshots
-	install -m 0444 index.css mandoc.css schema.css schema.png imageMapResizer.min.js $(HTMLS) $(DESTDIR)$(WWWDIR)
-	install -m 0444 kcaldav.tgz kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/
-	install -m 0444 kcaldav.tgz $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz
-	install -m 0444 kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz.sha512
+	$(INSTALL_DATA) index.css mandoc.css schema.css schema.png imageMapResizer.min.js $(HTMLS) $(DESTDIR)$(WWWDIR)
+	$(INSTALL_DATA) kcaldav.tgz kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/
+	$(INSTALL_DATA) kcaldav.tgz $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz
+	$(INSTALL_DATA) kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz.sha512
 
 kcaldav.tgz.sha512: kcaldav.tgz
 	openssl dgst -sha512 kcaldav.tgz >$@
