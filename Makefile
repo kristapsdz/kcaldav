@@ -79,8 +79,7 @@ HTMLS	 	 = archive.html \
 		   index.html \
 		   kcaldav.8.html \
 		   kcaldav.passwd.1.html \
-		   libkcaldav.3.html \
-		   schema.html
+		   libkcaldav.3.html
 MANS		 = kcaldav.in.8 \
 		   kcaldav.passwd.in.1 \
 		   libkcaldav.3
@@ -195,7 +194,7 @@ install: all
 
 installwww: www
 	mkdir -p $(DESTDIR)$(WWWDIR)/snapshots
-	$(INSTALL_DATA) index.css mandoc.css schema.css schema.png imageMapResizer.min.js $(HTMLS) $(DESTDIR)$(WWWDIR)
+	$(INSTALL_DATA) index.css mandoc.css $(HTMLS) $(DESTDIR)$(WWWDIR)
 	$(INSTALL_DATA) kcaldav.tgz kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/
 	$(INSTALL_DATA) kcaldav.tgz $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz
 	$(INSTALL_DATA) kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz.sha512
@@ -241,15 +240,6 @@ index.html: index.xml versions.xml
 archive.html: archive.xml versions.xml
 	sblg -t archive.xml -o- versions.xml | sed "s!@VERSION@!$(VERSION)!g" >$@
 
-schema.html: schema.xml schema.png kcaldav.sql
-	( sed -n '1,/@SCHEMA@/p' schema.xml ; \
-	  sqlite2html kcaldav.sql ; \
-	  sqlite2dot $(DOTFLAGS) kcaldav.sql | dot -Tcmapx ; \
-	  sed -n '/@SCHEMA@/,$$p' schema.xml ; ) >$@
-
-schema.png: kcaldav.sql
-	sqlite2dot $(DOTFLAGS) kcaldav.sql | dot -Tpng >$@
-
 kcaldav.8: kcaldav.in.8
 	sed -e "s!@CALDIR@!$(CALDIR)!g" \
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.in.8 >$@
@@ -273,7 +263,6 @@ clean:
 	rm -rf *.dSYM
 	rm -f $(HTMLS) $(BHTMLS) $(JSMINS) kcaldav.tgz kcaldav.tgz.sha512
 	rm -f test-memmem test-reallocarray test-explicit_bzero
-	rm -f schema.png 
 
 distclean: clean
 	rm -f config.h config.log Makefile.configure
