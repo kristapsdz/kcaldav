@@ -1197,12 +1197,12 @@ static int
 ical_postparse(struct icalparse *pp)
 {
 	struct icalcomp	*c;
-	size_t		 i;
+	enum icaltype	 i;
 
 	/* Post-process: look up timezone. */
 
 	for (i = 0; i < ICALTYPE__MAX; i++)
-		while (NULL != (c = pp->ical->comps[i])) {
+		for (c = pp->ical->comps[i]; NULL != c; c = c->next) {
 			if ( ! ical_postparse_tz(pp, &c->dtstart))
 				return(0);
 			if ( ! ical_postparse_tz(pp, &c->dtend))
