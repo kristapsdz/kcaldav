@@ -283,13 +283,13 @@ ical_long(const struct icalparse *p, long *v,
 	*v = strtol(cp, &ep, 10);
 
 	if (cp == ep || *ep != '\0')
-		kerrx("%s:%zu: bad long\n", p->file, p->line);
+		kerrx("%s:%zu: bad long", p->file, p->line);
 	else if ((*v == LONG_MAX && errno == ERANGE))
-		kerrx("%s:%zu: bad long\n", p->file, p->line);
+		kerrx("%s:%zu: bad long", p->file, p->line);
 	else if ((*v == LONG_MIN && errno == ERANGE))
-		kerrx("%s:%zu: bad long\n", p->file, p->line);
+		kerrx("%s:%zu: bad long", p->file, p->line);
 	else if (*v < min || *v > max) 
-		kerrx("%s:%zu: bad long\n", p->file, p->line);
+		kerrx("%s:%zu: bad long", p->file, p->line);
 	else
 		return(1);
 
@@ -419,11 +419,11 @@ ical_ulong(const struct icalparse *p, unsigned long *v,
 	*v = strtoul(cp, &ep, 10);
 
 	if (cp == ep || *ep != '\0')
-		kerrx("%s:%zu: bad ulong\n", p->file, p->line);
+		kerrx("%s:%zu: bad ulong", p->file, p->line);
 	else if ((*v == ULONG_MAX && errno == ERANGE))
-		kerrx("%s:%zu: bad ulong\n", p->file, p->line);
+		kerrx("%s:%zu: bad ulong", p->file, p->line);
 	else if (*v < min || *v > max) 
-		kerrx("%s:%zu: bad ulong\n", p->file, p->line);
+		kerrx("%s:%zu: bad ulong", p->file, p->line);
 	else
 		return(1);
 
