@@ -96,6 +96,21 @@ Although
 .Nm
 uses HTTP authentication to the fullest, that still doesn't protect you
 from snooping.
+.Ss Qo Well-Known Qc Configuration
+Many modern calendar clients use
+.Qq well-known
+URI identifiers to query a host for its CalDAV.
+To enable the
+.Qq well-known
+service for
+.Nm ,
+the web server's absolute path
+.Pa /.well-known/caldav
+must return a 301 redirect to the absolute URL
+.Pa https://localhost@CGIURI@ ,
+assuming
+.Pa localhost
+as the CalDAV host.
 .Ss System-Wide Calendar Administration
 Let the root directory be
 .Pa /caldav ,
@@ -381,6 +396,10 @@ Conditional HTTP responses (etag,
 .Dq If-Match ,
 etc.).
 .El
+.Pp
+The
+.Qq well-known
+interface is documented in RFC 5785.
 .\" .Sh HISTORY
 .\" .Sh AUTHORS
 .\" .Sh CAVEATS
