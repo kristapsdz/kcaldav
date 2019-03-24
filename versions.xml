@@ -358,4 +358,21 @@
 			</div>
 		</aside>
 	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.8</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2019-03-23">2019-03-23</time>
+		</header>
+		<aside>
+			<div>
+				Handle out-of-order iCal files, which is technically allowed by the
+				RFC.
+				This was raised by stsp@ and others on GitHub, with a patch as well!
+				While there, fix handling of dates prior to 1900, which happens with
+				some time zones.
+				Also handle some negatively-valued recurrence values.
+			</div>
+		</aside>
+	</article>
 </articles>
