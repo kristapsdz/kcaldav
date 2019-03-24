@@ -146,7 +146,7 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(BINOBJS) \
 		   $(OBJS) \
 		   kcaldav.passwd.o
-VERSION		 = 0.1.8
+VERSION		 = 0.1.9
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"
@@ -266,7 +266,6 @@ clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1 libkcaldav.a kcaldav-sql.c
 	rm -rf *.dSYM
 	rm -f $(HTMLS) atom.xml $(BHTMLS) $(JSMINS) kcaldav.tgz kcaldav.tgz.sha512
-	rm -f test-memmem test-reallocarray test-explicit_bzero
 
 distclean: clean
 	rm -f config.h config.log Makefile.configure
