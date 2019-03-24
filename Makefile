@@ -245,6 +245,7 @@ atom.xml: versions.xml atom-template.xml
 
 kcaldav.8: kcaldav.in.8
 	sed -e "s!@CALDIR@!$(CALDIR)!g" \
+	    -e "s!@CGIURI@!$(CGIURI)!g" \
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.in.8 >$@
 
 kcaldav.passwd.1: kcaldav.passwd.in.1
