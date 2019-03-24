@@ -21,7 +21,7 @@ header + nav > div	{ background-color: #f0f0f0;
 			  border-top: none;
 			  border-bottom-left-radius: 4pt;
 			  border-bottom-right-radius: 4pt;
-			  padding: 0.5em 2em;
+			  padding: 0.25em 2em;
 			  display: inline-block; }
 header + nav a		{ color: #000; }
 header + nav span	{ color: #666; 
@@ -29,8 +29,7 @@ header + nav span	{ color: #666;
 footer, header		{ padding: 0 25%; }
 article > section	{ padding: 0 25%; 
 			  margin: 3em 0; }
-div.version		{ font-size: 13pt; 
-			  margin-bottom: -6pt; }
+div.version		{ font-size: 13pt; }
 div.date		{ font-size: 12pt;
 			  color: #666; }
 article a		{ color: blue; }
@@ -78,6 +77,8 @@ nav[data-sblg-nav] li	{ margin-bottom: 1.5em;
 nav[data-sblg-nav] li:first-child
 			{ opacity: 1.0; 
 			  margin-bottom: 2em; }
+nav[data-sblg-nav] li:first-child > div:last-child
+			{ font-size: 110%; }
 nav[data-sblg-nav] a	{ color: #05f; }
 nav[data-sblg-nav] div + div 
 			{ margin-top: 8px; }

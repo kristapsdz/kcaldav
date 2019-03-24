@@ -146,7 +146,7 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(BINOBJS) \
 		   $(OBJS) \
 		   kcaldav.passwd.o
-VERSION		 = 0.1.7
+VERSION		 = 0.1.8
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"
@@ -159,7 +159,7 @@ DOTFLAGS	 = -h "BGCOLOR=\"red\"" \
 
 all: $(BINS) kcaldav.8 kcaldav.passwd.1 $(BHTMLS) $(JSMINS)
 
-www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS)
+www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS) atom.xml
 
 afl: all
 	$(INSTALL_PROGRAM) test-ical afl/test-ical
@@ -194,7 +194,7 @@ install: all
 
 installwww: www
 	mkdir -p $(DESTDIR)$(WWWDIR)/snapshots
-	$(INSTALL_DATA) index.css mandoc.css $(HTMLS) $(DESTDIR)$(WWWDIR)
+	$(INSTALL_DATA) index.css mandoc.css $(HTMLS) atom.xml $(DESTDIR)$(WWWDIR)
 	$(INSTALL_DATA) kcaldav.tgz kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/
 	$(INSTALL_DATA) kcaldav.tgz $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz
 	$(INSTALL_DATA) kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz.sha512
@@ -235,10 +235,13 @@ $(ALLOBJS): extern.h libkcaldav.h config.h
 $(BINOBJS): kcaldav.h
 
 index.html: index.xml versions.xml
-	sblg -t index.xml -o- versions.xml | sed "s!@VERSION@!$(VERSION)!g" >$@
+	sblg -t index.xml -o $@ versions.xml
 
 archive.html: archive.xml versions.xml
-	sblg -t archive.xml -o- versions.xml | sed "s!@VERSION@!$(VERSION)!g" >$@
+	sblg -t archive.xml -o $@ versions.xml
+
+atom.xml: versions.xml atom-template.xml
+	sblg -s date -o $@ -a versions.xml
 
 kcaldav.8: kcaldav.in.8
 	sed -e "s!@CALDIR@!$(CALDIR)!g" \
@@ -261,7 +264,7 @@ kcaldav-sql.c: kcaldav.sql
 clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1 libkcaldav.a kcaldav-sql.c
 	rm -rf *.dSYM
-	rm -f $(HTMLS) $(BHTMLS) $(JSMINS) kcaldav.tgz kcaldav.tgz.sha512
+	rm -f $(HTMLS) atom.xml $(BHTMLS) $(JSMINS) kcaldav.tgz kcaldav.tgz.sha512
 	rm -f test-memmem test-reallocarray test-explicit_bzero
 
 distclean: clean
