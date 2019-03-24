@@ -3,10 +3,15 @@
 kCalDAV is a simple, safe, and minimal CalDAV server depending only on
 [kcgi(3)](https://kristaps.bsd.lv/kcgi),
 [SQLite](https://www.sqlite.org), and expat(3). The ISO C source code is
-ISC licensed.  For the time being, it works only for simple setups, for
-example, a calendar collection shared between Mozilla Lightning, Mac OS
-X iCal, and iOS7 (iPhone4) clients. It compiles and runs on OpenBSD,
-Linux, and Mac OS X: see the [Makefile](Makefile) for examples.
+ISC licensed.
+For the time being, it works only for simple setups, for example, a
+calendar collection shared between Mozilla Lightning, Mac OS X iCal, and
+iOS (iPhone) clients.
+It compiles and runs on OpenBSD, Linux, and Mac OS X.
+However, OpenBSD is the only system for which kCalDAV has deeper
+security integration (via [pledge(2)](https://man.openbsd.org/pledge.2)).
+
+See the [Makefile](Makefile) for examples.
 
 This is the README file for display with
 [GitHub](https://www.github.com), which hosts a read-only source
