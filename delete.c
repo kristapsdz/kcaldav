@@ -40,6 +40,8 @@ method_delete(struct kreq *r)
 	const char	*digest;
 	int64_t		 tag;
 	char		*ep;
+	char		 buf[22];
+	size_t		 sz;
 
 	if (NULL == st->cfg) {
 		kerrx("%s: DELETE from non-calendar "
@@ -50,7 +52,21 @@ method_delete(struct kreq *r)
 
 	digest = NULL;
 	if (NULL != r->reqmap[KREQU_IF_MATCH]) {
-		digest = r->reqmap[KREQU_IF_MATCH]->val;
+		sz = strlcpy(buf,
+			r->reqmap[KREQU_IF_MATCH]->val,
+			sizeof(buf));
+		if (sz >= sizeof(buf)) {
+			kerrx("%s: bad \"If-Match\" buf",
+				st->prncpl->name);
+			http_error(r, KHTTP_400);
+			return;
+		}
+		if ('"' == buf[0] && sz >= 3 && '"' == buf[sz - 1]) {
+			buf[sz - 1] = '\0';
+			digest = buf + 1;
+		} else {
+			digest = buf;
+		}
 		tag = strtoll(digest, &ep, 10);
 		if (digest == ep || '\0' != *ep)
 			digest = NULL;

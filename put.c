@@ -90,7 +90,12 @@ method_put(struct kreq *r)
 			ical_free(p);
 			return;
 		}
-		digest = buf;
+		if ('"' == buf[0] && sz >= 3 && '"' == buf[sz - 1]) {
+			buf[sz - 1] = '\0';
+			digest = buf + 1;
+		} else {
+			digest = buf;
+		}
 	} else if (NULL != r->reqmap[KREQU_IF]) {
 		sz = strlcpy(buf, 
 			r->reqmap[KREQU_IF]->val,
