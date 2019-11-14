@@ -39,6 +39,15 @@ main(void)
 	return(0);
 }
 #endif /* TEST_CAPSICUM */
+#if TEST_ENDIAN_H
+#include <endian.h>
+
+int
+main(void)
+{
+	return !htole32(23);
+}
+#endif /* TEST_ENDIAN_H */
 #if TEST_ERR
 /*
  * Copyright (c) 2015 Ingo Schwarze <schwarze@openbsd.org>
@@ -372,6 +381,15 @@ main(void)
 	return 0;
 }
 #endif /* TEST_STRTONUM */
+#if TEST_SYS_ENDIAN_H
+#include <sys/endian.h>
+
+int
+main(void)
+{
+	return !htole32(23);
+}
+#endif /* TEST_SYS_ENDIAN_H */
 #if TEST_SYS_QUEUE
 #include <sys/queue.h>
 #include <stddef.h>
