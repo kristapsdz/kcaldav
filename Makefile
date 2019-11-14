@@ -212,23 +212,23 @@ kcaldav.tgz:
 libkcaldav.a: $(LIBOBJS)
 	$(AR) -rs $@ $(LIBOBJS)
 
-kcaldav: $(BINOBJS) $(OBJS) libkcaldav.a
-	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) libkcaldav.a $(LDFLAGS) $(BINLIBS) 
+kcaldav: $(BINOBJS) $(OBJS) compats.o libkcaldav.a
+	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS) 
 
 kcaldav.passwd: kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a
 	$(CC) -o $@ kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
-test-ical: test-ical.o libkcaldav.a
-	$(CC) -o $@ test-ical.o libkcaldav.a $(LDFLAGS) $(LIBS)
+test-ical: test-ical.o compats.o libkcaldav.a
+	$(CC) -o $@ test-ical.o compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
-test-rrule: test-rrule.o libkcaldav.a
-	$(CC) -o $@ test-rrule.o libkcaldav.a $(LDFLAGS) $(LIBS)
+test-rrule: test-rrule.o compats.o libkcaldav.a
+	$(CC) -o $@ test-rrule.o compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
-test-nonce: test-nonce.o $(OBJS) libkcaldav.a
-	$(CC) -o $@ test-nonce.o $(OBJS) libkcaldav.a $(LDFLAGS) $(LIBS)
+test-nonce: test-nonce.o $(OBJS) compats.o libkcaldav.a
+	$(CC) -o $@ test-nonce.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
-test-caldav: test-caldav.o libkcaldav.a
-	$(CC) -o $@ test-caldav.o libkcaldav.a $(LDFLAGS) $(LIBS)
+test-caldav: test-caldav.o compats.o libkcaldav.a
+	$(CC) -o $@ test-caldav.o compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
 
 $(ALLOBJS): extern.h libkcaldav.h config.h
 
