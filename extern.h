@@ -27,7 +27,7 @@
 struct	res {
 	char		*data;
 	struct ical	*ical;
-	int64_t		 etag;
+	char		*etag; /* RFC 2616 etag */
 	char		*url;
 	int64_t		 collection;
 	int64_t		 id;
@@ -111,11 +111,11 @@ int		   db_prncpl_proxies(const struct prncpl *, void (*)(const char *, int64_t,
 int		   db_prncpl_rproxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
 int		   db_prncpl_update(const struct prncpl *);
 int		   db_proxy(const struct prncpl *, int64_t, int64_t);
-int		   db_resource_delete(const char *, int64_t, int64_t);
+int		   db_resource_delete(const char *, const char *, int64_t);
 int		   db_resource_remove(const char *, int64_t);
 int		   db_resource_load(struct res **, const char *, int64_t);
 int		   db_resource_new(const char *, const char *, int64_t);
-int		   db_resource_update(const char *, const char *, int64_t, int64_t);
+int		   db_resource_update(const char *, const char *, const char *, int64_t);
 
 void		   prncpl_free(struct prncpl *);
 

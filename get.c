@@ -43,15 +43,13 @@ method_get(struct kreq *r)
 {
 	struct res	*p;
 	struct state	*st = r->arg;
-	const char	*cp;
-	char		 etag[22];
 	int		 rc;
 
-	if ('\0' == st->resource[0]) {
+	if (st->resource[0] == '\0') {
 		kerrx("%s: GET for collection", st->prncpl->name);
 		http_error(r, KHTTP_404);
 		return;
-	} else if (NULL == st->cfg) {
+	} else if (st->cfg == NULL) {
 		kerrx("%s: GET from non-calendar "
 			"collection", st->prncpl->name);
 		http_error(r, KHTTP_403);
@@ -63,7 +61,7 @@ method_get(struct kreq *r)
 		kerrx("%s: failed load resource", st->prncpl->name);
 		http_error(r, KHTTP_505);
 		return;
-	} else if (0 == rc) {
+	} else if (rc == 0) {
 		kerrx("%s: unknown resource", st->prncpl->name);
 		http_error(r, KHTTP_404);
 		return;
@@ -75,25 +73,22 @@ method_get(struct kreq *r)
 	 * If it is, then indicate that the remote cache is ok.
 	 * If not, resend the data.
 	 */
-	if (NULL != r->reqmap[KREQU_IF_NONE_MATCH]) {
-		snprintf(etag, sizeof(etag), "%" PRId64, p->etag);
-		cp = r->reqmap[KREQU_IF_NONE_MATCH]->val;
-		if (0 == strcmp(etag, cp)) {
-			khttp_head(r, kresps[KRESP_STATUS], 
-				"%s", khttps[KHTTP_304]);
-			khttp_head(r, kresps[KRESP_ETAG], 
-				"%" PRId64, p->etag);
-			khttp_body(r);
-			res_free(p);
-			return;
-		} 
+
+	if (r->reqmap[KREQU_IF_NONE_MATCH] != NULL &&
+	    strcmp(p->etag, r->reqmap[KREQU_IF_NONE_MATCH]->val) == 0) {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_304]);
+		khttp_head(r, kresps[KRESP_ETAG], "%s", p->etag);
+		khttp_body(r);
+		res_free(p);
+		return;
 	} 
 
 	khttp_head(r, kresps[KRESP_STATUS], 
 		"%s", khttps[KHTTP_200]);
 	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
 		"%s", kmimetypes[KMIME_TEXT_CALENDAR]);
-	khttp_head(r, kresps[KRESP_ETAG], "%" PRId64, p->etag);
+	khttp_head(r, kresps[KRESP_ETAG], "%s", p->etag);
 	khttp_body(r);
 	ical_print(p->ical, http_ical_putc, r);
 	res_free(p);

@@ -346,8 +346,11 @@ again:
 	return(0);
 }
 
+/*
+ * Update the tag ("ctag") for the collection.
+ */
 static int
-db_collection_ctag(int64_t id)
+db_collection_update_ctag(int64_t id)
 {
 	const char	*sql;
 	sqlite3_stmt	*stmt;
@@ -1187,7 +1190,7 @@ db_collection_update(const struct coln *c, const struct prncpl *p)
 
 	db_finalise(&stmt);
 	kinfo("%s: updated collection: %" PRId64, p->email, c->id);
-	if (db_collection_ctag(c->id))
+	if (db_collection_update_ctag(c->id))
 		return(1);
 err:
 	db_finalise(&stmt);
@@ -1208,32 +1211,32 @@ db_collection_resources(void (*fp)(const struct res *, void *),
 	sql = "SELECT data,etag,url,id,collection "
 		"FROM resource WHERE collection=?";
 
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, colid))
+	else if (!db_bindint(stmt, 1, colid))
 		goto err;
 
-	while (SQLITE_ROW == (rc = db_step(stmt))) {
+	while ((rc = db_step(stmt)) == SQLITE_ROW) {
 		memset(&p, 0, sizeof(struct res));
 		p.data = (char *)sqlite3_column_text(stmt, 0);
-		p.etag = sqlite3_column_int64(stmt, 1);
+		p.etag = (char *)sqlite3_column_text(stmt, 1);
 		p.url = (char *)sqlite3_column_text(stmt, 2);
 		p.id = sqlite3_column_int64(stmt, 3);
 		p.collection = sqlite3_column_int64(stmt, 4);
 		p.ical = ical_parse(NULL, p.data, strlen(p.data));
-		if (NULL == p.ical)
+		if (p.ical == NULL)
 			goto err;
 		(*fp)(&p, arg);
 		ical_free(p.ical);
 	}
-	if (SQLITE_DONE != rc)
+	if (rc != SQLITE_DONE)
 		goto err;
 	db_finalise(&stmt);
-	return(1);
+	return 1;
 err:
 	db_finalise(&stmt);
 	kerrx("%s: %s: failure", dbname, __func__);
-	return(0);
+	return 0;
 }
 
 int
@@ -1267,58 +1270,58 @@ err:
  * Returns zero on failure, non-zero on success.
  */
 int
-db_resource_delete(const char *url, int64_t tag, int64_t colid)
+db_resource_delete(const char *url, const char *tag, int64_t colid)
 {
 	const char	*sql;	
 	sqlite3_stmt	*stmt;
 	int		 rc;
 
-	if ( ! db_trans_open()) 
-		return(0);
+	if (!db_trans_open()) 
+		return 0;
 
 	sql = "SELECT * FROM resource WHERE "
 		"url=? AND collection=? AND etag=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, url))
+	else if (!db_bindtext(stmt, 1, url))
 		goto err;
-	else if ( ! db_bindint(stmt, 2, colid))
+	else if (!db_bindint(stmt, 2, colid))
 		goto err;
-	else if ( ! db_bindint(stmt, 3, tag))
+	else if (!db_bindtext(stmt, 3, tag))
 		goto err;
 	
 	rc = db_step(stmt);
 	db_finalise(&stmt);
 
-	if (SQLITE_DONE == rc) {
+	if (rc == SQLITE_DONE) {
 		db_trans_rollback();
-		return(1);
-	} else if (SQLITE_ROW != rc)
+		return 1;
+	} else if (rc != SQLITE_ROW)
 		goto err;
 
 	sql = "DELETE FROM resource WHERE "
 		"url=? AND collection=? AND etag=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, url))
+	else if (!db_bindtext(stmt, 1, url))
 		goto err;
-	else if ( ! db_bindint(stmt, 2, colid))
+	else if (!db_bindint(stmt, 2, colid))
 		goto err;
-	else if ( ! db_bindint(stmt, 3, tag))
+	else if (!db_bindtext(stmt, 3, tag))
 		goto err;
-	else if (SQLITE_DONE != db_step(stmt))
+	else if (db_step(stmt) != SQLITE_DONE)
 		goto err;
 
 	db_finalise(&stmt);
-	if (db_collection_ctag(colid)) {
+	if (db_collection_update_ctag(colid)) {
 		db_trans_commit();
-		return(1);
+		return 1;
 	}
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
 	kerrx("%s: %s: failure", dbname, __func__);
-	return(0);
+	return 0;
 }
 
 /*
@@ -1345,7 +1348,7 @@ db_resource_remove(const char *url, int64_t colid)
 		goto err;
 
 	db_finalise(&stmt);
-	if (db_collection_ctag(colid))
+	if (db_collection_update_ctag(colid))
 		return(1);
 err:
 	db_finalise(&stmt);
@@ -1355,6 +1358,8 @@ err:
 
 /*
  * Create a new resource at "url" in "colid".
+ * It initialises the etag to a random number and updates the
+ * collection etag as well.
  * This returns <0 if a system error occurs, 0 if a resource by that
  * name already exists, or >0 on success.
  */
@@ -1364,93 +1369,102 @@ db_resource_new(const char *data, const char *url, int64_t colid)
 	const char	*sql;	
 	sqlite3_stmt	*stmt;
 	int		 rc;
+	char		 etag[32];
+
+	snprintf(etag, sizeof(etag), "%" PRIu32, arc4random());
 
 	sql = "INSERT INTO resource "
-		"(data,url,collection) VALUES (?,?,?)";
-	if (NULL == (stmt = db_prepare(sql)))
+		"(data,url,collection,etag) VALUES (?,?,?,?)";
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, data))
+	else if (!db_bindtext(stmt, 1, data))
 		goto err;
-	else if ( ! db_bindtext(stmt, 2, url))
+	else if (!db_bindtext(stmt, 2, url))
 		goto err;
-	else if ( ! db_bindint(stmt, 3, colid))
+	else if (!db_bindint(stmt, 3, colid))
+		goto err;
+	else if (!db_bindtext(stmt, 4, etag))
 		goto err;
 
 	rc = db_step_constrained(stmt);
 	db_finalise(&stmt);
 
-	if (SQLITE_CONSTRAINT == rc) 
-		return(0);
-	else if (SQLITE_DONE != rc)
+	if (rc == SQLITE_CONSTRAINT)
+		return 0;
+	else if (rc != SQLITE_DONE)
 		goto err;
 
-	if (db_collection_ctag(colid))
-		return(1);
+	if (db_collection_update_ctag(colid))
+		return 1;
 err:
 	db_finalise(&stmt);
 	kerrx("%s: %s: failure", dbname, __func__);
-	return(-1);
+	return (-1);
 }
 
 /*
  * Update the resource at "url" in collection "colid" with new data,
- * increasing its etag and the colection's ctag.
- * Make sure that the existing etag is set to "digest".
+ * updating its and the collection's etag to a random number.
+ * Make sure that the existing etag matches "digest".
  * Returns <0 on system error, 0 if the resource couldn't be found, or
  * >0 on success.
  */
 int
 db_resource_update(const char *data, const char *url, 
-	int64_t digest, int64_t colid)
+	const char *digest, int64_t colid)
 {
-	sqlite3_stmt	*stmt;
-	struct res	*res;
+	sqlite3_stmt	*stmt = NULL;
+	struct res	*res = NULL;
 	int		 rc;
 	int64_t		 id;
 	const char	*sql;
+	char		 etag[32];
 
-	if ( ! db_trans_open()) 
-		return(-1);
+	snprintf(etag, sizeof(etag), "%" PRIu32, arc4random());
 
-	stmt = NULL;
-	res = NULL;
+	if (!db_trans_open()) 
+		return (-1);
 
-	if (0 == (rc = db_resource_load(&res, url, colid))) {
+	if ((rc = db_resource_load(&res, url, colid)) == 0) {
 		db_trans_rollback();
-		return(0);
+		return 0;
 	} else if (rc < 0)
 		goto err;
 
-	if (res->etag != digest) {
+	/* Check digest equality. */
+
+	if (strcmp(res->etag, digest)) {
 		db_trans_rollback();
 		res_free(res);
-		return(0);
+		return 0;
 	}
 
 	id = res->id;
 	res_free(res);
 
-	sql = "UPDATE resource SET data=?,etag=etag+1 WHERE id=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	sql = "UPDATE resource SET data=?,etag=? WHERE id=?";
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, data))
+	else if (!db_bindtext(stmt, 1, data))
 		goto err;
-	else if ( ! db_bindint(stmt, 2, id))
+	else if (!db_bindtext(stmt, 2, etag))
 		goto err;
-	else if (SQLITE_DONE != db_step(stmt))
+	else if (!db_bindint(stmt, 3, id))
+		goto err;
+	else if (db_step(stmt) != SQLITE_DONE)
 		goto err;
 
 	db_finalise(&stmt);
 
-	if (db_collection_ctag(colid)) {
+	if (db_collection_update_ctag(colid)) {
 		db_trans_commit();
-		return(1);
+		return 1;
 	}
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
 	kerrx("%s: %s: failure", dbname, __func__);
-	return(-1);
+	return (-1);
 }
 
 /*
@@ -1469,53 +1483,57 @@ db_resource_load(struct res **pp, const char *url, int64_t colid)
 	*pp = NULL;
 	sql = "SELECT data,etag,url,id,collection FROM resource "
 		"WHERE collection=? AND url=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, colid))
+	else if (!db_bindint(stmt, 1, colid))
 		goto err;
-	else if ( ! db_bindtext(stmt, 2, url))
+	else if (!db_bindtext(stmt, 2, url))
 		goto err;
 
-	rc = db_step(stmt);
-	if (SQLITE_ROW == rc) {
-		*pp = calloc(1, sizeof(struct res));
-		if (NULL == *pp) {
+	if ((rc = db_step(stmt)) == SQLITE_ROW) {
+		if ((*pp = calloc(1, sizeof(struct res))) == NULL) {
 			kerr(NULL);
 			goto err;
 		}
 		(*pp)->data = strdup
 			((char *)sqlite3_column_text(stmt, 0));
-		(*pp)->etag = sqlite3_column_int64(stmt, 1);
+		(*pp)->etag = strdup
+			((char *)sqlite3_column_text(stmt, 1));
 		(*pp)->url = strdup
 			((char *)sqlite3_column_text(stmt, 2));
 		(*pp)->id = sqlite3_column_int64(stmt, 3);
 		(*pp)->collection = sqlite3_column_int64(stmt, 4);
-		if (NULL == (*pp)->data || NULL == (*pp)->url) {
+		if ((*pp)->data == NULL || 
+		    (*pp)->etag == NULL ||
+		    (*pp)->url == NULL) {
 			kerr(NULL);
 			goto err;
 		}
+
 		/* Parse the full iCalendar. */
+
 		(*pp)->ical = ical_parse(NULL, 
 			(*pp)->data, strlen((*pp)->data));
-		if (NULL == (*pp)->ical) {
+		if ((*pp)->ical == NULL) {
 			kerrx("%s: failed to parse ical", url);
 			goto err;
 		}
 		db_finalise(&stmt);
-		return(1);
-	} else if (SQLITE_DONE == rc) {
+		return 1;
+	} else if (rc == SQLITE_DONE) {
 		db_finalise(&stmt);
-		return(0);
+		return 0;
 	}
 err:
-	if (NULL != *pp) {
+	if (*pp != NULL) {
+		free((*pp)->etag);
 		free((*pp)->data);
 		free((*pp)->url);
 		free(*pp);
 	}
 	db_finalise(&stmt);
 	kerrx("%s: %s: failure", dbname, __func__);
-	return(-1);
+	return (-1);
 }
 
 /*

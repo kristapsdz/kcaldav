@@ -36,6 +36,7 @@ res_free(struct res *p)
 
 	if (NULL == p)
 		return;
+	free(p->etag);
 	free(p->url);
 	free(p->data);
 	ical_free(p->ical);

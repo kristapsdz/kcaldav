@@ -63,11 +63,10 @@ method_put(struct kreq *r)
 {
 	struct ical	*p;
 	struct state	*st = r->arg;
-	char		 buf[22];
 	size_t		 sz;
-	int64_t		 tag;
-	char		*ep, *digest;
 	int		 rc;
+	char		*buf = NULL;
+	const char	*digest = NULL;
 
 	if (NULL == st->cfg) {
 		kerrx("%s: PUT into non-calendar "
@@ -77,71 +76,47 @@ method_put(struct kreq *r)
 	} else if (NULL == (p = req2ical(r)))
 		return;
 
-	/* Check if PUT is conditional upon existing etag. */
-	digest = NULL;
-	if (NULL != r->reqmap[KREQU_IF_MATCH]) {
-		sz = strlcpy(buf, 
-			r->reqmap[KREQU_IF_MATCH]->val,
-			sizeof(buf));
-		if (sz >= sizeof(buf)) {
-			kerrx("%s: bad \"If-Match\" buf", 
+	/* 
+	 * Check if PUT is conditional upon existing etag.
+	 * Parse the etag contents, if specified in the "If" header,
+	 * according to RFC 2616.
+	 */
+
+	if (r->reqmap[KREQU_IF] != NULL) {
+		buf = kstrdup(r->reqmap[KREQU_IF]->val);
+		sz = strlen(buf);
+		if (sz < 5 ||
+		    digest[0] != '(' || 
+		    digest[1] != '[' ||
+		    digest[sz - 2] != ']' || 
+		    digest[sz - 1] != ')' ) {
+			kerrx("%s: \"If\" malformed", 
 				st->prncpl->name);
 			http_error(r, KHTTP_400);
 			ical_free(p);
-			return;
-		}
-		digest = buf;
-	} else if (NULL != r->reqmap[KREQU_IF]) {
-		sz = strlcpy(buf, 
-			r->reqmap[KREQU_IF]->val,
-			sizeof(buf));
-		if (sz >= sizeof(buf)) {
-			kerrx("%s: bad \"If\" digest", 
-				st->prncpl->name);
-			http_error(r, KHTTP_400);
-			ical_free(p);
-			return;
-		}
-		if ('(' != buf[0] || '[' != buf[1] ||
-			 ']' != buf[sz - 2] || ')' != buf[sz - 1]) {
-			kerrx("%s: bad \"If\" digest", 
-				st->prncpl->name);
-			http_error(r, KHTTP_400);
-			ical_free(p);
+			free(buf);
 			return;
 		}
 		buf[sz - 2] = '\0';
 		buf[sz - 1] = '\0';
 		digest = &buf[2];
-	}
+	} else if (r->reqmap[KREQU_IF_MATCH] != NULL)
+		digest = r->reqmap[KREQU_IF_MATCH]->val;
 
-	if (NULL != digest)  {
-		tag = strtoll(digest, &ep, 10);
-		if (digest == ep || '\0' != *ep)
-			digest = NULL;
-		else if (tag == LLONG_MIN && errno == ERANGE)
-			digest = NULL;
-		else if (tag == LLONG_MAX && errno == ERANGE)
-			digest = NULL;
-		if (NULL == digest)
-			kerrx("%s: bad numeric digest", 
-				st->prncpl->name);
-	}
-
-	if (NULL == digest) 
+	if (digest == NULL) 
 		rc = db_resource_new
 			(r->fieldmap[VALID_BODY]->val, 
 			 st->resource, st->cfg->id);
 	else
 		rc = db_resource_update
 			(r->fieldmap[VALID_BODY]->val, 
-			 st->resource, tag, st->cfg->id);
+			 st->resource, digest, st->cfg->id);
 
 	if (rc < 0) {
 		kerrx("%s: failed creation: %s", 
 			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_505);
-	} else if (0 == rc) {
+	} else if (rc == 0) {
 		kerrx("%s: duplicate resource: %s", 
 			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_403);
@@ -154,5 +129,6 @@ method_put(struct kreq *r)
 	}
 
 	ical_free(p);
+	free(buf);
 }
 

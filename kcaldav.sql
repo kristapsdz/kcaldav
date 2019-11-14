@@ -10,7 +10,7 @@ CREATE TABLE resource (
 	-- The URL of the resource component, e.g., ``foo.ics''.
 	url TEXT NOT NULL,
 	-- The file's current etag (in the HTTP sense).
-	etag INT NOT NULL DEFAULT(1),
+	etag TEXT NOT NULL DEFAULT('1'),
 	-- The iCal data as a nil-terminated string.
 	data TEXT NOT NULL,
 	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,

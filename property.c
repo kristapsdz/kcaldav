@@ -293,10 +293,8 @@ static void
 resource_getetag(struct kreq *req, struct kxmlreq *xml, 
 	const struct coln *c, const struct res *p)
 {
-	char	 buf[22];
 
-	snprintf(buf, sizeof(buf), "%" PRId64, p->etag);
-	kxml_puts(xml, buf);
+	kxml_puts(xml, p->etag);
 }
 
 /*

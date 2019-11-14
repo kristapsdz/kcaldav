@@ -37,38 +37,23 @@ method_delete(struct kreq *r)
 {
 	struct state	*st = r->arg;
 	int		 rc;
-	const char	*digest;
-	int64_t		 tag;
-	char		*ep;
+	const char	*digest = NULL;
 
-	if (NULL == st->cfg) {
+	if (st->cfg == NULL) {
 		kerrx("%s: DELETE from non-calendar "
 			"collection", st->prncpl->name);
 		http_error(r, KHTTP_403);
 		return;
 	}
 
-	digest = NULL;
-	if (NULL != r->reqmap[KREQU_IF_MATCH]) {
+	if (r->reqmap[KREQU_IF_MATCH] != NULL)
 		digest = r->reqmap[KREQU_IF_MATCH]->val;
-		tag = strtoll(digest, &ep, 10);
-		if (digest == ep || '\0' != *ep)
-			digest = NULL;
-		else if (tag == LLONG_MIN && errno == ERANGE)
-			digest = NULL;
-		else if (tag == LLONG_MAX && errno == ERANGE)
-			digest = NULL;
-		if (NULL == digest)
-			kerrx("%s: bad numeric digest", 
-				st->prncpl->name);
-	}
 
-	if (NULL != digest && '\0' != st->resource[0]) {
+	if (digest != NULL && st->resource[0] != '\0') {
 		rc = db_resource_delete
-			(st->resource, 
-			tag, st->cfg->id);
-		if (0 == rc) {
-			kerrx("%s: cannot deleted: %s",
+			(st->resource, digest, st->cfg->id);
+		if (rc == 0) {
+			kerrx("%s: cannot delete: %s",
 				st->prncpl->name, r->fullpath);
 			http_error(r, KHTTP_403);
 		} else {
@@ -77,11 +62,11 @@ method_delete(struct kreq *r)
 			http_error(r, KHTTP_204);
 		}
 		return;
-	} else if (NULL == digest && '\0' != st->resource[0]) {
+	} else if (digest == NULL && st->resource[0] != '\0') {
 		rc = db_resource_remove
 			(st->resource, st->cfg->id);
-		if (0 == rc) {
-			kerrx("%s: cannot deleted: %s",
+		if (rc == 0) {
+			kerrx("%s: cannot delete: %s",
 				st->prncpl->name, r->fullpath);
 			http_error(r, KHTTP_403);
 		} else {
@@ -92,7 +77,7 @@ method_delete(struct kreq *r)
 		return;
 	} 
 
-	if (0 == db_collection_remove(st->cfg->id, st->prncpl)) {
+	if (db_collection_remove(st->cfg->id, st->prncpl) == 0) {
 		kinfo("%s: cannot delete: %s", 
 			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_505);
