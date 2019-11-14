@@ -30,10 +30,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef __linux__
-# include <bsd/readpassphrase.h>
-#else
-#include <readpassphrase.h>
+#if HAVE_READPASSPHRASE
+# include <readpassphrase.h>
 #endif
 #if !HAVE_ARC4RANDOM
 # include <time.h> /* time(3) */
