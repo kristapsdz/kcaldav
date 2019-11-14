@@ -15,7 +15,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-OCONFIGURE_VERSION="0.1.7"
+OCONFIGURE_VERSION="0.1.10"
 
 #
 # This script outputs two files: config.h and Makefile.configure.
@@ -145,6 +145,7 @@ HAVE_MEMSET_S=
 HAVE_PATH_MAX=
 HAVE_PLEDGE=
 HAVE_PROGRAM_INVOCATION_SHORT_NAME=
+HAVE_READPASSPHRASE=
 HAVE_REALLOCARRAY=
 HAVE_RECALLOCARRAY=
 HAVE_SANDBOX_INIT=
@@ -152,8 +153,12 @@ HAVE_SECCOMP_FILTER=
 HAVE_SOCK_NONBLOCK=
 HAVE_STRLCAT=
 HAVE_STRLCPY=
+HAVE_STRNDUP=
+HAVE_STRNLEN=
 HAVE_STRTONUM=
 HAVE_SYSTRACE=
+HAVE_UNVEIL=
+HAVE_ZLIB=
 HAVE___PROGNAME=
 
 #----------------------------------------------------------------------
@@ -297,6 +302,7 @@ runtest memset_s	MEMSET_S			  || true
 runtest PATH_MAX	PATH_MAX			  || true
 runtest pledge		PLEDGE				  || true
 runtest program_invocation_short_name	PROGRAM_INVOCATION_SHORT_NAME || true
+runtest readpassphrase	READPASSPHRASE			  || true
 runtest reallocarray	REALLOCARRAY			  || true
 runtest recallocarray	RECALLOCARRAY			  || true
 runtest sandbox_init	SANDBOX_INIT	"-Wno-deprecated" || true
@@ -343,9 +349,13 @@ cat << __HEREDOC__
 #endif
 __HEREDOC__
 
-# For the function declaration variables...
+# This is just for size_t.
+# Most of these functions, in the real world, pull in <string.h> or
+# someting that pulls in support for size_t.
+# Our function declarations are standalone, so specify them here.
 
 [ ${HAVE_MD5} -eq 0 -o \
+  ${HAVE_READPASSPHRASE} -eq 0 -o \
   ${HAVE_REALLOCARRAY} -eq 0 -o \
   ${HAVE_RECALLOCARRAY} -eq 0 -o \
   ${HAVE_STRLCAT} -eq 0 -o \
@@ -381,6 +391,7 @@ cat << __HEREDOC__
 #define HAVE_PATH_MAX ${HAVE_PATH_MAX}
 #define HAVE_PLEDGE ${HAVE_PLEDGE}
 #define HAVE_PROGRAM_INVOCATION_SHORT_NAME ${HAVE_PROGRAM_INVOCATION_SHORT_NAME}
+#define HAVE_READPASSPHRASE ${HAVE_READPASSPHRASE}
 #define HAVE_REALLOCARRAY ${HAVE_REALLOCARRAY}
 #define HAVE_RECALLOCARRAY ${HAVE_RECALLOCARRAY}
 #define HAVE_SANDBOX_INIT ${HAVE_SANDBOX_INIT}
@@ -393,6 +404,7 @@ cat << __HEREDOC__
 #define HAVE_STRTONUM ${HAVE_STRTONUM}
 #define HAVE_SYS_QUEUE ${HAVE_SYS_QUEUE}
 #define HAVE_SYSTRACE ${HAVE_SYSTRACE}
+#define HAVE_UNVEIL ${HAVE_UNVEIL}
 #define HAVE_ZLIB ${HAVE_ZLIB}
 #define HAVE___PROGNAME ${HAVE___PROGNAME}
 __HEREDOC__
@@ -461,6 +473,17 @@ fi
 
 if [ ${HAVE_GETPROGNAME} -eq 0 ]; then
 	echo "extern const char *getprogname(void);"
+fi
+
+if [ ${HAVE_READPASSPHRASE} -eq 0 ]; then
+	echo "#define RPP_ECHO_OFF 0x00"
+	echo "#define RPP_ECHO_ON 0x01"
+	echo "#define RPP_REQUIRE_TTY 0x02"
+	echo "#define RPP_FORCELOWER 0x04"
+	echo "#define RPP_FORCEUPPER 0x08"
+	echo "#define RPP_SEVENBIT 0x10"
+	echo "#define RPP_STDIN 0x20"
+	echo "char *readpassphrase(const char *, char *, size_t, int);"
 fi
 
 if [ ${HAVE_REALLOCARRAY} -eq 0 ]; then

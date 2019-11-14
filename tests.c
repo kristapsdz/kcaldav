@@ -210,6 +210,16 @@ main(void)
 	return !program_invocation_short_name;
 }
 #endif /* TEST_PROGRAM_INVOCATION_SHORT_NAME */
+#if TEST_READPASSPHRASE
+#include <stddef.h>
+#include <readpassphrase.h>
+
+int
+main(void)
+{
+	return !!readpassphrase("prompt: ", NULL, 0, 0);
+}
+#endif /* TEST_READPASSPHRASE */
 #if TEST_REALLOCARRAY
 #include <stdlib.h>
 
@@ -377,8 +387,18 @@ int
 main(void)
 {
 	struct fooq foo_q;
+	struct foo *p, *tmp;
+	int i = 0;
 
 	TAILQ_INIT(&foo_q);
+
+	/*
+	 * Use TAILQ_FOREACH_SAFE because some systems (e.g., Linux)
+	 * have TAILQ_FOREACH but not the safe variant.
+	 */
+
+	TAILQ_FOREACH_SAFE(p, &foo_q, entries, tmp)
+		p->bar = i++;
 	return 0;
 }
 #endif /* TEST_SYS_QUEUE */
