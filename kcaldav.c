@@ -25,15 +25,18 @@
 # include <md5.h>
 #endif
 #if HAVE_SANDBOX_INIT
-# include <sandbox.h>
+# include <sandbox.h> /* sandbox_init(3) */
 #endif
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#if !HAVE_ARC4RANDOM
+# include <time.h> /* time(3) */
+#endif
 #if HAVE_PLEDGE
-# include <unistd.h>
+# include <unistd.h> /* pledge(2) */
 #endif
 
 #include <kcgi.h>
@@ -321,10 +324,12 @@ main(void)
 	}
 #endif
 
+#if !HAVE_ARC4RANDOM
+	srandom(time(NULL));
+#endif
 #if defined LOGFILE
 	kutil_openlog(LOGFILE);
 #endif
-
 #if defined DEBUG && DEBUG > 1
 	verbose = 2;
 #elif defined DEBUG && DEBUG > 0

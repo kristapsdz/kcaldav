@@ -35,6 +35,9 @@
 #else
 #include <readpassphrase.h>
 #endif
+#if !HAVE_ARC4RANDOM
+# include <time.h> /* time(3) */
+#endif
 #include <unistd.h>
 
 #include "extern.h"
@@ -225,6 +228,10 @@ main(int argc, char *argv[])
 
 	euid = geteuid();
 	egid = getegid();
+
+#if !HAVE_ARC4RANDOM
+	srandom(time(NULL));
+#endif
 
 	/* 
 	 * Temporarily drop privileges.

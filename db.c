@@ -77,14 +77,42 @@ db_finalise(sqlite3_stmt **stmt)
 	*stmt = NULL;
 }
 
+/*
+ * Provided mainly for Linux that doesn't have arc4random.
+ * Returns a (non-cryptographic) random number.
+ */
+static uint32_t
+get_random(void)
+{
+#if HAVE_ARC4RANDOM
+	return arc4random();
+#else
+	return random();
+#endif
+}
+
+/*
+ * Provided mainly for Linux that doesn't have arc4random.
+ * Returns a (non-cryptographic) random number between [0, sz).
+ */
+static uint32_t
+get_random_uniform(size_t sz)
+{
+#if HAVE_ARC4RANDOM
+	return arc4random_uniform(sz);
+#else
+	return random() % sz;
+#endif
+}
+
 static void
 db_sleep(size_t attempt)
 {
 
 	if (attempt < 10)
-		usleep(arc4random_uniform(100000));
+		usleep(get_random_uniform(100000));
 	else
-		usleep(arc4random_uniform(400000));
+		usleep(get_random_uniform(400000));
 }
 
 /*
@@ -518,7 +546,7 @@ db_nonce_new(char **np)
 	for (;;) {
 		for (i = 0; i < sizeof(nonce) - 1; i++)
 			snprintf(nonce + i, 2, "%X", 
-				arc4random_uniform(16));
+				get_random_uniform(16));
 		if ( ! db_bindtext(stmt, 1, nonce))
 			goto err;
 		kdbg("nonce attempt: %s", nonce);
@@ -1373,7 +1401,7 @@ db_resource_new(const char *data, const char *url, int64_t colid)
 
 	snprintf(etag, sizeof(etag), 
 		"%" PRIu32 "-%" PRIu32, 
-		arc4random(), arc4random());
+		get_random(), get_random());
 
 	sql = "INSERT INTO resource "
 		"(data,url,collection,etag) VALUES (?,?,?,?)";
@@ -1424,7 +1452,7 @@ db_resource_update(const char *data, const char *url,
 
 	snprintf(etag, sizeof(etag), 
 		"%" PRIu32 "-%" PRIu32, 
-		arc4random(), arc4random());
+		get_random(), get_random());
 
 	if (!db_trans_open()) 
 		return (-1);

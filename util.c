@@ -57,6 +57,20 @@ const char *const xmls[XML__MAX] = {
 	"D:write", /* XML_DAV_WRITE */
 };
 
+/*
+ * Provided mainly for Linux that doesn't have arc4random.
+ * Returns a (non-cryptographic) random number between [0, sz).
+ */
+static uint32_t
+get_random_uniform(size_t sz)
+{
+#if HAVE_ARC4RANDOM
+	return arc4random_uniform(sz);
+#else
+	return random() % sz;
+#endif
+}
+
 int
 xml_ical_putc(int c, void *arg)
 {
@@ -233,7 +247,7 @@ http_error(struct kreq *r, enum khttp c)
 		 */
 		for (i = 0; i < sizeof(nonce) - 1; i++)
 			snprintf(nonce + i, 2, "%01X", 
-				arc4random_uniform(128));
+				get_random_uniform(128));
 		khttp_head(r, kresps[KRESP_WWW_AUTHENTICATE],
 			"Digest realm=\"%s\", "
 			"algorithm=\"MD5-sess\", "
