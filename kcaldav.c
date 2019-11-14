@@ -27,7 +27,6 @@
 #if HAVE_SANDBOX_INIT
 # include <sandbox.h> /* sandbox_init(3) */
 #endif
-#include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>

@@ -17,10 +17,10 @@
 #include "config.h"
 
 #ifdef __linux__
-# include <sys/vfs.h>
+# include <sys/vfs.h> /* statfs(2) */
 #else
-#include <sys/param.h>
-#include <sys/mount.h>
+#include <sys/param.h> /* ... */
+#include <sys/mount.h> /* ...statfs(2) */
 #endif
 
 #include <assert.h>
