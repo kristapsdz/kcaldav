@@ -1369,9 +1369,11 @@ db_resource_new(const char *data, const char *url, int64_t colid)
 	const char	*sql;	
 	sqlite3_stmt	*stmt;
 	int		 rc;
-	char		 etag[32];
+	char		 etag[64];
 
-	snprintf(etag, sizeof(etag), "%" PRIu32, arc4random());
+	snprintf(etag, sizeof(etag), 
+		"%" PRIu32 "-%" PRIu32, 
+		arc4random(), arc4random());
 
 	sql = "INSERT INTO resource "
 		"(data,url,collection,etag) VALUES (?,?,?,?)";
@@ -1418,9 +1420,11 @@ db_resource_update(const char *data, const char *url,
 	int		 rc;
 	int64_t		 id;
 	const char	*sql;
-	char		 etag[32];
+	char		 etag[64];
 
-	snprintf(etag, sizeof(etag), "%" PRIu32, arc4random());
+	snprintf(etag, sizeof(etag), 
+		"%" PRIu32 "-%" PRIu32, 
+		arc4random(), arc4random());
 
 	if (!db_trans_open()) 
 		return (-1);
