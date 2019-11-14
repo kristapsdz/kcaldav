@@ -903,7 +903,11 @@ memrchr(const void *s, int c, size_t n)
 #include <termios.h>
 #include <unistd.h>
 
+#if defined(_NSIG)
 static volatile sig_atomic_t readpassphrase_signo[_NSIG];
+#else
+static volatile sig_atomic_t readpassphrase_signo[NSIG];
+#endif
 
 static void
 readpassphrase_handler(int s)
