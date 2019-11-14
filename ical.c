@@ -175,10 +175,12 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 	struct tm	 tmm;
 
 	memset(&tmm, 0, sizeof(struct tm));
-
-	if (NULL == strptime(cp, "%Y%m%dT%H%M%S", &tmm)) {
-		kerrx("%s:%zu: bad UTC time", p->file, p->line);
-		return(0);
+	if (strptime(cp, "%Y%m%dT%H%M%S", &tmm) == NULL) {
+		memset(&tmm, 0, sizeof(struct tm));
+		if (strptime(cp, "%Y%m%d", &tmm) == NULL) {
+			kerrx("%s:%zu: bad UTC time", p->file, p->line);
+			return 0;
+		}
 	}
 
 	tm->year = tmm.tm_year;
@@ -192,7 +194,7 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 	tm->ly = ((tm->year & 3) == 0 && 
 		((tm->year % 25) != 0 || (tm->year & 15) == 0));
 	tm->tm = mktime(&tmm);
-	return(1);
+	return 1;
 }
 
 /*
