@@ -40,6 +40,8 @@ method_get(struct kreq *r)
 	struct res	*p;
 	struct state	*st = r->arg;
 	int		 rc;
+	char		*buf = NULL;
+	const char	*digest = NULL;
 
 	if (st->resource[0] == '\0') {
 		kerrx("%s: GET for collection", st->prncpl->name);
@@ -54,7 +56,7 @@ method_get(struct kreq *r)
 
 	rc = db_resource_load(&p, st->resource, st->cfg->id);
 	if (rc < 0) {
-		kerrx("%s: failed load resource", st->prncpl->name);
+		kerrx("%s: cannot load resource", st->prncpl->name);
 		http_error(r, KHTTP_505);
 		return;
 	} else if (rc == 0) {
@@ -70,13 +72,31 @@ method_get(struct kreq *r)
 	 * If not, resend the data.
 	 */
 
-	if (r->reqmap[KREQU_IF_NONE_MATCH] != NULL &&
-	    strcmp(p->etag, r->reqmap[KREQU_IF_NONE_MATCH]->val) == 0) {
+	if (r->reqmap[KREQU_IF_NONE_MATCH] != NULL) {
+		digest = http_etag_if_match
+			(r->reqmap[KREQU_IF_NONE_MATCH]->val, &buf);
+
+		/*
+		 * If the etag is not quoted and set to "*", this means
+		 * (according to RFC 7232 section 3.1) that the
+		 * condition is FALSE if the "listed representation"
+		 * (i.e., the resource name) is not matched.
+		 * We know the listed resource matches, so require a
+		 * full resend.
+		 */
+
+		if (digest != NULL &&
+		    buf == NULL && strcmp(digest, "*") == 0)
+			digest = NULL;
+	}
+
+	if (digest != NULL & strcmp(p->etag, digest) == 0) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_304]);
 		khttp_head(r, kresps[KRESP_ETAG], "%s", p->etag);
 		khttp_body(r);
 		res_free(p);
+		free(buf);
 		return;
 	} 
 
@@ -88,5 +108,6 @@ method_get(struct kreq *r)
 	khttp_body(r);
 	ical_print(p->ical, http_ical_putc, r);
 	res_free(p);
+	free(buf);
 }
 

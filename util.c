@@ -266,6 +266,7 @@ http_error(struct kreq *r, enum khttp c)
  * This simply strips out quotes and returns non-empty strings.
  * If the value is a literal, "buf" is set to non-NULL and must be
  * freed.
+ * It works for both "If-Match" and "If-None-Match".
  * Returns the parsed etag or NULL on failure.
  */
 const char *
@@ -277,7 +278,7 @@ http_etag_if_match(const char *val, char **buf)
 
 	*buf = NULL;
 
-	/* Zero-length is a non-no. */
+	/* Zero-length is a no-no. */
 
 	if ((sz = strlen(val)) == 0)
 		return NULL;
