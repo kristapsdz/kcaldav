@@ -395,6 +395,10 @@
 				Next, HTTP conditionals.
 				For <code>If-Match</code>, make sure to properly handle quoted
 				values as well as the <q>passthrough</q> value.
+				Do the same for <code>If-None-Match</code>.
+			</div>
+			<div>
+				Lastly, clean up the manpages and the www material.
 			</div>
 		</aside>
 	</article>
