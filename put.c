@@ -80,12 +80,11 @@ method_put(struct kreq *r)
 
 	if (r->reqmap[KREQU_IF] != NULL) {
 		buf = kstrdup(r->reqmap[KREQU_IF]->val);
+		assert(buf != NULL);
 		sz = strlen(buf);
 		if (sz < 5 ||
-		    digest[0] != '(' || 
-		    digest[1] != '[' ||
-		    digest[sz - 2] != ']' || 
-		    digest[sz - 1] != ')' ) {
+		    buf[0] != '(' || buf[1] != '[' ||
+		    buf[sz - 2] != ']' || buf[sz - 1] != ')' ) {
 			kerrx("%s: \"If\" malformed", 
 				st->prncpl->name);
 			http_error(r, KHTTP_400);
