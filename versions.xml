@@ -375,4 +375,27 @@
 			</div>
 		</aside>
 	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.10</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2019-11-15">2019-11-15</time>
+		</header>
+		<aside>
+			<div>
+				First, handle non-numeric ETag values.
+				This has several steps.
+				First, not parsing the values as numbers and aborting otherwise.
+				Second, using randomly-generated ETag values internally instead of 
+				monotonically increasing numbers.
+				Third, outputting as opaque strings instead of numbers.
+				This was originally reported by stsp@, thanks!
+			</div>
+			<div>
+				Next, HTTP conditionals.
+				For <code>If-Match</code>, make sure to properly handle quoted
+				values as well as the <q>passthrough</q> value.
+			</div>
+		</aside>
+	</article>
 </articles>
