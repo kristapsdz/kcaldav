@@ -286,23 +286,13 @@ implementation.
 requires HTTP
 .Dq QOP
 digest authentication.
-A nonce database
-.Pa kcaldav.nonce.db
-is maintained in the root calendar directory, consisting of nonce values
-and their current nonce counts.
-The
-.Pa kcaldav.nonce.db
-file is bound in size, with requests for new nonces evicting the oldest
-request.
-The use of nonces and nonce counts guarantees that principals are not
-subject to replay attacks.
-Nonces are 16-bytes of random data from
-.Xr arc4random_buf 3 .
-.Pp
-To protect against attackers starving the nonce database by endlessly
-requesting nonces (evicting valid nonces),
-.Nm
-uses a series of checks.
+Nonces are maintained in the calendar database and guarantee that
+principals are not subject to replay attacks.
+There are a fixed number of nonces (a compile-time constant defaulting
+to 1000) to prevent an adversary from growing the database forever;
+however, an adversary may trigger a DOS by constantly flooding the
+system with requests such that valid nonces are flushed.
+Nonces are 16-bytes of random data.
 .Pp
 When a client first accesses the system (without authentication), it is
 given a random, unrecorded nonce.
