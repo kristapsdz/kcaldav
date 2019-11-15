@@ -1,25 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" prefix="og: http://ogp.me/ns#">
 	<head>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta charset="utf-8" /> 
-		<title>kCalDAV: a simple CalDAV server</title>
+		<title>kcaldav: a simple CalDAV server</title>
 		<link rel="alternate" href="atom.xml" type="application/atom+xml" title="kcaldav version feed" />
 		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Alegreya+Sans:400,400italic,500,700" />
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" />
+		<link rel="stylesheet" href="https://bsd.lv/css/style.css" />
 		<link rel="stylesheet" href="index.css" />
+		<meta property="og:title" content="kcaldav: a simple CalDAV server" />
+		<meta property="og:description" 
+		 content="A simpe, safe, and minimal CalDAV server." /> 
+	 	 <meta property="og:url" content="https://kristaps.bsd.lv/kcaldav/index.html" />
+		<meta property="og:type" content="website" />
+		<meta name="description" 
+		 content="A simpe, safe, and minimal CalDAV server." /> 
 	</head>
 	<body itemscope="itemscope" itemtype="http://schema.org/SoftwareApplication">
 		<header>
-			<div id="breadcrumbs">
-				<span>Built on the <a href="https://learnbchs.org">BCHS</a> stack!</span>
-			</div>
-			<div id="headline">
-				<h1 itemprop="name"><i>k</i>CalDAV</h1>
-				<span>&#8212; 
-					<span itemprop="description">simple CalDAV server</span> 
-				</span>
-			</div>
+			<section class="text">
+				<div id="breadcrumbs">
+					<span>Built on the <a href="https://learnbchs.org">BCHS</a> stack!</span>
+				</div>
+				<div id="headline">
+					<h1 itemprop="name"><i>k</i>CalDAV</h1>
+					<span>&#8212; 
+						<span itemprop="description">simple CalDAV server</span> 
+					</span>
+				</div>
+			</section>
 		</header>
 		<nav>
 			<div>
@@ -35,27 +45,25 @@
 			</div>
 		</nav>
 		<article>
-			<section>
+			<section class="text">
 				<p id="intro">
-					<span class="nm"><i>k</i>CalDAV</span> is a simple, safe, and minimal CalDAV server depending only on <a
+					<span class="nm">kcaldav</span> is a simple, safe, and minimal CalDAV server depending only on <a
 						href="https://kristaps.bsd.lv/kcgi">kcgi</a>, <a
-						href="https://www.sqlite.org">SQLite</a>, and <a
+						href="https://www.sqlite.org">sqlite3</a>, and <a
 						href="https://libexpat.github.io//">expat</a>.
-					It is <a href="http://opensource.org/licenses/ISC" rel="license">open source</a>.
+					It is <a href="http://opensource.org/licenses/ISC" rel="license">open source</a> with friendly,
+					auditable <a href="https://github.com/kristapsdz/kcaldav">source code</a>.
 				</p>
 				<p>
-					For the time being, it works only for <strong>simple</strong> setups&#8212;for example, a calendar collection
-					shared between <a href="https://www.mozilla.org/en-US/projects/calendar/">Mozilla Lightning</a>, Mac OS
-					X iCal, and iOS (iPhone) clients.
-					It compiles and runs on <a href="https://www.openbsd.org">OpenBSD</a>, Linux, and Mac OS X.
-					(Any others?  <a href="https://github.com/kristapsdz/kcaldav">Let me know</a>!)
+					<span class="nm">kcaldav</span> is designed for simple setups, like sharing a calendar collection
+					between Mozilla Lightning, Mac OS X iCal, DAVdroid forks, and iOS (iPhone) clients.
+					It compiles and runs on <a href="https://www.openbsd.org">OpenBSD</a>, Linux, FreeBSD, and Mac OS X.
 				</p>
 				<ol>
 					<li>
 						Install dependencies <a href="https://kristaps.bsd.lv/kcgi">kcgi</a>, <a
-							href="https://www.sqlite.org">SQLite</a>, <a
-							href="https://libexpat.github.io/">expat</a>, and <a
-							href="http://libbsd.freedesktop.org/wiki/">libbsd</a> if using Linux.
+							href="https://www.sqlite.org">sqlite3</a>, and <a
+							href="https://libexpat.github.io/">expat</a>.
 					</li>
 					<li>
 						Download the <a href="snapshots/kcaldav.tgz">sources</a> and verify the <a
@@ -91,7 +99,7 @@
 			</section>
 			<section id="versions">
 				<div><h2>recent versions</h2></div>
-				<nav data-sblg-nav="1" data-sblg-navcontent="1" data-sblg-navsz="5">
+				<nav data-sblg-nav="1" data-sblg-navcontent="1" data-sblg-navsz="5" class="text">
 					<div>
 						<span class="date">
 							<i class="fa fa-fw fa-clock-o"></i><time datetime="${sblg-date}">${sblg-date}</time>
@@ -106,7 +114,7 @@
 			</section>
 		</article>
 		<footer>
-			&#169; 2015&#8211;2016, 2019 <a rel="author" href="https://github.com/kristapsdz">Kristaps Dzonsons</a>
+			&#169; 2015&#8211;2016, 2019 <a rel="author" href="https://github.com/kristapsdz">Kristaps Dz</a>
 		</footer>
 	</body>
 </html>

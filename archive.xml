@@ -7,19 +7,22 @@
 		<link rel="alternate" href="atom.xml" type="application/atom+xml" title="kcaldav version feed" />
 		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Alegreya+Sans:400,400italic,500,700" />
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" />
+		<link rel="stylesheet" href="https://bsd.lv/css/style.css" />
 		<link rel="stylesheet" href="index.css" />
 	</head>
 	<body itemscope="itemscope" itemtype="http://schema.org/SoftwareApplication">
 		<header>
-			<div id="breadcrumbs">
-				<span>Built on the <a href="https://learnbchs.org">BCHS</a> stack!</span>
-			</div>
-			<div id="headline">
-				<h1 itemprop="name"><i>k</i>CalDAV</h1>
-				<span>&#8212; 
-					<span itemprop="description">simple CalDAV server</span> 
-				</span>
-			</div>
+			<section class="teext">
+				<div id="breadcrumbs">
+					<span>Built on the <a href="https://learnbchs.org">BCHS</a> stack!</span>
+				</div>
+				<div id="headline">
+					<h1 itemprop="name"><i>k</i>CalDAV</h1>
+					<span>&#8212; 
+						<span itemprop="description">simple CalDAV server</span> 
+					</span>
+				</div>
+			</section>
 		</header>
 		<nav>
 			<div>
@@ -35,7 +38,7 @@
 			</div>
 		</nav>
 		<article>
-			<section id="history">
+			<section id="history" class="text">
 				<nav data-sblg-nav="1" data-sblg-navcontent="1">
 					<div>
 						<span class="date">
