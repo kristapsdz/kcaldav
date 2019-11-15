@@ -106,6 +106,7 @@ int	 http_ical_putc(int, void *);
 void	 http_error(struct kreq *, enum khttp);
 int	 http_paths(const char *, char **, char **, char **);
 int	 http_safe_string(const char *);
+const char *http_etag_if_match(const char *, char **);
 
 void	 method_delete(struct kreq *);
 void	 method_get(struct kreq *);

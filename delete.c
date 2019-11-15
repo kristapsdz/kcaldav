@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <kcgi.h>
 #include <kcgixml.h>
@@ -34,6 +35,7 @@ method_delete(struct kreq *r)
 	struct state	*st = r->arg;
 	int		 rc;
 	const char	*digest = NULL;
+	char		*buf = NULL;
 
 	if (st->cfg == NULL) {
 		kerrx("%s: DELETE from non-calendar "
@@ -42,14 +44,30 @@ method_delete(struct kreq *r)
 		return;
 	}
 
-	if (r->reqmap[KREQU_IF_MATCH] != NULL)
-		digest = r->reqmap[KREQU_IF_MATCH]->val;
+	if (r->reqmap[KREQU_IF_MATCH] != NULL) {
+		digest = http_etag_if_match
+			(r->reqmap[KREQU_IF_MATCH]->val, &buf);
+
+		/*
+		 * If the etag is not quoted and set to "*", this means
+		 * (according to RFC 7232 section 3.1) that the
+		 * condition is FALSE if the "listed representation"
+		 * (i.e., the resource name) is not matched.
+		 * Since we lookup based on the resource name, this
+		 * simply means that it's the unsafe behaviour, so set
+		 * the digest as NULL.
+		 */
+
+		if (digest != NULL &&
+		    buf == NULL && strcmp(digest, "*") == 0)
+			digest = NULL;
+	}
 
 	if (digest != NULL && st->resource[0] != '\0') {
 		rc = db_resource_delete
 			(st->resource, digest, st->cfg->id);
 		if (rc == 0) {
-			kerrx("%s: cannot delete: %s",
+			kerrx("%s: cannot delete resource: %s",
 				st->prncpl->name, r->fullpath);
 			http_error(r, KHTTP_403);
 		} else {
@@ -57,12 +75,13 @@ method_delete(struct kreq *r)
 				st->prncpl->name, r->fullpath);
 			http_error(r, KHTTP_204);
 		}
+		free(buf);
 		return;
 	} else if (digest == NULL && st->resource[0] != '\0') {
 		rc = db_resource_remove
 			(st->resource, st->cfg->id);
 		if (rc == 0) {
-			kerrx("%s: cannot delete: %s",
+			kerrx("%s: cannot delete resource: %s",
 				st->prncpl->name, r->fullpath);
 			http_error(r, KHTTP_403);
 		} else {
@@ -70,11 +89,17 @@ method_delete(struct kreq *r)
 				st->prncpl->name, r->fullpath);
 			http_error(r, KHTTP_204);
 		}
+		free(buf);
 		return;
 	} 
 
+	/* 
+	 * FIXME: deleting the collection should do the same check with
+	 * the etag (using the ctag, in this case).
+	 */
+
 	if (db_collection_remove(st->cfg->id, st->prncpl) == 0) {
-		kinfo("%s: cannot delete: %s", 
+		kinfo("%s: cannot delete collection: %s", 
 			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_505);
 	} else { 
@@ -82,4 +107,6 @@ method_delete(struct kreq *r)
 			st->prncpl->name, r->fullpath);
 		http_error(r, KHTTP_204);
 	}
+
+	free(buf);
 }

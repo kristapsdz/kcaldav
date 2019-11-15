@@ -261,3 +261,41 @@ http_error(struct kreq *r, enum khttp c)
 	khttp_body(r);
 }
 
+/*
+ * Parse an etag as described in HTTP 7232.
+ * This simply strips out quotes and returns non-empty strings.
+ * If the value is a literal, "buf" is set to non-NULL and must be
+ * freed.
+ * Returns the parsed etag or NULL on failure.
+ */
+const char *
+http_etag_if_match(const char *val, char **buf)
+{
+	size_t	 sz;
+
+	assert(val != NULL);
+
+	*buf = NULL;
+
+	/* Zero-length is a non-no. */
+
+	if ((sz = strlen(val)) == 0)
+		return NULL;
+
+	/* Quoted-string needs to be \"[.+]\". */
+
+	if (sz > 1 && val[0] == '"' && val[sz - 1] == '"') {
+		val++;
+		sz--;
+		if (sz == 1)
+			return NULL;
+		*buf = kstrdup(val);
+		assert(*buf != NULL);
+		(*buf)[sz - 1] = '\0';
+		return (*buf);
+	}
+
+	/* Un-quoted (or badly-quoted) value. */
+
+	return val;
+}

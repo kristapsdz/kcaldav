@@ -96,8 +96,24 @@ method_put(struct kreq *r)
 		buf[sz - 2] = '\0';
 		buf[sz - 1] = '\0';
 		digest = &buf[2];
-	} else if (r->reqmap[KREQU_IF_MATCH] != NULL)
-		digest = r->reqmap[KREQU_IF_MATCH]->val;
+	} else if (r->reqmap[KREQU_IF_MATCH] != NULL) {
+		digest = http_etag_if_match
+			(r->reqmap[KREQU_IF_MATCH]->val, &buf);
+
+		/*
+		 * If the etag is not quoted and set to "*", this means
+		 * (according to RFC 7232 section 3.1) that the
+		 * condition is FALSE if the "listed representation"
+		 * (i.e., the resource name) is not matched.
+		 * In the "put", this means that we don't duplicate the name,
+		 * which we don't do anyway, so it's effectively the same as
+		 * not specifying an etag.
+		 */
+
+		if (digest != NULL &&
+		    buf == NULL && strcmp(digest, "*") == 0)
+			digest = NULL;
+	}
 
 	if (digest == NULL) 
 		rc = db_resource_new
@@ -109,8 +125,10 @@ method_put(struct kreq *r)
 			 st->resource, digest, st->cfg->id);
 
 	if (rc < 0) {
-		kerrx("%s: failed creation: %s", 
-			st->prncpl->name, r->fullpath);
+		kerrx("%s: cannot %s resource: %s", 
+			st->prncpl->name, 
+			digest == NULL ? "create" : "update",
+			r->fullpath);
 		http_error(r, KHTTP_505);
 	} else if (rc == 0) {
 		kerrx("%s: duplicate resource: %s", 
@@ -119,7 +137,7 @@ method_put(struct kreq *r)
 	} else {
 		kinfo("%s: resource %s: %s",
 			st->prncpl->name, 
-			NULL == digest ? "created" : "updated",
+			digest == NULL ? "created" : "updated",
 			r->fullpath);
 		http_error(r, KHTTP_201);
 	}
@@ -127,4 +145,3 @@ method_put(struct kreq *r)
 	ical_free(p);
 	free(buf);
 }
-
