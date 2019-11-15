@@ -1,4 +1,4 @@
-.SUFFIXES: .3 .3.html .5 .8 .5.html .8.html .1 .1.html .xml .html .min.js .js
+.SUFFIXES: .3 .3.html .8 .8.html .1 .1.html .xml .html .min.js .js
 
 include Makefile.configure
 
@@ -268,7 +268,7 @@ clean:
 distclean: clean
 	rm -f config.h config.log Makefile.configure
 
-.8.8.html .5.5.html .3.3.html .1.1.html:
+.8.8.html .3.3.html .1.1.html:
 	mandoc -Ostyle=https://bsd.lv/css/mandoc.css -Thtml $< >$@
 
 .xml.html:
