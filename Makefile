@@ -35,7 +35,7 @@ HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
 WWWDIR		 = /var/www/vhosts/kristaps.bsd.lv/htdocs/kcaldav
 
 # This is the relative URI of the server executable.
-CGIURI		 = /cgi-bin/kcaldav.cgi
+CGIURI		 = /cgi-bin/kcaldav
 
 # This is the file-system directory of the CGI script.
 CGIPREFIX	 = /var/www/cgi-bin
@@ -168,14 +168,12 @@ afl: all
 updatecgi: all
 	mkdir -p $(DESTDIR)$(CGIPREFIX)
 	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)
-	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)/kcaldav.cgi
 
 installcgi: all
 	mkdir -p $(DESTDIR)$(CGIPREFIX)
 	mkdir -p $(DESTDIR)$(HTDOCSPREFIX)
 	mkdir -p $(DESTDIR)$(CALPREFIX)
 	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)
-	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)/kcaldav.cgi
 	$(INSTALL_DATA) $(JSMINS) $(BHTMLS) style.css $(DESTDIR)$(HTDOCSPREFIX)
 
 install: all
