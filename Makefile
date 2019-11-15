@@ -192,7 +192,7 @@ install: all
 
 installwww: www
 	mkdir -p $(DESTDIR)$(WWWDIR)/snapshots
-	$(INSTALL_DATA) index.css mandoc.css $(HTMLS) atom.xml $(DESTDIR)$(WWWDIR)
+	$(INSTALL_DATA) index.css $(HTMLS) atom.xml $(DESTDIR)$(WWWDIR)
 	$(INSTALL_DATA) kcaldav.tgz kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/
 	$(INSTALL_DATA) kcaldav.tgz $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz
 	$(INSTALL_DATA) kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz.sha512
@@ -269,7 +269,7 @@ distclean: clean
 	rm -f config.h config.log Makefile.configure
 
 .8.8.html .5.5.html .3.3.html .1.1.html:
-	mandoc -Thtml -Ostyle=mandoc.css $< >$@
+	mandoc -Ostyle=https://bsd.lv/css/mandoc.css -Thtml $< >$@
 
 .xml.html:
 	sed -e "s!@HTDOCS@!$(HTDOCS)!g" \
