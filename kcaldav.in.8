@@ -28,8 +28,8 @@
 .Sh DESCRIPTION
 The
 .Nm
-CGI program minimally implements CalDAV, with an emphasis on strong
-authorisation and simplicity.
+CGI program minimally implements CalDAV, with an emphasis on security
+and simplicity.
 To use
 .Nm ,
 you'll need to first install a calendar database in the compile-time
@@ -37,66 +37,61 @@ root directory
 .Pa @CALDIR@
 with
 .Xr kcaldav.passwd 1 .
-The root directory is relative to the CGI script's file-system root.
+This root directory is relative to the CGI program's file-system root,
+which is often
+.Pa /var/www
+or similar.
 .Pp
-Once installed, you can point your calendar client to owned collections
-or the calendar home (depending on the client) within the calendar root.
+Once the database has been installed, clients may access individual
+calendars or the calendar root, depending on client functionality.
 .Pp
-For example, assume the script has been installed into
-.Pa /var/www/cgi-bin
-and is reachable at
+For example, consider the CGI program installed into
+.Pa /var/www/cgi-bin/kcaldav
+with the CGI's file-system root at
+.Pa /var/www ,
+reachable via the web server's configuration at
 .Pp
 .Dl https://localhost/cgi-bin/kcaldav
 .Pp
-Moreover, assume your calendar root
-.Pa @CALDIR@
-is based in the web server's
-.Xr chroot 2
-in
-.Pa /var/www .
-It contains a
+The calendar root
+.Pa @CALDIR@ ,
+which thus resolves to
+.Pa /var/www@CALDIR@ ,
+contains
 .Pa kcaldav.db
 created by
 .Xr kcaldav.passwd 1
 specifying a single principal
 .Pa kristaps
-having a single calendar collection
-.Pa calendar .
-This can be created with
+with a single calendar collection
+.Pa calendar
+as created with
 .Pp
 .Dl # kcaldav.passwd -C -u kristaps
 .Pp
-If your CalDAV client supports the calendar-home-set feature, you can
-point it to the principal URL:
+Most CalDAV clients will ask for the CGI program name, principal name,
+and password.
+The program name in this example is as follows:
+.Pp
+.Dl https://localhost/cgi-bin/kcaldav
+.Pp
+This is further simplified if the web server is configured to handle a
+.Qq well-known
+service that redirects to the CGI program name, leaving the only
+configuration to be the web server root:
+.Pp
+.Dl https://localhost
+.Pp
+For some older clients, the CGI program name will need to include the
+principal's name as well as the program name:
 .Pp
 .Dl https://localhost/cgi-bin/kcaldav/kristaps/
 .Pp
-If the calendar-home-set feature is not supported by your client (e.g.,
-with Thunderbird), you may need to point directly to the managed
-calendar:
+Lastly, there are some clients (possibly only Mozilla Lightning) that
+must connect directly to an individual calendar, such as with:
 .Pp
 .Dl https://localhost/cgi-bin/kcaldav/kristaps/calendar/
-.Pp
-A simpler setup might occur all in one directory, such as fully
-installing into the user directory,
-.Pa public_html ,
-of a given user.
-Here I assume that the directory has CGI-execute permissions set and the
-CGI script
-.Pa kcaldav.cgi
-and its database installed into
-.Pa /home/foo/public_html .
-.Pp
-The user can then access calenders on
-.Pp
-.Dl https://localhost/~foo/kcaldav.cgi/kristaps/
-.Pp
-In either case, please use HTTPS!
-Although
-.Nm
-uses HTTP authentication to the fullest, that still doesn't protect you
-from snooping.
-.Ss Qo Well-Known Qc Configuration
+.Ss Well-Known Service
 Many modern calendar clients use
 .Qq well-known
 URI identifiers to query a host for its CalDAV.
@@ -110,7 +105,7 @@ must return a 301 redirect to the absolute URL
 .Pa https://localhost@CGIURI@ ,
 assuming
 .Pa localhost
-as the CalDAV host.
+as the CalDAV host such as in the example.
 .Ss System-Wide Calendar Administration
 Let the root directory be
 .Pa /caldav ,
@@ -142,7 +137,8 @@ administrator intervention.
 Let the root directory be
 .Pa /home/foo/caldav ,
 which is readable by the web server running as user www and
-read-writable by the logged-in user foo.
+read-writable by the logged-in user
+.Qq foo .
 First, create the database and add principals as necessary.
 .Pp
 .Dl % kcaldav.passwd -C -u foo -f /home/foo/caldav
@@ -155,22 +151,24 @@ has built-in support for web-based administration by logged-in
 HTML5, JavaScript, and CSS pages using
 .Nm
 as a JSON backend.
-Let's assume these page have been installed into
-.Pa /var/www/htdocs/kcaldav .
-Principals can then access the server root,
+.Pp
+Assuming these page have been installed into
+.Pa /var/www/htdocs/kcaldav ,
+principals can then access the server root,
 .Pp
 .Dl https://localhost/kcaldav/home.html
 .Pp
 to see their configuration.
 .Pp
-The principal foo can modify collection information online.
+The principal
+.Qq foo
+can modify collection information online.
 .Em Note :
-you will need to make sure that the calendar database is read-writable
-by the web server.
+the calendar database must be read-writable by the web server.
 In general, the directory containing the database will also need to be
 writable by the web server for creating its temporary transaction files.
 .Sh HTTP METHODS
-In this section, I describe each HTTP method supported.
+This section describes each supported HTTP method.
 .Ss DELETE
 The DELETE method is handled according to RFC 4918.
 Principals must have
@@ -395,11 +393,11 @@ The current principal address.
 Conditional HTTP responses (etag,
 .Dq If-Match ,
 etc.).
-.El
-.Pp
+.It RFC 5785
 The
 .Qq well-known
-interface is documented in RFC 5785.
+web server interface.
+.El
 .\" .Sh HISTORY
 .\" .Sh AUTHORS
 .\" .Sh CAVEATS
