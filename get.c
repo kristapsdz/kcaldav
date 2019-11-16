@@ -90,7 +90,7 @@ method_get(struct kreq *r)
 			digest = NULL;
 	}
 
-	if (digest != NULL & strcmp(p->etag, digest) == 0) {
+	if (digest != NULL && strcmp(p->etag, digest) == 0) {
 		khttp_head(r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_304]);
 		khttp_head(r, kresps[KRESP_ETAG], "%s", p->etag);
