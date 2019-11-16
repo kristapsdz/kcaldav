@@ -1,4 +1,4 @@
-.SUFFIXES: .3 .3.html .8 .8.html .1 .1.html .xml .html .min.js .js
+.SUFFIXES: .3 .3.html .8 .8.html .1 .1.html .xml .html
 
 include Makefile.configure
 
@@ -84,9 +84,7 @@ MANS		 = kcaldav.in.8 \
 		   kcaldav.passwd.in.1 \
 		   libkcaldav.3
 JSMINS		 = collection.min.js \
-		   home.min.js \
-		   md5.min.js \
-		   script.min.js
+		   home.min.js
 ALLSRCS		 = Makefile \
 		   $(TESTSRCS) \
 		   $(MANS) \
@@ -276,7 +274,17 @@ distclean: clean
 	    -e "s!@VERSION@!$(VERSION)!g" \
 	    -e "s!@CGIURI@!$(CGIURI)!g" $< >$@
 
-.js.min.js:
-	sed -e "s!@HTDOCS@!$(HTDOCS)!g" \
-	    -e "s!@VERSION@!$(VERSION)!g" \
-	    -e "s!@CGIURI@!$(CGIURI)!g" $< >$@
+home.min.js: md5.js script.js home.js
+	( cat md5.js ; \
+	  cat script.js ; \
+  	  cat home.js ; ) | \
+		sed -e "s!@HTDOCS@!$(HTDOCS)!g" \
+		    -e "s!@VERSION@!$(VERSION)!g" \
+		    -e "s!@CGIURI@!$(CGIURI)!g" >$@
+
+collection.min.js: script.js collection.js
+	( cat script.js ; \
+  	  cat collection.js ; ) | \
+		sed -e "s!@HTDOCS@!$(HTDOCS)!g" \
+		    -e "s!@VERSION@!$(VERSION)!g" \
+		    -e "s!@CGIURI@!$(CGIURI)!g" >$@

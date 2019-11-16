@@ -8,7 +8,6 @@
 		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/0.6.0/pure-min.css" />
 		<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css" />
 		<link rel="stylesheet" href="@HTDOCS@/style.css" type="text/css" />
-		<script src="@HTDOCS@/script.min.js"></script>
 		<script src="@HTDOCS@/collection.min.js"></script>
 	</head>
 	<body onload="load();">
