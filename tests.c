@@ -89,6 +89,18 @@ main(void)
 	return(0);
 }
 #endif /* TEST_EXPLICIT_BZERO */
+#if TEST_GETEXECNAME
+#include <stdlib.h>
+
+int
+main(void)
+{
+	const char * progname;
+
+	progname = getexecname();
+	return progname == NULL;
+}
+#endif /* TEST_GETEXECNAME */
 #if TEST_GETPROGNAME
 #include <stdlib.h>
 
@@ -116,6 +128,18 @@ main(void)
 	return 0;
 }
 #endif /* TEST_INFTIM */
+#if TEST_LIB_SOCKET
+#include <sys/socket.h>
+
+int
+main(void)
+{
+	int fds[2], c;
+
+	c = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
+	return c == -1;
+}
+#endif /* TEST_LIB_SOCKET */
 #if TEST_MD5
 #include <sys/types.h>
 #include <md5.h>
@@ -123,9 +147,11 @@ main(void)
 int main(void)
 {
 	MD5_CTX ctx;
+	char result[MD5_DIGEST_STRING_LENGTH];
 
 	MD5Init(&ctx);
-	MD5Update(&ctx, "abcd", 4);
+	MD5Update(&ctx, (const unsigned char *)"abcd", 4);
+	MD5End(&ctx, result);
 
 	return 0;
 }
@@ -167,6 +193,33 @@ int main(void)
 	return 0;
 }
 #endif /* TEST_MEMSET_S */
+#if TEST_MKFIFOAT
+#include <sys/stat.h>
+#include <fcntl.h>
+
+int main(void) {
+	mkfifoat(AT_FDCWD, "this/path/should/not/exist", 0600);
+	return 0;
+}
+#endif /* TEST_MKFIFOAT */
+#if TEST_MKNODAT
+#include <sys/stat.h>
+#include <fcntl.h>
+
+int main(void) {
+	mknodat(AT_FDCWD, "this/path/should/not/exist", S_IFIFO | 0600, 0);
+	return 0;
+}
+#endif /* TEST_MKNODAT */
+#if TEST_OSBYTEORDER_H
+#include <libkern/OSByteOrder.h>
+
+int
+main(void)
+{
+	return !OSSwapHostToLittleInt32(23);
+}
+#endif /* TEST_OSBYTEORDER_H */
 #if TEST_PATH_MAX
 /*
  * POSIX allows PATH_MAX to not be defined, see
@@ -230,6 +283,9 @@ main(void)
 }
 #endif /* TEST_READPASSPHRASE */
 #if TEST_REALLOCARRAY
+#ifdef __NetBSD__
+# define _OPENBSD_SOURCE
+#endif
 #include <stdlib.h>
 
 int
@@ -354,7 +410,9 @@ main(void)
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
+#ifdef __NetBSD__
+# define _OPENBSD_SOURCE
+#endif
 #include <stdlib.h>
 
 int
@@ -381,6 +439,15 @@ main(void)
 	return 0;
 }
 #endif /* TEST_STRTONUM */
+#if TEST_SYS_BYTEORDER_H
+#include <sys/byteorder.h>
+
+int
+main(void)
+{
+	return !LE_32(23);
+}
+#endif /* TEST_SYS_BYTEORDER_H */
 #if TEST_SYS_ENDIAN_H
 #include <sys/endian.h>
 
@@ -390,6 +457,16 @@ main(void)
 	return !htole32(23);
 }
 #endif /* TEST_SYS_ENDIAN_H */
+#if TEST_SYS_MKDEV_H
+#include <sys/types.h>
+#include <sys/mkdev.h>
+
+int
+main(void)
+{
+	return !minor(0);
+}
+#endif /* TEST_SYS_MKDEV_H */
 #if TEST_SYS_QUEUE
 #include <sys/queue.h>
 #include <stddef.h>
@@ -420,19 +497,55 @@ main(void)
 	return 0;
 }
 #endif /* TEST_SYS_QUEUE */
-#if TEST_SYSTRACE
-#include <sys/param.h>
-#include <dev/systrace.h>
-
-#include <stdlib.h>
+#if TEST_SYS_SYSMACROS_H
+#include <sys/sysmacros.h>
 
 int
 main(void)
 {
-
-	return(0);
+	return !minor(0);
 }
-#endif /* TEST_SYSTRACE */
+#endif /* TEST_SYS_SYSMACROS_H */
+#if TEST_SYS_TREE
+#include <sys/tree.h>
+#include <stdlib.h>
+
+struct node {
+	RB_ENTRY(node) entry;
+	int i;
+};
+
+static int
+intcmp(struct node *e1, struct node *e2)
+{
+	return (e1->i < e2->i ? -1 : e1->i > e2->i);
+}
+
+RB_HEAD(inttree, node) head = RB_INITIALIZER(&head);
+RB_PROTOTYPE(inttree, node, entry, intcmp)
+RB_GENERATE(inttree, node, entry, intcmp)
+
+int testdata[] = {
+	20, 16, 17, 13, 3, 6, 1, 8, 2, 4
+};
+
+int
+main(void)
+{
+	size_t i;
+	struct node *n;
+
+	for (i = 0; i < sizeof(testdata) / sizeof(testdata[0]); i++) {
+		if ((n = malloc(sizeof(struct node))) == NULL)
+			return 1;
+		n->i = testdata[i];
+		RB_INSERT(inttree, &head, n);
+	}
+
+	return 0;
+}
+
+#endif /* TEST_SYS_TREE */
 #if TEST_UNVEIL
 #include <unistd.h>
 
@@ -442,6 +555,17 @@ main(void)
 	return -1 != unveil(NULL, NULL);
 }
 #endif /* TEST_UNVEIL */
+#if TEST_WAIT_ANY
+#include <sys/wait.h>
+
+int
+main(void)
+{
+	int st;
+
+	return waitpid(WAIT_ANY, &st, WNOHANG) != -1;
+}
+#endif /* TEST_WAIT_ANY */
 #if TEST_ZLIB
 #include <stddef.h>
 #include <zlib.h>

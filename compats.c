@@ -435,6 +435,8 @@ explicit_bzero(void *p, size_t n)
 
 #else /* HAVE_MEMSET_S */
 
+#include <strings.h>
+
 /*
  * Indirect bzero through a volatile pointer to hopefully avoid
  * dead-store optimisation eliminating the call.
@@ -466,6 +468,7 @@ explicit_bzero(void *p, size_t n)
 /*
  * Copyright (c) 2016 Nicholas Marriott <nicholas.marriott@gmail.com>
  * Copyright (c) 2017 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2020 Stephen Gregoratto <dev@sgregoratto.me>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -484,7 +487,14 @@ explicit_bzero(void *p, size_t n)
 
 #include <errno.h>
 
-#if HAVE_PROGRAM_INVOCATION_SHORT_NAME
+#if HAVE_GETEXECNAME
+#include <stdlib.h>
+const char *
+getprogname(void)
+{
+	return getexecname();
+}
+#elif HAVE_PROGRAM_INVOCATION_SHORT_NAME
 const char *
 getprogname(void)
 {
@@ -540,7 +550,7 @@ getprogname(void)
 	(cp)[1] = (value) >> 8;						\
 	(cp)[0] = (value); } while (0)
 
-static u_int8_t PADDING[MD5_BLOCK_LENGTH] = {
+static uint8_t PADDING[MD5_BLOCK_LENGTH] = {
 	0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -574,7 +584,7 @@ MD5Update(MD5_CTX *ctx, const unsigned char *input, size_t len)
 	need = MD5_BLOCK_LENGTH - have;
 
 	/* Update bitcount */
-	ctx->count += (u_int64_t)len << 3;
+	ctx->count += (uint64_t)len << 3;
 
 	if (len >= need) {
 		if (have != 0) {
@@ -605,7 +615,7 @@ MD5Update(MD5_CTX *ctx, const unsigned char *input, size_t len)
 void
 MD5Pad(MD5_CTX *ctx)
 {
-	u_int8_t count[8];
+	uint8_t count[8];
 	size_t padlen;
 
 	/* Convert count to 8 bytes in little endian order. */
@@ -653,19 +663,19 @@ MD5Final(unsigned char digest[MD5_DIGEST_LENGTH], MD5_CTX *ctx)
  * the data and converts bytes into longwords for this routine.
  */
 void
-MD5Transform(u_int32_t state[4], const u_int8_t block[MD5_BLOCK_LENGTH])
+MD5Transform(uint32_t state[4], const uint8_t block[MD5_BLOCK_LENGTH])
 {
-	u_int32_t a, b, c, d, in[MD5_BLOCK_LENGTH / 4];
+	uint32_t a, b, c, d, in[MD5_BLOCK_LENGTH / 4];
 
 #if BYTE_ORDER == LITTLE_ENDIAN
 	memcpy(in, block, sizeof(in));
 #else
 	for (a = 0; a < MD5_BLOCK_LENGTH / 4; a++) {
-		in[a] = (u_int32_t)(
-		    (u_int32_t)(block[a * 4 + 0]) |
-		    (u_int32_t)(block[a * 4 + 1]) <<  8 |
-		    (u_int32_t)(block[a * 4 + 2]) << 16 |
-		    (u_int32_t)(block[a * 4 + 3]) << 24);
+		in[a] = (uint32_t)(
+		    (uint32_t)(block[a * 4 + 0]) |
+		    (uint32_t)(block[a * 4 + 1]) <<  8 |
+		    (uint32_t)(block[a * 4 + 2]) << 16 |
+		    (uint32_t)(block[a * 4 + 3]) << 24);
 	}
 #endif
 
@@ -868,6 +878,99 @@ memrchr(const void *s, int c, size_t n)
     return(NULL);
 }
 #endif /* !HAVE_MEMRCHR */
+#if !HAVE_MKFIFOAT
+#include <sys/stat.h>
+
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+int
+mkfifoat(int fd, const char *path, mode_t mode)
+{
+	int	er, curfd = -1, newfd = -1;
+
+	/* Get our current directory then switch to the given one. */
+
+	if (fd != AT_FDCWD) {
+		if ((curfd = open(".", O_RDONLY | O_DIRECTORY, 0)) == -1)
+			return -1;
+		if (fchdir(fd) == -1)
+			goto out;
+	}
+
+	if ((newfd = mkfifo(path, mode)) == -1)
+		goto out;
+
+	/* This leaves the fifo if it fails. */
+
+	if (curfd != -1 && fchdir(curfd) == -1)
+		goto out;
+	if (curfd != -1)
+		close(curfd);
+
+	return newfd;
+out:
+	/* Ignore errors in close(2). */
+
+	er = errno;
+	if (curfd != -1)
+		fchdir(curfd);
+	if (curfd != -1)
+		close(curfd);
+	if (newfd != -1)
+		close(newfd);
+	errno = er;
+	return -1;
+}
+#endif /* !HAVE_MKFIFOAT */
+#if !HAVE_MKNODAT
+#include <sys/stat.h>
+
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+int
+mknodat(int fd, const char *path, mode_t mode, dev_t dev)
+{
+	int	er, curfd = -1, newfd = -1;
+
+	/* Get our current directory then switch to the given one. */
+
+	if (fd != AT_FDCWD) {
+		if ((curfd = open(".", O_RDONLY | O_DIRECTORY, 0)) == -1)
+			return -1;
+		if (fchdir(fd) == -1)
+			goto out;
+	}
+
+	if ((newfd = mknod(path, mode, dev)) == -1)
+		goto out;
+
+	/* This leaves the node if it fails. */
+
+	if (curfd != -1 && fchdir(curfd) == -1)
+		goto out;
+	if (curfd != -1)
+		close(curfd);
+
+	return newfd;
+out:
+	
+	/* Ignore errors in close(2). */
+
+	er = errno;
+	if (curfd != -1)
+		fchdir(curfd);
+	if (curfd != -1)
+		close(curfd);
+	if (newfd != -1)
+		close(newfd);
+	errno = er;
+	return -1;
+}
+#endif /* !HAVE_MKNODAT */
 #if !HAVE_READPASSPHRASE
 /* 
  * Original: readpassphrase.c in OpenSSH portable
@@ -903,11 +1006,11 @@ memrchr(const void *s, int c, size_t n)
 #include <termios.h>
 #include <unistd.h>
 
-#if defined(_NSIG)
-static volatile sig_atomic_t readpassphrase_signo[_NSIG];
-#else
-static volatile sig_atomic_t readpassphrase_signo[NSIG];
+#if !defined(_NSIG) && defined(NSIG)
+# define _NSIG NSIG
 #endif
+
+static volatile sig_atomic_t readpassphrase_signo[_NSIG];
 
 static void
 readpassphrase_handler(int s)
@@ -929,7 +1032,7 @@ readpassphrase(const char *prompt, char *buf, size_t bufsiz, int flags)
 #ifndef TCSASOFT
 	const int tcasoft = 0;
 #else
-	const int tcasoft = TCASOFT;
+	const int tcasoft = TCSASOFT;
 #endif
 
 	/* I suppose we could alloc on demand in this case (XXX). */
