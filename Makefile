@@ -48,7 +48,7 @@ LOGFILE		 = /logs/kcaldav-system.log
 # Set -D DEBUG=1 to produce debugging information in LOGFILE.
 # Set -D DEBUG=2 for LOTS of debugging information.
 # If you want to send me a debug report, please use -DDEBUG=2.
-#CPPFLAGS	+= -DDEBUG=1
+#CFLAGS		+= -DDEBUG=1
 
 # Lastly, we set whether we're statically compiling.
 STATIC		 = 1
@@ -168,7 +168,6 @@ BHTMLS		 = collection.html \
 DOTFLAGS	 = -h "BGCOLOR=\"red\"" \
 		   -t "CELLBORDER=\"0\"" \
 		   -t "CELLSPACING=\"0\""
-CFLAGS		+= $(CPPFLAGS)
 
 all: $(BINS) kcaldav.8 kcaldav.passwd.1 $(BHTMLS) $(JSMINS)
 
