@@ -51,7 +51,7 @@ LOGFILE		 = /logs/kcaldav-system.log
 #CPPFLAGS	+= -DDEBUG=1
 
 # Lastly, we set whether we're statically compiling.
-STATIC		 = -static
+STATIC		 = 1
 
 sinclude Makefile.local
 
@@ -59,8 +59,22 @@ sinclude Makefile.local
 # You probably don't want to change anything after this point.
 # ####################################################################
 
-LIBS		 = -lexpat -lsqlite3 -lm -lpthread $(LDADD)
-BINLIBS		 = -lkcgi -lkcgixml -lkcgijson -lz $(LIBS) 
+STATIC_LIBS	!= [ -z "$(STATIC)" ] || echo "--static"
+STATIC_CC	!= [ -z "$(STATIC)" ] || echo "-static"
+
+BINLIBS_DEP	 = expat sqlite3
+BINLIBS_DEF	 = -lexpat -lsqlite3
+BINLIBS_PKG	!= pkg-config --libs $(BINLIBS_DEP) 2>/dev/null || echo "$(BINLIBS_DEF)"
+BINLIBS		 = $(BINLIBS_PKG) -lm $(LDADD)
+
+CGILIBS_DEP	 = kcgi-xml kcgi-json zlib expat sqlite3
+CGILIBS_DEF	 = -lkcgixml -lkcgijson -lz -lexpat -lsqlite3
+CGILIBS_PKG	!= pkg-config $(STATIC_LIBS) --libs $(CGILIBS_DEP) 2>/dev/null || echo "$(CGILIBS_DEF)"
+CGILIBS		 = $(CGILIBS_PKG) -lm $(LDADD)
+
+CFLAGS_PKG	!= pkg-config --cflags $(CGILIBS_DEP) $(BINLIBS_DEP) 2>/dev/null || echo ""
+CFLAGS		+= $(CFLAGS_PKG)
+
 BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-caldav \
@@ -209,22 +223,22 @@ libkcaldav.a: $(LIBOBJS)
 	$(AR) -rs $@ $(LIBOBJS)
 
 kcaldav: $(BINOBJS) $(OBJS) compats.o libkcaldav.a
-	$(CC) $(BINCFLAGS) -o $@ $(STATIC) $(BINOBJS) $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS) 
+	$(CC) -o $@ $(STATIC_CC) $(BINOBJS) $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(CGILIBS) 
 
 kcaldav.passwd: kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a
-	$(CC) -o $@ kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
+	$(CC) -o $@ kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
 
 test-ical: test-ical.o compats.o libkcaldav.a
-	$(CC) -o $@ test-ical.o compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
+	$(CC) -o $@ test-ical.o compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
 
 test-rrule: test-rrule.o compats.o libkcaldav.a
-	$(CC) -o $@ test-rrule.o compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
+	$(CC) -o $@ test-rrule.o compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
 
 test-nonce: test-nonce.o $(OBJS) compats.o libkcaldav.a
-	$(CC) -o $@ test-nonce.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
+	$(CC) -o $@ test-nonce.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
 
 test-caldav: test-caldav.o compats.o libkcaldav.a
-	$(CC) -o $@ test-caldav.o compats.o libkcaldav.a $(LDFLAGS) $(LIBS)
+	$(CC) -o $@ test-caldav.o compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
 
 $(ALLOBJS): extern.h libkcaldav.h config.h
 
@@ -257,6 +271,12 @@ kcaldav-sql.c: kcaldav.sql
 	  printf "const char *db_sql = \""; \
 	  grep -v '^[ 	]*--' kcaldav.sql | sed -e 's!$$!\\n\\!' ; \
 	  echo '";'; ) >$@
+
+regress:
+	# Do nothing.
+
+distcheck:
+	# Do nothing.
 
 clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1 libkcaldav.a kcaldav-sql.c
