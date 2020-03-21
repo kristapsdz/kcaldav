@@ -211,7 +211,7 @@ installwww: www
 	$(INSTALL_DATA) kcaldav.tgz.sha512 $(DESTDIR)$(WWWDIR)/snapshots/kcaldav-$(VERSION).tgz.sha512
 
 kcaldav.tgz.sha512: kcaldav.tgz
-	openssl dgst -sha512 kcaldav.tgz >$@
+	openssl dgst -hex -sha512 kcaldav.tgz >$@
 
 kcaldav.tgz:
 	mkdir -p .dist/kcaldav-$(VERSION)
@@ -276,8 +276,21 @@ kcaldav-sql.c: kcaldav.sql
 regress:
 	# Do nothing.
 
-distcheck:
-	# Do nothing.
+distcheck: kcaldav.tgz.sha512
+	mandoc -Tlint -Werror *.in.[13]
+	newest=`grep "<h1>" versions.xml | tail -1 | sed 's![ 	]*!!g'` ; \
+	       [ "$$newest" = "<h1>$(VERSION)</h1>" ] || \
+		{ echo "Version $(VERSION) not newest in versions.xml" 1>&2 ; exit 1 ; }
+	[ "`openssl dgst -sha512 -hex kcaldav.tgz`" = "`cat kcaldav.tgz.sha512`" ] || \
+ 		{ echo "Checksum does not match." 1>&2 ; exit 1 ; }
+	rm -rf .distcheck
+	mkdir -p .distcheck
+	tar -zvxpf kcaldav.tgz -C .distcheck
+	( cd .distcheck/kcaldav-$(VERSION) && ./configure PREFIX=prefix )
+	( cd .distcheck/kcaldav-$(VERSION) && $(MAKE) )
+	( cd .distcheck/kcaldav-$(VERSION) && $(MAKE) regress )
+	( cd .distcheck/kcaldav-$(VERSION) && $(MAKE) install )
+	rm -rf .distcheck
 
 clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1 libkcaldav.a kcaldav-sql.c
