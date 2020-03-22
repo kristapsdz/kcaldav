@@ -17,6 +17,21 @@
 #ifndef LIBKCALDAV_H
 #define LIBKCALDAV_H
 
+#if !defined(__BEGIN_DECLS)
+#  ifdef __cplusplus
+#  define       __BEGIN_DECLS           extern "C" {
+#  else
+#  define       __BEGIN_DECLS
+#  endif
+#endif
+#if !defined(__END_DECLS)
+#  ifdef __cplusplus
+#  define       __END_DECLS             }
+#  else
+#  define       __END_DECLS
+#  endif
+#endif
+
 /*
  * I only handle certain types of XML CalDAV documents (corresponding to
  * the outer XML element).  This defines the request type per method.
