@@ -316,7 +316,7 @@ distcheck: kcaldav.tgz.sha512 kcaldav.tgz
  		{ echo "Checksum does not match." 1>&2 ; exit 1 ; }
 	rm -rf .distcheck
 	mkdir -p .distcheck
-	tar -zvxpf kcaldav.tgz -C .distcheck
+	( cd .distcheck && tar -zvxpf ../kcaldav.tgz )
 	( cd .distcheck/kcaldav-$(VERSION) && ./configure PREFIX=prefix )
 	( cd .distcheck/kcaldav-$(VERSION) && $(MAKE) )
 	( cd .distcheck/kcaldav-$(VERSION) && $(MAKE) regress )
