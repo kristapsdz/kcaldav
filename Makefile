@@ -213,7 +213,7 @@ installwww: www
 kcaldav.tgz.sha512: kcaldav.tgz
 	openssl dgst -hex -sha512 kcaldav.tgz >$@
 
-kcaldav.tgz:
+kcaldav.tgz: Makefile
 	mkdir -p .dist/kcaldav-$(VERSION)
 	mkdir -p .dist/kcaldav-$(VERSION)/regress
 	mkdir -p .dist/kcaldav-$(VERSION)/regress/caldav
@@ -307,7 +307,7 @@ regress: test-caldav test-ical
 		set +e ; \
 	done
 
-distcheck: kcaldav.tgz.sha512
+distcheck: kcaldav.tgz.sha512 kcaldav.tgz
 	mandoc -Tlint -Werror *.in.[13]
 	newest=`grep "<h1>" versions.xml | tail -1 | sed 's![ 	]*!!g'` ; \
 	       [ "$$newest" = "<h1>$(VERSION)</h1>" ] || \
