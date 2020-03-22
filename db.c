@@ -16,12 +16,7 @@
  */
 #include "config.h"
 
-#ifdef __linux__
-# include <sys/vfs.h> /* statfs(2) */
-#else
-#include <sys/param.h> /* ... */
-#include <sys/mount.h> /* ...statfs(2) */
-#endif
+#include <sys/statvfs.h>
 
 #include <assert.h>
 #include <inttypes.h>
@@ -1016,7 +1011,7 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 	sqlite3_stmt	*stmt;
 	int		 c, rc;
 	void		*vp;
-	struct statfs	 sfs;
+	struct statvfs	 sfs;
 
 	rc = -1;
 	p = *pp = calloc(1, sizeof(struct prncpl));
@@ -1053,8 +1048,8 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 		goto err;
 	}
 
-	if (-1 == statfs(dbname, &sfs)) {
-		kerr("%s: statfs", dbname);
+	if (-1 == statvfs(dbname, &sfs)) {
+		kerr("%s: statvfs", dbname);
 		goto err;
 	}
 
