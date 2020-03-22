@@ -65,6 +65,7 @@ CFLAGS="${CFLAGS} -g -W -Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes"
 CFLAGS="${CFLAGS} -Wwrite-strings -Wno-unused-parameter"
 LDADD=
 LDADD_B64_NTOP=
+LDADD_EXPAT=
 LDADD_MD5=
 LDADD_LIB_SOCKET=
 LDADD_ZLIB=
@@ -160,6 +161,7 @@ HAVE_B64_NTOP=
 HAVE_CAPSICUM=
 HAVE_ENDIAN_H=
 HAVE_ERR=
+HAVE_EXPAT=
 HAVE_EXPLICIT_BZERO=
 HAVE_GETEXECNAME=
 HAVE_GETPROGNAME=
@@ -321,6 +323,7 @@ runtest b64_ntop	B64_NTOP "" "" "-lresolv"	  || true
 runtest capsicum	CAPSICUM			  || true
 runtest endian_h	ENDIAN_H			  || true
 runtest err		ERR				  || true
+runtest expat		EXPAT		"" "-lexpat"	  || true
 runtest explicit_bzero	EXPLICIT_BZERO			  || true
 runtest getexecname	GETEXECNAME			  || true
 runtest getprogname	GETPROGNAME			  || true
@@ -471,6 +474,7 @@ cat << __HEREDOC__
 #define HAVE_CAPSICUM ${HAVE_CAPSICUM}
 #define HAVE_ENDIAN_H ${HAVE_ENDIAN_H}
 #define HAVE_ERR ${HAVE_ERR}
+#define HAVE_EXPAT ${HAVE_EXPAT}
 #define HAVE_EXPLICIT_BZERO ${HAVE_EXPLICIT_BZERO}
 #define HAVE_GETEXECNAME ${HAVE_GETEXECNAME}
 #define HAVE_GETPROGNAME ${HAVE_GETPROGNAME}
@@ -2246,6 +2250,7 @@ CFLAGS		 = ${CFLAGS}
 CPPFLAGS	 = ${CPPFLAGS}
 LDADD		 = ${LDADD}
 LDADD_B64_NTOP	 = ${LDADD_B64_NTOP}
+LDADD_EXPAT	 = ${LDADD_EXPAT}
 LDADD_LIB_SOCKET = ${LDADD_LIB_SOCKET}
 LDADD_MD5	 = ${LDADD_MD5}
 LDADD_ZLIB	 = ${LDADD_ZLIB}
