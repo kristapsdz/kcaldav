@@ -215,8 +215,13 @@ kcaldav.tgz.sha512: kcaldav.tgz
 
 kcaldav.tgz:
 	mkdir -p .dist/kcaldav-$(VERSION)
+	mkdir -p .dist/kcaldav-$(VERSION)/regress
+	mkdir -p .dist/kcaldav-$(VERSION)/regress/caldav
+	mkdir -p .dist/kcaldav-$(VERSION)/regress/ical
 	$(INSTALL) -m 0644 $(ALLSRCS) .dist/kcaldav-$(VERSION)
 	$(INSTALL) -m 0755 configure .dist/kcaldav-$(VERSION)
+	$(INSTALL) -m 0644 regress/ical/*.ics .dist/kcaldav-$(VERSION)/regress/ical
+	$(INSTALL) -m 0644 regress/caldav/*.xml .dist/kcaldav-$(VERSION)/regress/caldav
 	( cd .dist && tar zcf ../$@ kcaldav-$(VERSION) )
 	rm -rf .dist
 
