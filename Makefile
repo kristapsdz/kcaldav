@@ -51,8 +51,9 @@ LOGFILE		 = /logs/kcaldav-system.log
 # If you want to send me a debug report, please use -DDEBUG=2.
 #CFLAGS		+= -DDEBUG=1
 
-# Lastly, we set whether we're statically compiling.
-STATIC		 = 1
+# Override this to be empty if you don't want static compilation.
+# It's set to be -static if the compiler allows it.
+#LDADD_STATIC	 =
 
 sinclude Makefile.local
 
@@ -60,8 +61,7 @@ sinclude Makefile.local
 # You probably don't want to change anything after this point.
 # ####################################################################
 
-STATIC_LIBS	!= [ -z "$(STATIC)" ] || echo "--static"
-STATIC_CC	!= [ -z "$(STATIC)" ] || echo "-static"
+PKG_STATIC	!= [ -z "$(LDADD_STATIC)" ] || echo "--static"
 
 BINLIBS_DEP	 = sqlite3
 BINLIBS_DEF	 = -lsqlite3
@@ -70,7 +70,7 @@ BINLIBS		 = $(BINLIBS_PKG) -lm $(LDADD_EXPAT) $(LDADD_MD5) $(LDADD)
 
 CGILIBS_DEP	 = kcgi-xml kcgi-json sqlite3
 CGILIBS_DEF	 = -lkcgixml -lkcgijson -lsqlite3
-CGILIBS_PKG	!= pkg-config $(STATIC_LIBS) --libs $(CGILIBS_DEP) 2>/dev/null || echo "$(CGILIBS_DEF)"
+CGILIBS_PKG	!= pkg-config $(PKG_STATIC) --libs $(CGILIBS_DEP) 2>/dev/null || echo "$(CGILIBS_DEF)"
 CGILIBS		 = $(CGILIBS_PKG) -lm $(LDADD_EXPAT) $(LDADD_ZLIB) $(LDADD_MD5) $(LDADD)
 
 CFLAGS_PKG	!= pkg-config --cflags $(CGILIBS_DEP) $(BINLIBS_DEP) 2>/dev/null || echo ""
@@ -229,7 +229,7 @@ libkcaldav.a: $(LIBOBJS)
 	$(AR) -rs $@ $(LIBOBJS)
 
 kcaldav: $(BINOBJS) $(OBJS) compats.o libkcaldav.a
-	$(CC) -o $@ $(STATIC_CC) $(BINOBJS) $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(CGILIBS) 
+	$(CC) -o $@ $(LDADD_STATIC) $(BINOBJS) $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(CGILIBS) 
 
 kcaldav.passwd: kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a
 	$(CC) -o $@ kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)

@@ -68,6 +68,7 @@ LDADD_B64_NTOP=
 LDADD_EXPAT=
 LDADD_MD5=
 LDADD_LIB_SOCKET=
+LDADD_STATIC=
 LDADD_ZLIB=
 CPPFLAGS=
 LDFLAGS=
@@ -345,6 +346,7 @@ runtest sandbox_init	SANDBOX_INIT	"-Wno-deprecated" || true
 runtest seccomp-filter	SECCOMP_FILTER			  || true
 runtest SOCK_NONBLOCK	SOCK_NONBLOCK			  || true
 runtest lib_socket	LIB_SOCKET "" "" "-lsocket -lnsl" || true
+runtest static		STATIC "" "-static"		  || true
 runtest strlcat		STRLCAT				  || true
 runtest strlcpy		STRLCPY				  || true
 runtest strndup		STRNDUP				  || true
@@ -2253,6 +2255,7 @@ LDADD_B64_NTOP	 = ${LDADD_B64_NTOP}
 LDADD_EXPAT	 = ${LDADD_EXPAT}
 LDADD_LIB_SOCKET = ${LDADD_LIB_SOCKET}
 LDADD_MD5	 = ${LDADD_MD5}
+LDADD_STATIC	 = ${LDADD_STATIC}
 LDADD_ZLIB	 = ${LDADD_ZLIB}
 LDFLAGS		 = ${LDFLAGS}
 STATIC		 = ${STATIC}

@@ -362,6 +362,13 @@ main(void)
 	return 0;
 }
 #endif /* TEST_SOCK_NONBLOCK */
+#if TEST_STATIC
+int
+main(void)
+{
+	return 0; /* not meant to do anything */
+}
+#endif /* TEST_STATIC */
 #if TEST_STRLCAT
 #include <string.h>
 
