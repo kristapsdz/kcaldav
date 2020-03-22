@@ -1,3 +1,4 @@
+.PHONY: regress
 .SUFFIXES: .3 .3.html .8 .8.html .1 .1.html .xml .html
 
 include Makefile.configure
@@ -214,9 +215,9 @@ kcaldav.tgz.sha512: kcaldav.tgz
 
 kcaldav.tgz:
 	mkdir -p .dist/kcaldav-$(VERSION)
-	install -m 0644 $(ALLSRCS) .dist/kcaldav-$(VERSION)
-	install -m 0755 configure .dist/kcaldav-$(VERSION)
-	(cd .dist && tar zcf ../$@ kcaldav-$(VERSION))
+	$(INSTALL) -m 0644 $(ALLSRCS) .dist/kcaldav-$(VERSION)
+	$(INSTALL) -m 0755 configure .dist/kcaldav-$(VERSION)
+	( cd .dist && tar zcf ../$@ kcaldav-$(VERSION) )
 	rm -rf .dist
 
 libkcaldav.a: $(LIBOBJS)
@@ -263,6 +264,7 @@ kcaldav.passwd.1: kcaldav.passwd.in.1
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.passwd.in.1 >$@
 
 # We generate a database on-the-fly.
+
 kcaldav-sql.c: kcaldav.sql
 	( echo "#include <stdlib.h>"; \
 	  echo "#include <stdint.h>"; \
@@ -272,8 +274,33 @@ kcaldav-sql.c: kcaldav.sql
 	  grep -v '^[ 	]*--' kcaldav.sql | sed -e 's!$$!\\n\\!' ; \
 	  echo '";'; ) >$@
 
-regress:
-	# Do nothing.
+regress: test-caldav test-ical
+	@for f in regress/caldav/*.xml ; \
+	do \
+		set -e ; \
+		printf "%s... " "$$f" ; \
+		./test-caldav $$f >/dev/null 2>&1 ; \
+		if [ $$? -eq 0 ] ; \
+		then \
+			echo "ok" ; \
+		else \
+			echo "fail" ; \
+		fi ; \
+		set +e ; \
+	done
+	@for f in regress/ical/*.ics ; \
+	do \
+		set -e ; \
+		printf "%s... " "$$f" ; \
+		./test-ical $$f >/dev/null 2>&1 ; \
+		if [ $$? -eq 0 ] ; \
+		then \
+			echo "ok" ; \
+		else \
+			echo "fail" ; \
+		fi ; \
+		set +e ; \
+	done
 
 distcheck: kcaldav.tgz.sha512
 	mandoc -Tlint -Werror *.in.[13]
