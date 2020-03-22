@@ -37,10 +37,17 @@
 				<a title="checksum" href="snapshots/kcaldav.tgz.sha512"><i class="fa fa-fw fa-lock"></i></a>
 				<a title="archive" href="snapshots"><i class="fa fa-fw fa-archive"></i></a>
 				<a title="github" href="https://github.com/kristapsdz/kcaldav"><i class="fa fa-fw fa-github"></i></a>
-				<span itemprop="softwareVersion">version 
+				<span itemprop="softwareVersion" class="navtext">
+					version 
 					<nav data-sblg-nav="1" data-sblg-navsort="date" data-sblg-navtag="version" data-sblg-navsz="1" data-sblg-navxml="1">
 						${sblg-titletext}
 					</nav>
+				</span>
+				<span>
+					<a href="https://kristaps.bsd.lv/cgi-bin/minci.cgi/index.html?project-name=kcaldav">
+						<i class="fa fa-fw fa-tachometer"></i>
+						<span class="navtext">builds</span>
+					</a>
 				</span>
 			</div>
 		</nav>
@@ -50,14 +57,14 @@
 					<span class="nm">kcaldav</span> is a simple, safe, and minimal CalDAV server depending only on <a
 						href="https://kristaps.bsd.lv/kcgi">kcgi</a>, <a
 						href="https://www.sqlite.org">sqlite3</a>, and <a
-						href="https://libexpat.github.io//">expat</a>.
+						href="https://libexpat.github.io">expat</a>.
 					It is <a href="http://opensource.org/licenses/ISC" rel="license">open source</a> with friendly,
 					auditable <a href="https://github.com/kristapsdz/kcaldav">source code</a>.
 				</p>
 				<p>
 					<span class="nm">kcaldav</span> is designed for simple setups, like sharing a calendar collection
 					between Mozilla Lightning, Mac OS X iCal, DAVdroid forks, and iOS (iPhone) clients.
-					It compiles and runs on <a href="https://www.openbsd.org">OpenBSD</a>, Linux, FreeBSD, and Mac OS X.
+					It compiles and runs on OpenBSD, Linux, NetBSD, FreeBSD, Mac OS X, Solaris, and OmniOS.
 				</p>
 				<ol>
 					<li>

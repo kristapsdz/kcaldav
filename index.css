@@ -21,10 +21,12 @@ header + nav > div	{ padding: 0 1em;
 			  display: inline-block; }
 header + nav a		{ color: #000; }
 header + nav i.fa	{ font-size: smaller; }
-header + nav span	{ color: #666; 
+header + nav > div > span	
+			{ color: #666; 
 			  border-left: thin solid #ddd;
 			  display: inline-block;
 			  padding-left: 0.5em; }
+header + nav .navtext	{ font-size: smaller; }
 article > section	{ margin: 3em 0; }
 div.date		{ color: #666; }
 article a		{ color: blue; }
