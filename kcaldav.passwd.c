@@ -192,11 +192,11 @@ gethash(int new, char *digest,
 
 	/* Hash according to RFC 2069's HA1. */
 	MD5Init(&ctx);
-	MD5Update(&ctx, (const u_int8_t *)user, strlen(user));
-	MD5Update(&ctx, (const u_int8_t *)":", 1);
-	MD5Update(&ctx, (const u_int8_t *)realm, strlen(realm));
-	MD5Update(&ctx, (const u_int8_t *)":", 1);
-	MD5Update(&ctx, (const u_int8_t *)pbuf, strlen(pbuf));
+	MD5Update(&ctx, (const uint8_t *)user, strlen(user));
+	MD5Update(&ctx, (const uint8_t *)":", 1);
+	MD5Update(&ctx, (const uint8_t *)realm, strlen(realm));
+	MD5Update(&ctx, (const uint8_t *)":", 1);
+	MD5Update(&ctx, (const uint8_t *)pbuf, strlen(pbuf));
 	MD5Final(ha, &ctx);
 
 	/* Convert to hex format. */
@@ -377,7 +377,7 @@ main(int argc, char *argv[])
 	/* Now either create or update the principal. */
 	if (create) {
 		if (NULL == email) {
-			sz = strlen(user) + MAXHOSTNAMELEN + 2;
+			sz = strlen(user) + 256 /* max hostname */ + 2;
 			emailp = malloc(sz);
 			if (NULL == emailp) {
 				kerr(NULL);
