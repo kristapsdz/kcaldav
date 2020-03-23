@@ -71,6 +71,9 @@
 						Install dependencies <a href="https://kristaps.bsd.lv/kcgi">kcgi</a>, <a
 							href="https://www.sqlite.org">sqlite3</a>, and <a
 							href="https://libexpat.github.io/">expat</a>.
+						(On Mac OS X, these must be installed as third-party packages alongside the base utilities: the
+						<a href="https://man.openbsd.org/pkg-config">pkg-config</a> scripts are not installed for the
+						libraries in base.)
 					</li>
 					<li>
 						Download the <a href="snapshots/kcaldav.tgz">sources</a> and verify the <a

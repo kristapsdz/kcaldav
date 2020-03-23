@@ -64,16 +64,17 @@ sinclude Makefile.local
 PKG_STATIC	!= [ -z "$(LDADD_STATIC)" ] || echo "--static"
 
 BINLIBS_DEP	 = sqlite3 expat
-BINLIBS_DEF	 = -lsqlite3
-BINLIBS_PKG	!= pkg-config --libs $(BINLIBS_DEP) 2>/dev/null || echo "$(BINLIBS_DEF)"
+BINLIBS_DEF	 = -lsqlite3 -lexpat
+BINLIBS_PKG	!= pkg-config --libs $(BINLIBS_DEP) || echo "$(BINLIBS_DEF)"
 BINLIBS		 = $(BINLIBS_PKG) -lm $(LDADD_MD5) $(LDADD)
 
 CGILIBS_DEP	 = kcgi-xml kcgi-json sqlite3 zlib expat
-CGILIBS_DEF	 = -lkcgixml -lkcgijson -lsqlite3
-CGILIBS_PKG	!= pkg-config $(PKG_STATIC) --libs $(CGILIBS_DEP) 2>/dev/null || echo "$(CGILIBS_DEF)"
+CGILIBS_DEF	 = -lkcgixml -lkcgijson -lkcgi -lsqlite3 -lz -lexpat
+CGILIBS_PKG	!= pkg-config $(PKG_STATIC) --libs $(CGILIBS_DEP) || echo "$(CGILIBS_DEF)"
 CGILIBS		 = $(CGILIBS_PKG) -lm $(LDADD_MD5) $(LDADD)
 
-CFLAGS_PKG	!= pkg-config --cflags $(CGILIBS_DEP) $(BINLIBS_DEP) 2>/dev/null || echo ""
+CFLAGS_PKG	!= pkg-config --cflags $(CGILIBS_DEP) $(BINLIBS_DEP) || \
+			echo "$(CGILIBS_DEF) $(BINLIBS_DEF)"
 CFLAGS		+= $(CFLAGS_PKG)
 
 BINS		 = kcaldav \
