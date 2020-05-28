@@ -402,4 +402,20 @@
 			</div>
 		</aside>
 	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.12</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-05-28">2020-05-28</time>
+		</header>
+		<aside>
+			<div>
+				Update to newest and safest
+				<a href="https://kristaps.bsd.lv/kcgi">kcgi(3)</a> functions.
+				Bump to newest 
+				<a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
+				No code change otherwise.
+			</div>
+		</aside>
+	</article>
 </articles>
