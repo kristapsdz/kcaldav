@@ -403,7 +403,7 @@ main(void)
 	}
 
 	if ('\0' == r.fullpath[0]) {
-		np = kutil_urlabs(r.scheme, r.host, r.port, r.pname);
+		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname);
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_307]);
 	        khttp_head(&r, kresps[KRESP_CONTENT_TYPE], 
@@ -521,7 +521,7 @@ main(void)
 	if ('\0' == st->principal[0]) {
 		kdbg("%s: redirecting probe from client", 
 			st->prncpl->email);
-		np = kutil_urlabs(r.scheme, r.host, r.port, r.pname);
+		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname);
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_307]);
 	        khttp_head(&r, kresps[KRESP_CONTENT_TYPE], 

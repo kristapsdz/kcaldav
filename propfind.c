@@ -549,7 +549,7 @@ propfind_list(struct kreq *req, struct kxmlreq *xml,
 		kxml_push(xml, XML_DAV_HREF);
 		kxml_puts(xml, req->pname);
 		/* Remember to URL encode! */
-		cp = kutil_urlencode(dav->hrefs[i]);
+		cp = khttp_urlencode(dav->hrefs[i]);
 		kxml_puts(xml, cp);
 		free(cp);
 		kxml_pop(xml);
