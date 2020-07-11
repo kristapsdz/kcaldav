@@ -418,4 +418,20 @@
 			</div>
 		</aside>
 	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.13</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-05-28">2020-05-28</time>
+		</header>
+		<aside>
+			<div>
+                                Fix for RFC 5545 section 3.8.2.4, which stipulates a more
+                                complicated date setup than initially parsed.
+				Found by and patched with Olivier Taïb, thanks!
+				Bump to newest 
+				<a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
+			</div>
+		</aside>
+	</article>
 </articles>
