@@ -200,49 +200,95 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 /*
  * Parse a date and time, possibly requiring us to dig through the
  * time-zone database and adjust the time.
- * Sets "tm" to be an epoch time.
+ * The only important features here are the TZID, as we'll interpret the
+ * date and/or time based upon the time format, not the VALUE statement.
+ * Sets "tm" to be an epoch time, if applicable.
  * Returns 0 on failure and 1 on success.
  */
 static int
 ical_tzdatetime(struct icalparse *p, 
 	struct icaltime *tm, const struct icalnode *np)
 {
+	const char	*start, *end, *nstart;
+	size_t		 len;
 
 	memset(tm, 0, sizeof(struct icaltime));
 
 	/* First, let's parse the raw date and time. */
 
-	if ( ! ical_datetime(p, &tm->time, np->val))
-		return(0);
+	if (!ical_datetime(p, &tm->time, np->val))
+		return 0;
+
+	/* No timezone. */
+
+	if ((start = np->param) == NULL)
+		return 1;
 
 	/* 
-	 * Next, see if we're UTC.
-	 * Note: the "free floating" time is interpreted as UTC.
-	 */
-	if (NULL == np->param)
-		return(1);
-	else if (0 == strcasecmp(np->param, "VALUE=DATE")) 
-		return(1);
-	else if (0 == strcasecmp(np->param, "VALUE=DATE-TIME"))
-		return(1);
-	
-	if (strncasecmp(np->param, "TZID=", 5)) {
-		kerrx("%s:%zu: unrecognised param", p->file, p->line);
-		return(0);
-	}
-
-	/*
-	 * The RFC doesn't impose any ordering on components, so we may
-	 * parse a time with a timezone before we parse the timezone.
-	 * Save the timezone and we'll look it up later.
+	 * Scan through the parameters looking for a timezone.
+	 * Ignore other parameters, which are technically allowed by the
+	 * RFC but we don't recognise.
 	 */
 
-	if (NULL == (tm->tzstr = strdup(np->param + 5))) {
-		kerr(NULL);
-		return(0);
+	while (*start != '\0') {
+		end = start;
+		while (*end != '\0' && *end != ';')
+			end++;
+
+		nstart = *end == '\0' ? end : end + 1;
+
+		/* Empty statement. */
+
+		if (end == start) {
+			assert(*end != '\0');
+			start = nstart;
+			continue;
+		}
+
+		assert(end > start);
+		len = (size_t)(end - start);
+
+		/* Let these pass through unmolested. */
+
+		if (len == 15 &&
+		    strncasecmp(start, "VALUE=DATE-TIME", 15) == 0) {
+			start = nstart;
+			continue;
+		}
+		if (len == 10 &&
+		    strncasecmp(start, "VALUE=DATE", 10) == 0) {
+			start = nstart;
+			continue;
+		}
+
+		/* Warn about unrecognised parameters just in case. */
+
+		if (len < 6 ||
+		    strncasecmp(start, "TZID=", 5)) {
+			kinfo("%s:%zu: unrecognised param", p->file, p->line);
+			start = nstart;
+			continue;
+		}
+		if (tm->tzstr != NULL) {
+			kerrx("%s:%zu: duplicate TZID", p->file, p->line);
+			return 0;
+		}
+
+		/*
+		 * The RFC doesn't impose any ordering on components, so
+		 * we may parse a time with a timezone before we parse
+		 * the timezone.  Save the timezone and we'll look it up
+		 * later.
+		 */
+
+		if ((tm->tzstr = strndup(start + 5, len - 5)) == NULL) {
+			kerr(NULL);
+			return 0;
+		}
+		start = nstart;
 	}
 
-	return(1);
+	return 1;
 }
 
 /*
