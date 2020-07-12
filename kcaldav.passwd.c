@@ -265,7 +265,7 @@ main(int argc, char *argv[])
 	while (-1 != (c = getopt(argc, argv, "Cd:e:f:nu:v"))) 
 		switch (c) {
 		case ('C'):
-			create = passwd = 1;
+			create = 1;
 			break;
 		case ('d'):
 			coln = optarg;
@@ -293,6 +293,9 @@ main(int argc, char *argv[])
 	argc -= optind;
 
 	assert('\0' != realm[0]);
+
+	if (create)
+		password = 1;
 
 	if (NULL != coln && ! check_safe_string(coln)) {
 		kerrx("unsafe directory string");
