@@ -20,6 +20,9 @@
 
 #include <assert.h>
 #include <ctype.h>
+#if HAVE_ERR
+# include <err.h>
+#endif
 #include <fcntl.h>
 #include <getopt.h>
 #include <inttypes.h>
@@ -158,16 +161,14 @@ gethash(int new, char *digest,
 	size_t		 i;
 	unsigned char	 ha[MD5_DIGEST_LENGTH];
 
-	assert('\0' != user[0] && '\0' != realm[0]);
-
 	switch (new) {
-	case (0):
+	case 0:
 		phrase = "Old password: ";
 		break;
-	case (1):
+	case 1:
 		phrase = "New password: ";
 		break;
-	case (2):
+	case 2:
 		phrase = "Repeat new password: ";
 		break;
 	default:
@@ -175,22 +176,27 @@ gethash(int new, char *digest,
 	}
 
 	/* Read in password. */
+
 	pp = readpassphrase(phrase, pbuf, 
 		sizeof(pbuf), RPP_REQUIRE_TTY);
 
-	if (NULL == pp) {
-		fprintf(stderr, "unable to read passphrase\n");
-		explicit_bzero(pbuf, strlen(pbuf));
-		return(0);
-	} else if ('\0' == pbuf[0])
-		return(0);
+	if (pp == NULL) {
+		warnx("unable to read passphrase");
+		explicit_bzero(pbuf, sizeof(pbuf));
+		return 0;
+	} else if (pbuf[0] == '\0') {
+		explicit_bzero(pbuf, sizeof(pbuf));
+		return 0;
+	}
 
 	if (strlen(pbuf) < 6) {
-		fprintf(stderr, "come on: more than five letters\n");
-		return(0);
+		warnx("come on: more than five letters");
+		explicit_bzero(pbuf, sizeof(pbuf));
+		return 0;
 	}
 
 	/* Hash according to RFC 2069's HA1. */
+
 	MD5Init(&ctx);
 	MD5Update(&ctx, (const uint8_t *)user, strlen(user));
 	MD5Update(&ctx, (const uint8_t *)":", 1);
@@ -200,32 +206,31 @@ gethash(int new, char *digest,
 	MD5Final(ha, &ctx);
 
 	/* Convert to hex format. */
+
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++) 
 		snprintf(&digest[i * 2], 3, "%02x", ha[i]);
 
 	/* Zero the password buffer. */
-	explicit_bzero(pbuf, strlen(pbuf));
-	return(1);
+
+	explicit_bzero(pbuf, sizeof(pbuf));
+	return 1;
 }
 
 int
 main(int argc, char *argv[])
 {
-	int	 	 c, create, rc, passwd;
+	int	 	 c, create = 0, rc = 0, passwd = 1;
 	char	 	 dnew[MD5_DIGEST_LENGTH * 2 + 1],
 			 drep[MD5_DIGEST_LENGTH * 2 + 1],
 			 dold[MD5_DIGEST_LENGTH * 2 + 1];
-	const char	*pname, *realm, *altuser, *dir, 
-	      		*email, *coln, *uid;
+	const char	*realm = KREALM, *altuser = NULL, 
+	      		*dir = CALPREFIX, *email = NULL, *coln, *uid;
 	size_t		 i, sz;
-	uid_t		 euid;
-	gid_t		 egid;
-	struct prncpl	*p;
-	struct coln	*col;
-	char		*user, *emailp, *res;
-
-	euid = geteuid();
-	egid = getegid();
+	uid_t		 euid = geteuid();
+	gid_t		 egid = getegid();
+	struct prncpl	*p = NULL;
+	struct coln	*col = NULL;
+	char		*user = NULL, *emailp = NULL, *res;
 
 #if !HAVE_ARC4RANDOM
 	srandom(time(NULL));
@@ -236,53 +241,35 @@ main(int argc, char *argv[])
 	 * We don't want to have them until we're opening the password
 	 * file itself.
 	 */
-	if (-1 == setegid(getgid())) {
-		kerr("setegid");
-		return(EXIT_FAILURE);
-	} else if (-1 == seteuid(getuid())) {
-		kerr("seteuid");
-		return(EXIT_FAILURE);
-	}
 
-	if (NULL == (pname = strrchr(argv[0], '/')))
-		pname = argv[0];
-	else
-		++pname;
+	if (setegid(getgid()) == -1) 
+		err(1, "setegid");
+	else if (seteuid(getuid()) == -1)
+		err(1, "seteuid");
 
-	emailp = NULL;
-	p = NULL;
-	dir = CALDIR;
-	coln = NULL;
-	realm = KREALM;
-	create = 0;
-	passwd = 1;
-	email = NULL;
-	user = NULL;
-	rc = 0;
 	verbose = 0;
-	altuser = NULL;
 
-	while (-1 != (c = getopt(argc, argv, "Cd:e:f:nu:v"))) 
+	while ((c = getopt(argc, argv, "Cd:e:f:nu:v")) != -1) 
 		switch (c) {
-		case ('C'):
+		case 'C':
 			create = 1;
 			break;
-		case ('d'):
+		case 'd':
 			coln = optarg;
 			break;
-		case ('e'):
+		case 'e':
 			email = optarg;
 			break;
-		case ('f'):
+		case 'f':
 			dir = optarg;
 			break;
-		case ('n'):
+		case 'n':
 			passwd = 0;
 			break;
-		case ('u'):
+		case 'u':
 			altuser = optarg;
 			break;
-		case ('v'):
+		case 'v':
 			verbose = 1;
 			break;
 		default:
@@ -292,27 +279,33 @@ main(int argc, char *argv[])
 	argv += optind;
 	argc -= optind;
 
-	assert('\0' != realm[0]);
+	/* Override -n used with with -C. */
 
 	if (create)
-		password = 1;
+		passwd = 1;
 
-	if (NULL != coln && ! check_safe_string(coln)) {
-		kerrx("unsafe directory string");
-		goto out;
-	} 
+	if (coln != NULL && !check_safe_string(coln))
+		errx(1, "%s: unsafe collection name", coln);
 
 	/* 
-	 * Assign our user name.
+	 * Assign our principal name.
 	 * This is either going to be given with -u (which is a
 	 * privileged operation) or inherited from our login creds.
 	 */
-	user = strdup(NULL == altuser ? getlogin() : altuser);
-	if (NULL == user) {
-		kerr(NULL);
-		goto out;
-	} else if ( ! check_safe_string(user)) {
-		kerrx("unsafe username string");
+
+	if (altuser == NULL) {
+		if ((altuser = getlogin()) == NULL)
+			err(1, "getlogin");
+		user = strdup(altuser);
+		altuser = NULL;
+	} else
+		user = strdup(altuser);
+
+	if (user == NULL)
+		err(1, NULL);
+	
+	if (!check_safe_string(user)) {
+		warnx("%s: unsafe principal name", user);
 		goto out;
 	}
 
@@ -320,18 +313,19 @@ main(int argc, char *argv[])
 	 * If we're not creating a new entry and we're setting our own
 	 * password, get the existing password. 
 	 */
-	if ( ! create && NULL == altuser)
-		if ( ! gethash(0, dold, user, realm))
+
+	if (!create && altuser == NULL)
+		if (!gethash(0, dold, user, realm))
 			goto out;
 
 	/* If we're going to set our password, hash it now. */
 	if (passwd) {
-		if ( ! gethash(1, dnew, user, realm)) 
+		if (!gethash(1, dnew, user, realm)) 
 			goto out;
-		if ( ! gethash(2, drep, user, realm)) 
+		if (!gethash(2, drep, user, realm)) 
 			goto out;
 		if (memcmp(dnew, drep, sizeof(dnew))) {
-			fprintf(stderr, "passwords do not match\n");
+			warnx("passwords do not match");
 			goto out;
 		}
 	}
@@ -513,14 +507,14 @@ out:
 	prncpl_free(p);
 	free(user);
 	free(emailp);
-	return(rc ? EXIT_SUCCESS : EXIT_FAILURE);
+	return rc ? EXIT_SUCCESS : EXIT_FAILURE;
 usage:
 	fprintf(stderr, "usage: %s "
-		"[-Cn] "
-		"[-d directory] "
+		"[-Cnv] "
+		"[-d collection] "
 		"[-e email] "
 		"[-f caldir] "
-		"[-u user] [resource...]\n", 
-		pname);
+		"[-u principal] [resource...]\n", 
+		getprogname());
 	return(EXIT_FAILURE);
 }

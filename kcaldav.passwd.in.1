@@ -1,6 +1,6 @@
 .\"	$Id$
 .\"
-.\" Copyright (c) 2015 Kristaps Dzonsons <kristaps@bsd.lv>
+.\" Copyright (c) 2015, 2020 Kristaps Dzonsons <kristaps@bsd.lv>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -19,95 +19,68 @@
 .Os
 .Sh NAME
 .Nm kcaldav.passwd
-.Nd change kcaldav user information
+.Nd change kcaldav principal information
 .\" .Sh LIBRARY
 .\" For sections 2, 3, and 9 only.
 .\" Not used in OpenBSD.
 .Sh SYNOPSIS
 .Nm kcaldav.passwd
 .Op Fl Cn
-.Op Fl d Ar directory
+.Op Fl d Ar collection
 .Op Fl e Ar email
 .Op Fl f Ar caldir
-.Op Fl u Ar user
+.Op Fl u Ar principal
 .Op Ar resource...
 .Sh DESCRIPTION
-The
-.Nm
-program updates the database for an instance of
-.Xr kcaldav 8 .
-By default, it changes
-.Pa @CALDIR@/kcaldav.db
-for the user with the currently logged-in username, prompting for the
-existing passwords when it does so.
+Updates database entries for
+.Xr kcaldav 8
+principals.
 Its arguments are as follows:
 .Bl -tag -width Ds
 .It Fl C
-Create a new user with a default email (see
-.Fl e )
-and calendar (see
-.Fl d ) .
-The current real user (via
-.Xr getuid 2 )
-must match the password database owner to use this option, or the real
-user must be root.
-Does nothing if a user by that name already exists.
-If the database does not exist, creates it with the current real user
-set as the database owner.
+Create a new principal with an initial collection
+.Qq calendar .
+The e-mail address is the principal's name at the current host, or
+.Qq localhost
+if there's no system-wide hostname set.
 .It Fl n
-Do not change the user password, but only the user attributes (e.g.,
-.Fl e Ar email ) .
-.It Fl d Ar directory
-Add a calendar directory for the requested user, or set the default
-directory if specified with
+Do not change the principal's password: only change attributes (such as
+with
+.Fl e ) .
+Ignored if used with
 .Fl C .
-If not specified when
+.It Fl d Ar collection
+Add a collection for the principal, doing nothing if the collection
+already exists.
+If used with
 .Fl C ,
-is specified the directory
-.Dq calendar
-is used.
-If not using
-.Fl C
-and the collection already exists, it is a no-op.
+sets the initial collection.
 .It Fl e Ar email
-Change the e-mail address of the requested user.
-This can be any email address.
-If unspecified and the new user is created with
-.Fl C ,
-this defaults to
-.Ar <user>@<hostname> ,
-where the hostname is looked up with
-.Xr gethostname 3
-and defaults to localhost if there's no hostname set.
-.It Fl f Ar passdir
-Specify an alternative database directory.
-.It Fl u Ar user
-Use an alternative username.
-The current real user (via
-.Xr getuid 2 )
-must match the password file owner to use this option, or the real user
-must be root.
-.It Ar resource
-A list of iCalendar resources to add to the calendar collection
+Set the principal's e-mail address.
+.It Fl f Ar caldir
+The database directory.
+.It Fl u Ar principal
+The principal to look up in the database.
+.It Ar resource...
+A list of resources to add to the collection of
 .Fl d
 or
-.Dq calendar
-if none was specified.
-The name of the calendar is the filename component of
-.Ar resource .
+.Qq calendar
+by default.
+The name of each resource is set from its filename component.
 .El
 .Pp
-.Nm
-is designed for use by a single user or by a set of users on a UNIX server.
-To achieve the latter, one may use the set-user-ID or set-group-ID bits on the
-.Nm
-binary, disallowing users direct access to the file except by way of
-.Nm .
-See the
-.Sx EXAMPLES
-section for possibilities.
+By default, the password is changed for the principal matching the
+currently logged-in user from
+.Xr getlogin 2 .
+The database is looked for in
+.Pa @CALPREFIX@ .
+If the database exists, the current real user (via
+.Xr getuid 2 )
+must match the database owner or be root.
+If the database is created, its owner is set to the current real user.
 .Pp
-Always remember to set the database to be read-writable by the web server!
+The database must be read-writable by the web server.
 .\" .Sh IMPLEMENTATION NOTES
 .\" Not used in OpenBSD.
 .\" .Sh RETURN VALUES
@@ -118,28 +91,46 @@ Always remember to set the database to be read-writable by the web server!
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES
-To have a calendar database usable by system users, but restricted to the
-.Nm
-binary, use a dummy
-.Dq kcaldav
-user owning the file.
+In the simplest case, root creates and maintains the database.
+Assuming the database is configured in
+.Pa @CALPREFIX@ :
 .Bd -literal -offset indent
-# chown kcaldav @PREFIX@/bin/kcaldav.passwd
-# chmod u+s @PREFIX@/bin/kcaldav.passwd
-# sudo -u kcaldav kcaldav.passwd -C -u <user>
+# mkdir @CALPREFIX@
+# chown www @CALPREFIX@
+# kcaldav.passwd -C -u kristaps
+New password: *********
+Repeat new password: *********
 .Ed
 .Pp
-System users may then run
-.Nm
-as themselves.
+After this time, the user
+.Qq kristaps
+can access their default calendar
+.Qq calendar .
 .Pp
-To add calendars to a principal, try
+To have the database modifiable by local users, use a dummy
+.Qq kcaldav
+user owning the file and creating new users.
+.Bd -literal -offset indent
+# chown _kcaldav @PREFIX@/bin/kcaldav.passwd
+# chmod u+s @PREFIX@/bin/kcaldav.passwd
+# doas -u _kcaldav kcaldav.passwd -C -u kristaps
+New password: *********
+Repeat new password: *********
+.Ed
 .Pp
-.Dl % kcaldav.passwd -n -d newcalendar
+The user may then set their password:
 .Pp
-To add resources to a new calendar or existing, try
+.Dl % kcaldav.passwd -ne kristaps@bsd.lv
 .Pp
-.Dl % kcaldav.passwd -n -d newcalendar file1.ics file2.ics
+Or add calendars:
+.Bd -literal -offset indent
+% kcaldav.passwd -nd newcalendar
+% kcaldav.passwd -nd secondcalendar
+.Ed
+.Pp
+To add resources to a new or existing calendar:
+.Pp
+.Dl % kcaldav.passwd -nd newcalendar file1.ics file2.ics
 .\" .Sh DIAGNOSTICS
 .\" For sections 1, 4, 6, 7, 8, and 9 printf/stderr messages only.
 .\" .Sh ERRORS

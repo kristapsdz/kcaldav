@@ -162,14 +162,12 @@ ALLOBJS		 = $(TESTOBJS) \
 		   kcaldav.passwd.o
 VERSION		 = 0.1.13
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
+CFLAGS		+= -DCALPREFIX=\"$(CALPREFIX)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"
 CFLAGS		+= -DLOGFILE=\"$(LOGFILE)\"
 BHTMLS		 = collection.html \
 		   home.html
-DOTFLAGS	 = -h "BGCOLOR=\"red\"" \
-		   -t "CELLBORDER=\"0\"" \
-		   -t "CELLSPACING=\"0\""
 
 all: $(BINS) kcaldav.8 kcaldav.passwd.1 $(BHTMLS) $(JSMINS)
 
@@ -189,6 +187,18 @@ installcgi: all
 	mkdir -p $(DESTDIR)$(CALPREFIX)
 	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)
 	$(INSTALL_DATA) $(JSMINS) $(BHTMLS) style.css $(DESTDIR)$(HTDOCSPREFIX)
+	
+uninstallcgi:
+	rm -f $(DESTDIR)$(CGIPREFIX)/kcaldav
+	@for f in $(JSMINS) ; do \
+		echo rm -f $(DESTDIR)$(HTDOCSPREFIX)/$$f ; \
+		rm -f $(DESTDIR)$(HTDOCSPREFIX)/$$f ; \
+	done
+	@for f in $(BHTMLS) ; do \
+		echo rm -f $(DESTDIR)$(HTDOCSPREFIX)/$$f ; \
+		rm -f $(DESTDIR)$(HTDOCSPREFIX)/$$f ; \
+	done
+	rm -f $(DESTDIR)$(HTDOCSPREFIX)/style.css
 
 install: all
 	mkdir -p $(DESTDIR)$(BINDIR)
@@ -203,6 +213,14 @@ install: all
 	$(INSTALL_MAN) libkcaldav.3 $(DESTDIR)$(MANDIR)/man3
 	$(INSTALL_LIB) libkcaldav.a $(DESTDIR)$(LIBDIR)
 	$(INSTALL_DATA) libkcaldav.h $(DESTDIR)$(INCLUDEDIR)
+
+uninstall:
+	rm -f $(DESTDIR)$(BINDIR)/kcaldav.passwd
+	rm -f $(DESTDIR)$(MANDIR)/man1/kcaldav.passwd.1
+	rm -f $(DESTDIR)$(MANDIR)/man8/kcaldav.8
+	rm -f $(DESTDIR)$(MANDIR)/man3/libkcaldav.3
+	rm -f $(DESTDIR)$(LIBDIR)/libkcaldav.a
+	rm -f $(DESTDIR)$(INCLUDEDIR)/libkcaldav.h
 
 installwww: www
 	mkdir -p $(DESTDIR)$(WWWDIR)/snapshots
@@ -266,7 +284,7 @@ kcaldav.8: kcaldav.in.8
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.in.8 >$@
 
 kcaldav.passwd.1: kcaldav.passwd.in.1
-	sed -e "s!@CALDIR@!$(CALDIR)!g" \
+	sed -e "s!@CALPREFIX@!$(CALPREFIX)!g" \
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.passwd.in.1 >$@
 
 # We generate a database on-the-fly.
