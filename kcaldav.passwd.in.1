@@ -73,7 +73,9 @@ The name of each resource is set from its filename component.
 By default, the password is changed for the principal matching the
 currently logged-in user from
 .Xr getlogin 2 .
-The database is looked for in
+The database
+.Pa kcaldav.db
+is looked for in
 .Pa @CALPREFIX@ .
 If the database exists, the current real user (via
 .Xr getuid 2 )
@@ -92,12 +94,10 @@ The database must be read-writable by the web server.
 .Ex -std
 .Sh EXAMPLES
 In the simplest case, root creates and maintains the database.
-Assuming the database is configured in
+Assuming the database is in
 .Pa @CALPREFIX@ :
 .Bd -literal -offset indent
-# mkdir @CALPREFIX@
-# chown www @CALPREFIX@
-# kcaldav.passwd -C -u kristaps
+# kcaldav.passwd -Cu kristaps
 New password: *********
 Repeat new password: *********
 .Ed
@@ -113,7 +113,7 @@ user owning the file and creating new users.
 .Bd -literal -offset indent
 # chown _kcaldav @PREFIX@/bin/kcaldav.passwd
 # chmod u+s @PREFIX@/bin/kcaldav.passwd
-# doas -u _kcaldav kcaldav.passwd -C -u kristaps
+# doas -u _kcaldav kcaldav.passwd -Cu kristaps
 New password: *********
 Repeat new password: *********
 .Ed
