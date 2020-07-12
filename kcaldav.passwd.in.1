@@ -40,7 +40,9 @@ Its arguments are as follows:
 .It Fl C
 Create a new principal with an initial collection
 .Qq calendar .
-The e-mail address is the principal's name at the current host, or
+The e-mail address is the principal's name at the current host (see
+.Xr hostname 1 )
+or
 .Qq localhost
 if there's no system-wide hostname set.
 .It Fl n
@@ -71,8 +73,8 @@ The name of each resource is set from its filename component.
 .El
 .Pp
 By default, the password is changed for the principal matching the
-currently logged-in user from
-.Xr getlogin 2 .
+logged-in user (see
+.Xr logname 1 ) .
 The database
 .Pa kcaldav.db
 is looked for in
