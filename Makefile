@@ -293,6 +293,7 @@ kcaldav-sql.c: kcaldav.sql
 	( echo "#include <stdlib.h>"; \
 	  echo "#include <stdint.h>"; \
 	  echo "#include <time.h>"; \
+	  echo "#include \"libkcaldav.h\""; \
 	  echo "#include \"extern.h\""; \
 	  printf "const char *db_sql = \""; \
 	  grep -v '^[ 	]*--' kcaldav.sql | sed -e 's!$$!\\n\\!' ; \
