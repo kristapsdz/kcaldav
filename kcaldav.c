@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2015, 2016, 2018 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2015, 2016, 2018, 2020 Kristaps Dzonsons <kristaps@bsd.lv>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -45,10 +45,6 @@
 #include "libkcaldav.h"
 #include "extern.h"
 #include "kcaldav.h"
-
-#ifndef CALDIR
-#error "CALDIR token not defined!"
-#endif
 
 int verbose = 1;
 
@@ -98,12 +94,13 @@ nonce_validate(const struct khttpdigest *auth, char **np)
 	 * (or random nonce values) over and over again in the hopes of
 	 * filling up our nonce database.
 	 */
+
 	er = db_nonce_validate(auth->nonce, auth->count);
 
-	if (NONCE_ERR == er) {
+	if (er == NONCE_ERR) {
 		kerrx("%s: nonce database failure", auth->user);
-		return(-2);
-	} else if (NONCE_NOTFOUND == er) {
+		return (-2);
+	} else if (er == NONCE_NOTFOUND) {
 		/*
 		 * We don't have the nonce.
 		 * This means that the client has either used one of our
@@ -111,38 +108,40 @@ nonce_validate(const struct khttpdigest *auth, char **np)
 		 * earlier session.
 		 * Tell them to retry with a new nonce.
 		 */
-		if ( ! db_nonce_new(np)) {
+
+		if (!db_nonce_new(np)) {
 			kerrx("%s: nonce database failure", auth->user);
-			return(-2);
+			return (-2);
 		}
-		return(0);
-	} else if (NONCE_REPLAY == er) {
-		kerrx("%s: REPLAY ATTACK\n", auth->user);
-		return(-1);
+		return 0;
+	} else if (er == NONCE_REPLAY) {
+		kerrx("%s: REPLAY ATTACK", auth->user);
+		return (-1);
 	} 
 
 	/*
 	 * Now we actually update our nonce file.
 	 * We only get here if the nonce value exists and is fresh.
 	 */
+
 	er = db_nonce_update(auth->nonce, auth->count);
 
-	if (NONCE_ERR == er) {
+	if (er == NONCE_ERR) {
 		kerrx("%s: nonce database failure", auth->user);
-		return(-2);
-	} else if (NONCE_NOTFOUND == er) {
+		return (-2);
+	} else if (er == NONCE_NOTFOUND) {
 		kerrx("%s: nonce update not found?", auth->user);
-		if ( ! db_nonce_new(np)) {
+		if (!db_nonce_new(np)) {
 			kerrx("%s: nonce database failure", auth->user);
-			return(-2);
+			return (-2);
 		}
-		return(0);
-	} else if (NONCE_REPLAY == er) {
-		kerrx("%s: REPLAY ATTACK\n", auth->user);
-		return(-1);
+		return 0;
+	} else if (er == NONCE_REPLAY) {
+		kerrx("%s: REPLAY ATTACK", auth->user);
+		return (-1);
 	} 
 
-	return(1);
+	return 1;
 }
 
 /*
@@ -153,8 +152,8 @@ static int
 kvalid_name(struct kpair *kp)
 {
 
-	if ( ! kvalid_stringne(kp))
-		return(0);
+	if (!kvalid_stringne(kp))
+		return 0;
 	return (kp->valsz < 1024);
 }
 
@@ -166,8 +165,8 @@ static int
 kvalid_description(struct kpair *kp)
 {
 
-	if ( ! kvalid_stringne(kp))
-		return(0);
+	if (!kvalid_stringne(kp))
+		return 0;
 	return (kp->valsz < 4096);
 }
 
@@ -180,11 +179,12 @@ static int
 kvalid_path(struct kpair *kp)
 {
 
-	if ( ! kvalid_stringne(kp))
-		return(0);
+	if (!kvalid_stringne(kp))
+		return 0;
 	else if (kp->valsz > 256)
-		return(0);
-	return(http_safe_string(kp->val));
+		return 0;
+
+	return http_safe_string(kp->val);
 }
 
 /*
@@ -197,24 +197,24 @@ kvalid_colour(struct kpair *kp)
 {
 	size_t	 i;
 
-	if ( ! kvalid_stringne(kp))
-		return(0);
-	if (7 != kp->valsz && 9 != kp->valsz)
-		return(0);
-	if ('#' != kp->val[0])
-		return(0);
+	if (!kvalid_stringne(kp))
+		return 0;
+	if (kp->valsz != 7 && kp->valsz != 9)
+		return 0;
+	if (kp->val[0] != '#')
+		return 0;
+
 	for (i = 1; i < kp->valsz; i++) {
-		if (isdigit((int)kp->val[i]))
+		if (isdigit((unsigned char)kp->val[i]))
 			continue;
-		if (isalpha((int)kp->val[i]) && 
-			((kp->val[i] >= 'a' && 
-			  kp->val[i] <= 'f') ||
-			 (kp->val[i] >= 'A' &&
-			  kp->val[i] <= 'F')))
+		if (isalpha((unsigned char)kp->val[i]) && 
+		    ((kp->val[i] >= 'a' && kp->val[i] <= 'f') ||
+		     (kp->val[i] >= 'A' && kp->val[i] <= 'F')))
 			continue;
-		return(0);
+		return 0;
 	}
-	return(1);
+
+	return 1;
 }
 
 /*
@@ -226,21 +226,22 @@ kvalid_hash(struct kpair *kp)
 {
 	size_t	 i;
 
-	if ( ! kvalid_stringne(kp))
-		return(0);
-	if (32 != kp->valsz)
-		return(0);
+	if (!kvalid_stringne(kp))
+		return 0;
+	if (kp->valsz != 32)
+		return 0;
+
 	for (i = 0; i < kp->valsz; i++) {
-		if (isdigit((int)kp->val[i]))
+		if (isdigit((unsigned char)kp->val[i]))
 			continue;
-		if (isalpha((int)kp->val[i]) && 
-			 islower((int)kp->val[i]) &&
-			 kp->val[i] >= 'a' && 
-			 kp->val[i] <= 'f')
+		if (isalpha((unsigned char)kp->val[i]) && 
+		    islower((unsigned char)kp->val[i]) &&
+		    kp->val[i] >= 'a' && kp->val[i] <= 'f')
 			continue;
-		return(0);
+		return 0;
 	}
-	return(1);
+
+	return 1;
 }
 
 /* 
@@ -254,24 +255,24 @@ kvalid_body(struct kpair *kp)
 	struct ical	*ical;
 	struct caldav	*dav;
 
-	switch (kp->ctypepos) {
-	case (KMIME_TEXT_CALENDAR):
+	if (kp->ctypepos == KMIME_TEXT_CALENDAR) {
 		ical = ical_parse(NULL, kp->val, kp->valsz);
 		ical_free(ical);
-		return(NULL != ical);
-	default:
-		/* Try to parse an XML file. */
-		dav = caldav_parse(kp->val, kp->valsz);
-		caldav_free(dav);
-		return(NULL != dav);
+		return (ical != NULL);
 	}
+
+	/* Try to parse an XML file. */
+
+	dav = caldav_parse(kp->val, kp->valsz);
+	caldav_free(dav);
+	return (dav != NULL);
 }
 
 static void
 state_free(struct state *st)
 {
 
-	if (NULL == st)
+	if (st == NULL)
 		return;
 	if (st->prncpl != st->rprncpl)
 		prncpl_free(st->rprncpl);
@@ -286,15 +287,17 @@ state_free(struct state *st)
  * Load our principal account into the state object, priming the
  * database beforhand.
  * This will load all of our collections, too.
+ * Returns <0 on fatal error, 0 if the principal doesn't exist, >0 on
+ * success.
  */
 static int
 state_load(struct state *st, const char *nonce, const char *name)
 {
 
-	if ( ! db_init(st->caldir, 0))
+	if (!db_init(st->caldir, 0))
 		return(-1);
 	st->nonce = nonce;
-	return(db_prncpl_load(&st->prncpl, name));
+	return db_prncpl_load(&st->prncpl, name);
 }
 
 int
@@ -315,20 +318,14 @@ main(void)
 	int		 rc;
 	char		*np;
 	size_t		 i, sz;
+	enum kcgi_err	 er;
+	const char	*logfile = "";
 
-#if HAVE_PLEDGE
-	if (-1 == pledge("proc stdio rpath "
-	    "cpath wpath flock fattr", NULL)) {
-		kerr("pledge");
-		return(EXIT_FAILURE);
-	}
+#ifdef LOGFILE
+	logfile = LOGFILE;
 #endif
-
 #if !HAVE_ARC4RANDOM
 	srandom(time(NULL));
-#endif
-#if defined LOGFILE
-	kutil_openlog(LOGFILE);
 #endif
 #if defined DEBUG && DEBUG > 1
 	verbose = 3;
@@ -336,29 +333,47 @@ main(void)
 	verbose = 2;
 #endif
 
-	if (KCGI_OK != khttp_parsex
-	    (&r, ksuffixmap, kmimetypes, KMIME__MAX, 
-	     valid, VALID__MAX, pages, PAGE__MAX, 
-	     KMIME_TEXT_HTML, PAGE_INDEX,
-	     NULL, NULL, verbose > 2 ? 
-	     KREQ_DEBUG_WRITE | KREQ_DEBUG_READ_BODY : 0, 
-	     NULL))
+#if HAVE_PLEDGE
+	if (pledge("proc stdio rpath "
+	    "cpath wpath flock fattr", NULL) == -1) {
+		kerr("pledge");
 		return(EXIT_FAILURE);
+	}
+#endif
+
+	/* Only open the logfile if it's non-empty. */
+
+	if (logfile[0] != '\0')
+		kutil_openlog(LOGFILE);
+
+	/* Parse the main body. */
+
+	er = khttp_parsex
+		(&r, ksuffixmap, kmimetypes, KMIME__MAX, valid, 
+		 VALID__MAX, pages, PAGE__MAX, KMIME_TEXT_HTML,
+		 PAGE_INDEX, NULL, NULL, verbose > 2 ? 
+		 (KREQ_DEBUG_WRITE | KREQ_DEBUG_READ_BODY) : 0, 
+		 NULL);
+
+	if (er != KCGI_OK) {
+		kerrx("khttp_parse: %s", kcgi_strerror(er));
+		return EXIT_FAILURE;
+	}
 
 #if HAVE_SANDBOX_INIT
 	rc = sandbox_init
 		(kSBXProfileNoInternet, 
 		 SANDBOX_NAMED, &np);
-	if (-1 == rc) {
+	if (rc == -1) {
 		kerrx("sandbox_init: %s", np);
-		goto out;
+		return EXIT_FAILURE;
 	}
 #endif
 #if HAVE_PLEDGE
-	if (-1 == pledge("stdio rpath cpath "
-	    "wpath flock fattr", NULL)) {
+	if (pledge("stdio rpath cpath "
+	    "wpath flock fattr", NULL) == -1) {
 		kerr("pledge");
-		goto out;
+		return EXIT_FAILURE;
 	}
 #endif
 
@@ -369,10 +384,11 @@ main(void)
 	 * enough to resend an OPTIONS request with HTTP authorisation,
 	 * so let this happen now.
 	 */
-	if (KMETHOD__MAX == r.method) {
+
+	if (r.method == KMETHOD__MAX) {
 		http_error(&r, KHTTP_405);
 		goto out;
-	} else if (KMETHOD_OPTIONS == r.method) {
+	} else if (r.method == KMETHOD_OPTIONS) {
 		method_options(&r);
 		goto out;
 	}
@@ -383,10 +399,11 @@ main(void)
 	 * so that the client (whomever it is) sends us their login
 	 * credentials and we can do more high-level authentication.
 	 */
-	if (KAUTH_DIGEST != r.rawauth.type) {
+
+	if (r.rawauth.type != KAUTH_DIGEST) {
 		http_error(&r, KHTTP_401);
 		goto out;
-	} else if (0 == r.rawauth.authorised) {
+	} else if (r.rawauth.authorised == 0) {
 		kerrx("%s: bad HTTP authorisation tokens", r.fullpath);
 		http_error(&r, KHTTP_401);
 		goto out;
@@ -397,13 +414,14 @@ main(void)
 	 * this client request (i.e., we have some sort of username and
 	 * hashed password), so allocate our state.
 	 */
-	if (NULL == (r.arg = st = calloc(1, sizeof(struct state)))) {
+
+	if ((r.arg = st = calloc(1, sizeof(struct state))) == NULL) {
 		kerr(NULL);
 		http_error(&r, KHTTP_505);
 		goto out;
 	}
 
-	if ('\0' == r.fullpath[0]) {
+	if (r.fullpath[0] == '\0') {
 		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname);
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_307]);
@@ -421,8 +439,9 @@ main(void)
 	 * First, validate our request paths.
 	 * This is just a matter of copying them over.
 	 */
-	if ( ! http_paths(r.fullpath, &st->principal,
-		 &st->collection, &st->resource))
+
+	if (!http_paths(r.fullpath,
+	     &st->principal, &st->collection, &st->resource))
 		goto out;
 
 	kdbg("%s: %s: /<%s>/<%s>/<%s>", 
@@ -430,12 +449,13 @@ main(void)
 		st->principal, st->collection, st->resource);
 
 	/* Copy over the calendar directory as well. */
+
 	sz = strlcpy(st->caldir, CALDIR, sizeof(st->caldir));
 
 	if (sz >= sizeof(st->caldir)) {
 		kerrx("%s: caldir too long!", st->caldir);
 		goto out;
-	} else if ('/' == st->caldir[sz - 1])
+	} else if (st->caldir[sz - 1] == '/')
 		st->caldir[sz - 1] = '\0';
 
 	/*
@@ -443,6 +463,7 @@ main(void)
 	 * and other stuff.
 	 * We'll do all the authentication afterward: this just loads.
 	 */
+
 	rc = state_load(st, 
 		r.rawauth.d.digest.nonce, 
 		r.rawauth.d.digest.user);
@@ -450,7 +471,7 @@ main(void)
 	if (rc < 0) {
 		http_error(&r, KHTTP_505);
 		goto out;
-	} else if (0 == rc) {
+	} else if (rc == 0) {
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 
@@ -460,7 +481,7 @@ main(void)
 		kerrx("%s: bad authorisation sequence", st->prncpl->email);
 		http_error(&r, KHTTP_401);
 		goto out;
-	} else if (0 == rc) {
+	} else if (rc == 0) {
 		kerrx("%s: failed authorisation sequence", st->prncpl->email);
 		http_error(&r, KHTTP_401);
 		goto out;
@@ -482,13 +503,14 @@ main(void)
 	 * If this clears, that means that the principal is real and not
 	 * replaying prior HTTP authentications.
 	 */
+
 	if ((rc = nonce_validate(&r.rawauth.d.digest, &np)) < -1) {
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (rc < 0) {
 		http_error(&r, KHTTP_403);
 		goto out;
-	} else if (0 == rc) {
+	} else if (rc == 0) {
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_401]);
 		khttp_head(&r, kresps[KRESP_WWW_AUTHENTICATE],
@@ -508,9 +530,9 @@ main(void)
 	 * file exists for the requested URI.
 	 * For HTML access (the browser), we don't care.
 	 */
-	if (KMIME_APP_JSON == r.mime &&
-	    (KMETHOD_GET == r.method ||
-	     KMETHOD_POST == r.method)) {
+
+	if (r.mime == KMIME_APP_JSON &&
+	    (r.method == KMETHOD_GET || r.method == KMETHOD_POST)) {
 		method_json(&r);
 		goto out;
 	} 
@@ -519,9 +541,11 @@ main(void)
 	 * The client is probing.
 	 * Send them to the server root.
 	 */
-	if ('\0' == st->principal[0]) {
+
+	if (st->principal[0] == '\0') {
 		kdbg("%s: redirecting probe from client", 
 			st->prncpl->email);
+
 		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname);
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_307]);
@@ -538,20 +562,23 @@ main(void)
 	if (strcmp(st->principal, st->prncpl->name)) {
 		kdbg("%s: requesting other principal "
 			"collection", st->prncpl->name);
+
 		rc = db_prncpl_load
 			(&st->rprncpl, st->principal);
 		if (rc < 0) {
 			http_error(&r, KHTTP_505);
 			goto out;
-		} else if (0 == rc) {
+		} else if (rc == 0) {
 			http_error(&r, KHTTP_401);
 			goto out;
 		}
+
 		/* 
 		 * Look us up in the requested principal's proxies,
 		 * i.e., those who are allowed to proxy as the given
 		 * principal.
 		 */
+
 		for (i = 0; i < st->rprncpl->proxiesz; i++)
 			if (st->prncpl->id ==
 			    st->rprncpl->proxies[i].proxy)
@@ -565,12 +592,13 @@ main(void)
 			goto out;
 		}
 		st->proxy = st->rprncpl->proxies[i].bits;
+
 		switch (r.method) {
-		case (KMETHOD_PUT):
-		case (KMETHOD_PROPPATCH):
-		case (KMETHOD_DELETE):
+		case KMETHOD_PUT:
+		case KMETHOD_PROPPATCH:
+		case KMETHOD_DELETE:
 			/* Implies read. */
-			if (PROXY_WRITE == st->proxy)
+			if (st->proxy == PROXY_WRITE)
 				break;
 			kerrx("%s: disallowed reverse proxy "
 				"write on principal: %s",
@@ -579,8 +607,8 @@ main(void)
 			http_error(&r, KHTTP_403);
 			goto out;
 		default:
-			if (PROXY_READ == st->proxy || 
-			    PROXY_WRITE == st->proxy)
+			if (st->proxy == PROXY_READ || 
+			    st->proxy == PROXY_WRITE)
 				break;
 			kerrx("%s: disallowed reverse proxy "
 				"read on principal: %s",
@@ -596,14 +624,15 @@ main(void)
 	 * If we're going to look for a calendar collection, try to do
 	 * so now by querying the collections for our principal.
 	 */
-	if ('\0' != st->collection[0]) {
+
+	if (st->collection[0] != '\0') {
 		for (i = 0; i < st->rprncpl->colsz; i++) {
 			if (strcmp(st->rprncpl->cols[i].url, st->collection))
 				continue;
 			st->cfg = &st->rprncpl->cols[i];
 			break;
 		}
-		if (NULL == st->cfg &&
+		if (st->cfg == NULL &&
 		    strcmp(st->collection, "calendar-proxy-read") &&
   		    strcmp(st->collection, "calendar-proxy-write")) {
 			kerrx("%s: requesting unknown "
@@ -614,23 +643,24 @@ main(void)
 	}
 
 	switch (r.method) {
-	case (KMETHOD_PUT):
+	case KMETHOD_PUT:
 		method_put(&r);
 		break;
-	case (KMETHOD_PROPFIND):
+	case KMETHOD_PROPFIND:
 		method_propfind(&r);
 		break;
-	case (KMETHOD_PROPPATCH):
+	case KMETHOD_PROPPATCH:
 		method_proppatch(&r);
 		break;
-	case (KMETHOD_POST):
+	case KMETHOD_POST:
 		/*
 		 * According to RFC 4918 section 9.5, we can implement
 		 * POST on a collection any way, so ship it to the
 		 * dynamic site for dynamic updates.
 		 * POST to a resource, however, gets 405'd.
 		 */
-		if ('\0' == st->resource[0]) {
+
+		if (st->resource[0] == '\0') {
 			kerrx("%s: ignoring post to collection",
 				st->prncpl->name);
 			http_error(&r, KHTTP_404);
@@ -640,24 +670,25 @@ main(void)
 			http_error(&r, KHTTP_405);
 		}
 		break;
-	case (KMETHOD_GET):
+	case KMETHOD_GET:
 		/*
 		 * According to RFC 4918 section 9.4, GET for
 		 * collections is undefined and we can do what we want.
 		 * Thus, return an HTML page describing the collection.
 		 * Otherwise, use the regular WebDAV handler.
 		 */
-		if ('\0' == st->resource[0]) {
+
+		if (st->resource[0] == '\0') {
 			kerrx("%s: ignoring get of collection",
 				st->prncpl->name);
 			http_error(&r, KHTTP_404);
 		} else
 			method_get(&r);
 		break;
-	case (KMETHOD_REPORT):
+	case KMETHOD_REPORT:
 		method_report(&r);
 		break;
-	case (KMETHOD_DELETE):
+	case KMETHOD_DELETE:
 		method_delete(&r);
 		break;
 	default:
@@ -670,5 +701,5 @@ main(void)
 out:
 	khttp_free(&r);
 	state_free(st);
-	return(EXIT_SUCCESS);
+	return EXIT_SUCCESS;
 }
