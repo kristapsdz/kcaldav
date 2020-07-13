@@ -219,6 +219,11 @@ main(int argc, char *argv[])
 	struct coln	*col;
 	char		*user = NULL, *emailp = NULL, *res;
 
+#if HAVE_PLEDGE
+	if (pledge("stdio rpath cpath wpath flock fattr tty id", NULL) == -1)
+		err(1, "pledge");
+#endif
+
 #if !HAVE_ARC4RANDOM
 	srandom(time(NULL));
 #endif
@@ -326,6 +331,13 @@ main(int argc, char *argv[])
 			errx(1, "passwords do not match");
 	}
 
+	/* Drop TTY pledge. */
+
+#if HAVE_PLEDGE
+	if (pledge("stdio rpath cpath wpath flock fattr id", NULL) == -1)
+		err(1, "pledge");
+#endif
+
 	/* Regain privileges. */
 
 	if (setgid(egid) == -1)
@@ -349,6 +361,16 @@ main(int argc, char *argv[])
 		err(1, "setgid");
 	if (setuid(getuid()) == -1)
 		err(1, "setuid");
+
+	/* 
+	 * Drop id-setting pledge.
+	 * The rest of this is for database management and errors.
+	 */
+
+#if HAVE_PLEDGE
+	if (pledge("stdio rpath cpath wpath flock fattr", NULL) == -1)
+		err(1, "pledge");
+#endif
 
 	/* 
 	 * Check security of privileged operations.
