@@ -79,10 +79,17 @@ The database
 .Pa kcaldav.db
 is looked for in
 .Pa @CALPREFIX@ .
-If the database exists, the current real user (via
+.Pp
+If the database is created with
+.Fl C ,
+its owner is set to the current real user.
+If the database exists and
+.Fl C
+or
+.Fl u
+is used, the current real user (via
 .Xr getuid 2 )
 must match the database owner or be root.
-If the database is created, its owner is set to the current real user.
 .Pp
 The database must be read-writable by the web server.
 .\" .Sh IMPLEMENTATION NOTES
@@ -112,6 +119,7 @@ can access their default calendar
 To have the database modifiable by local users, use a dummy
 .Qq kcaldav
 user owning the file and creating new users.
+Thi assumes that the database doesn't already exist.
 .Bd -literal -offset indent
 # chown _kcaldav @PREFIX@/bin/kcaldav.passwd
 # chmod u+s @PREFIX@/bin/kcaldav.passwd
