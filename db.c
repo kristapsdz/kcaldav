@@ -586,16 +586,16 @@ db_collection_new_byid(const char *url, int64_t id)
 	rc = db_step_constrained(stmt);
 	db_finalise(&stmt);
 	if (SQLITE_CONSTRAINT == rc) {
-		kerrx("%s: directory exists", url);
+		kerrx("%s: collection exists", url);
 		return(0);
 	} else if (SQLITE_DONE == rc) {
-		kerrx("%s: directory created", url);
+		kerrx("%s: collection created", url);
 		return(1);
 	}
 err:
 	db_finalise(&stmt);
 	kerrx("%s: database failure", dbname);
-	kerrx("%s: failed directory create", url);
+	kerrx("%s: failed collection create", url);
 	return(-1);
 
 }
@@ -663,12 +663,12 @@ db_prncpl_new(const char *name, const char *hash,
 	lastid = sqlite3_last_insert_rowid(db);
 	if (db_collection_new_byid(directory, lastid) > 0) {
 		db_trans_commit();
-		kinfo("%s: principal directory "
+		kinfo("%s: principal collection "
 			"created: %s", email, directory);
 		return(1);
 	}
 	kinfo("%s: principal fail create "
-		"directory: %s", email, directory);
+		"collection: %s", email, directory);
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
