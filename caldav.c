@@ -217,14 +217,19 @@ static void
 caldav_err(struct parse *p, const char *fmt, ...)
 {
 	va_list	 ap;
+	char	 buf[1024];
 
-	fprintf(stderr, "%zu:%zu: ", 
-		XML_GetCurrentLineNumber(p->xp),
-		XML_GetCurrentColumnNumber(p->xp));
+	if (fmt == NULL)
+		return;
+
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
-	fprintf(stderr, "\n");
+
+	kerrx("%zu:%zu: %s", 
+		XML_GetCurrentLineNumber(p->xp),
+		XML_GetCurrentColumnNumber(p->xp), buf);
+
 	XML_StopParser(p->xp, 0);
 }
 
@@ -556,7 +561,10 @@ caldav_parse(const char *buf, size_t sz)
 	XML_SetCdataSectionHandler(p.xp, cdata, cdata);
 	XML_SetUserData(p.xp, &p);
 
-	if (XML_STATUS_OK != XML_Parse(p.xp, buf, (int)sz, 1)) {
+	if (XML_Parse(p.xp, buf, (int)sz, 1) != XML_STATUS_OK) {
+		caldav_err(&p, "%s", 
+			XML_ErrorString
+			(XML_GetErrorCode(p.xp)));
 		caldav_free(p.p);
 		p.p = NULL;
 	}

@@ -411,6 +411,13 @@ extern const char *const icaltypes[ICALTYPE__MAX];
 extern const char *const icaltztypes[ICALTZ__MAX];
 extern const char *const icalfreqs[ICALFREQ__MAX];
 extern const char *const icalwkdays[ICALWKDAY__MAX];
+
+/*
+ * This pertains to back-end logging.
+ * 0: be totally silent.
+ * 1: print errors and warnings only.
+ * >1: print informational messages.
+ */
 extern int verbose;
 
 __END_DECLS

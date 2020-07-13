@@ -434,4 +434,28 @@
 			</div>
 		</aside>
 	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.14</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-05-28">2020-05-28</time>
+		</header>
+		<aside>
+			<div>
+				Essentially re-write the
+				<a href="kcaldav.passwd.1">kcaldav.passwd(1)</a> manpage for
+				clarity.
+				Significantly improve its code-base as well, most notably using
+				<a href="https://man.openbsd.org/pledge">pledge(2)</a>.
+				Make <b>-C</b> always unset <b>-n</b>.
+			</div>
+			<div>
+				Be much clearer about verbosity.
+				This now allows
+				<a href="kcaldav.passwd.1">kcaldav.passwd(1)</a> to not spam the
+				operator with underlying errors, warnings, and information.
+				Document the <b>-b</b> flag.
+			</div>
+		</aside>
+	</article>
 </articles>

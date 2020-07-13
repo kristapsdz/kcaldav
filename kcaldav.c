@@ -50,7 +50,7 @@
 #error "CALDIR token not defined!"
 #endif
 
-int verbose = 0;
+int verbose = 1;
 
 const char *const pages[PAGE__MAX] = {
 	"delcoln", /* PAGE_DELCOLN */
@@ -331,16 +331,16 @@ main(void)
 	kutil_openlog(LOGFILE);
 #endif
 #if defined DEBUG && DEBUG > 1
-	verbose = 2;
+	verbose = 3;
 #elif defined DEBUG && DEBUG > 0
-	verbose = 1;
+	verbose = 2;
 #endif
 
 	if (KCGI_OK != khttp_parsex
 	    (&r, ksuffixmap, kmimetypes, KMIME__MAX, 
 	     valid, VALID__MAX, pages, PAGE__MAX, 
 	     KMIME_TEXT_HTML, PAGE_INDEX,
-	     NULL, NULL, verbose > 1 ? 
+	     NULL, NULL, verbose > 2 ? 
 	     KREQ_DEBUG_WRITE | KREQ_DEBUG_READ_BODY : 0, 
 	     NULL))
 		return(EXIT_FAILURE);

@@ -20,12 +20,9 @@
 .Sh NAME
 .Nm kcaldav.passwd
 .Nd change kcaldav principal information
-.\" .Sh LIBRARY
-.\" For sections 2, 3, and 9 only.
-.\" Not used in OpenBSD.
 .Sh SYNOPSIS
 .Nm kcaldav.passwd
-.Op Fl Cn
+.Op Fl Cnv
 .Op Fl d Ar collection
 .Op Fl e Ar email
 .Op Fl f Ar caldir
@@ -63,6 +60,10 @@ Set the principal's e-mail address.
 The database directory.
 .It Fl u Ar principal
 The principal to look up in the database.
+.It Fl v
+Verbose.
+Use once for underlying errors and warnings and twice for debugging
+output.
 .It Ar resource...
 A list of resources to add to the collection of
 .Fl d

@@ -30,11 +30,14 @@ void
 kvdbg(const char *file, size_t line, const char *fmt, ...)
 {
 	va_list	 ap;
+	char	 buf[32];
+	time_t	 t = time(NULL);
 
-	if ( ! verbose)
+	if (verbose < 2 || fmt == NULL)
 		return;
 
-	fprintf(stderr, "%s:%zu: DEBUG: ", file, line);
+	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
+	fprintf(stderr, "%s%s:%zu: DEBUG: ", buf, file, line);
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
@@ -47,6 +50,9 @@ kverrx(const char *file, size_t line, const char *fmt, ...)
 	va_list	 ap;
 	char	 buf[32];
 	time_t	 t = time(NULL);
+	
+	if (verbose == 0 || fmt == NULL)
+		return;
 
 	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
 	fprintf(stderr, "%s%s:%zu: WARNING: ", buf, file, line);
@@ -64,6 +70,9 @@ kverr(const char *file, size_t line, const char *fmt, ...)
 	char	 buf[32];
 	time_t	 t = time(NULL);
 
+	if (verbose == 0)
+		return;
+
 	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
 	fprintf(stderr, "%s%s:%zu: ERROR: ", buf, file, line);
 	if (NULL != fmt) {
@@ -80,6 +89,9 @@ kvinfo(const char *file, size_t line, const char *fmt, ...)
 	va_list	 ap;
 	char	 buf[32];
 	time_t	 t = time(NULL);
+
+	if (verbose < 2 || fmt == NULL)
+		return;
 
 	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
 	fprintf(stderr, "%s%s:%zu: ", buf, file, line);

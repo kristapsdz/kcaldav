@@ -239,8 +239,6 @@ main(int argc, char *argv[])
 	else if (seteuid(getuid()) == -1)
 		err(1, "seteuid");
 
-	verbose = 0;
-
 	while ((c = getopt(argc, argv, "Cd:e:f:nu:v")) != -1) 
 		switch (c) {
 		case 'C':
@@ -262,7 +260,7 @@ main(int argc, char *argv[])
 			altuser = optarg;
 			break;
 		case 'v':
-			verbose = 1;
+			verbose++;
 			break;
 		default:
 			goto usage;

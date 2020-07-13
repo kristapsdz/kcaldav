@@ -31,7 +31,7 @@
 
 #include "libkcaldav.h"
 
-int verbose = 1;
+int verbose = 2;
 
 static void
 ical_printcomp(const struct icalcomp *c)

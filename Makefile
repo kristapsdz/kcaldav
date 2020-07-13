@@ -160,7 +160,7 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(BINOBJS) \
 		   $(OBJS) \
 		   kcaldav.passwd.o
-VERSION		 = 0.1.13
+VERSION		 = 0.1.14
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DCALPREFIX=\"$(CALPREFIX)\"
 CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
