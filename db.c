@@ -1002,6 +1002,11 @@ err:
 	return(id);
 }
 
+/*
+ * Load the principal "name" into "pp", allocating it.
+ * Returns 0 if the principal isn't found <0 on error, >0 on success.
+ * Principal is only set if >0 return value.
+ */
 int
 db_prncpl_load(struct prncpl **pp, const char *name)
 {
