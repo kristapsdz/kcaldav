@@ -328,7 +328,7 @@ db_init(const char *dir, int create)
 	/* Format the name of the database. */
 	sz = strlcpy(dbname, dir, sizeof(dbname));
 	if (sz > sizeof(dbname)) {
-		printf("%s: too long", dir);
+		kerrx("%s: too long", dir);
 		return(0);
 	} else if ('/' == dbname[sz - 1])
 		dbname[sz - 1] = '\0';
