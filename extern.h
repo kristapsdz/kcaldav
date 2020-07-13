@@ -17,8 +17,6 @@
 #ifndef EXTERN_H
 #define EXTERN_H
 
-#include "libkcaldav.h"
-
 #define	KREALM		"kcaldav"
 
 /*

@@ -41,6 +41,7 @@
 #endif
 #include <unistd.h>
 
+#include "libkcaldav.h"
 #include "extern.h"
 
 int verbose = 0;

@@ -42,6 +42,7 @@
 #include <kcgixml.h>
 #include <sqlite3.h>
 
+#include "libkcaldav.h"
 #include "extern.h"
 #include "kcaldav.h"
 

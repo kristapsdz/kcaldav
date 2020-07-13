@@ -23,6 +23,7 @@
 
 #include <kcgi.h>
 
+#include "libkcaldav.h"
 #include "extern.h"
 
 void

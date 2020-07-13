@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "libkcaldav.h"
 #include "extern.h"
 
 int verbose = 1;
