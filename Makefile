@@ -163,7 +163,6 @@ ALLOBJS		 = $(TESTOBJS) \
 VERSION		 = 0.1.14
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DCALPREFIX=\"$(CALPREFIX)\"
-CFLAGS		+= -DHTDOCS=\"$(HTDOCS)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"
 CFLAGS		+= -DLOGFILE=\"$(LOGFILE)\"
 BHTMLS		 = collection.html \
@@ -281,6 +280,7 @@ atom.xml: versions.xml atom-template.xml
 kcaldav.8: kcaldav.in.8
 	sed -e "s!@CALDIR@!$(CALDIR)!g" \
 	    -e "s!@CGIURI@!$(CGIURI)!g" \
+	    -e "s!@CALPREFIX@!$(CALPREFIX)!g" \
 	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.in.8 >$@
 
 kcaldav.passwd.1: kcaldav.passwd.in.1
