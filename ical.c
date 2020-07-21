@@ -568,6 +568,8 @@ ical_lulong(const struct icalparse *p, unsigned long **v,
 
 /*
  * Parse a single parameter of an RRULE, RFC 2445, 4.3.10.
+ * If "in_tz" is set, this is being called within a DAYLIGHT or STANDARD
+ * time-zone specification, which has slightly different syntax.
  * Returns zero on failure, non-zero on success.
  */
 static int
@@ -646,7 +648,8 @@ ical_rrule_param(const struct icalparse *p,
 
 /*
  * Parse a full repeat-rule.
- * Note that this re-allocates the "cp" string for internal usage.
+ * If "in_tz" is set, this is being called within a DAYLIGHT or STANDARD
+ * time-zone specification, which has slightly different syntax.
  * This returns zero on failure and non-zero on success.
  */
 static int
@@ -677,13 +680,10 @@ ical_rrule(const struct icalparse *p,
 
 	/* We need only a frequency. */
 
-	if (key == NULL) {
-		if (vp->freq == ICALFREQ_NONE ||
-		    vp->freq == ICALFREQ__MAX) {
-			kerrx("%s:%zu: missing RRULE "
-				"FREQ", p->file, p->line);
-			return 0;
-		}
+	if (key == NULL &&
+	    (vp->freq == ICALFREQ_NONE || vp->freq == ICALFREQ__MAX)) {
+		kerrx("%s:%zu: missing RRULE FREQ", p->file, p->line);
+		return 0;
 	}
 
 	return key == NULL;
