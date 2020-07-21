@@ -29,6 +29,23 @@
 
 #include "libkcaldav.h"
 
+#define ICAL_DT_DATETIMEUTC 1
+#define ICAL_DT_DATETIME 2
+#define ICAL_DT_DATE 3
+#define ICAL_DT__MAX 3
+
+struct dtparse {
+	const char *fmt;
+	const size_t fmtlen;
+	const int retval;
+};
+
+const struct dtparse dtplist[ICAL_DT__MAX] = {
+	{ "%Y%m%dT%H%M%SZ", 16, ICAL_DT_DATETIMEUTC },
+	{ "%Y%m%dT%H%M%S",  15, ICAL_DT_DATETIME },
+	{ "%Y%m%d",          8, ICAL_DT_DATE }
+};
+
 /*
  * This is a misnomer: it should be "icalcomponents".
  * These are all possible iCalendar components (see RFC 2445, 4.6).
@@ -165,22 +182,36 @@ ical_free(struct ical *p)
 /*
  * Try to parse the numeric date and time (assumed UTC) into the "tm"
  * value, seconds since epoch.
- * The date and time must be in the format:
- *  YYYYMMDD ['T' HHMMSS]
- * Return zero on failure, non-zero on success.
+ * The date and time must be in one of the following formats:
+ *  YYYYMMDD
+ *  YYYYMMDD 'T' HHMMSS
+ *  YYYYMMDD 'T' HHMMSS 'Z'
+ * Return zero on failure, ICAL_DT_DATE, ICAL_DT_DATETIME, ICAL_DT_DATETIMEUTC
+ * respectively on success.
  */
 static int
 ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 {
 	struct tm	 tmm;
+	size_t cplen = strlen(cp);
+	int ret = 0, i;
 
-	memset(&tmm, 0, sizeof(struct tm));
-	if (strptime(cp, "%Y%m%dT%H%M%S", &tmm) == NULL) {
+	for (i=0; i < ICAL_DT__MAX; i++) {
+		/* 
+		 * check length first because strptime is not very strict
+		 * ("leading zeros not required")
+		 */
+		if (cplen != dtplist[i].fmtlen)
+			continue;
 		memset(&tmm, 0, sizeof(struct tm));
-		if (strptime(cp, "%Y%m%d", &tmm) == NULL) {
-			kerrx("%s:%zu: bad UTC time", p->file, p->line);
-			return 0;
+		if (strptime(cp, dtplist[i].fmt, &tmm) != NULL) {
+			ret = dtplist[i].retval;
+			break;
 		}
+	}
+	if (ret == 0) {
+		kerrx("%s:%zu: bad date/date-time", p->file, p->line);
+		return 0;
 	}
 
 	tm->year = tmm.tm_year;
@@ -194,7 +225,7 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 	tm->ly = ((tm->year & 3) == 0 && 
 		((tm->year % 25) != 0 || (tm->year & 15) == 0));
 	tm->tm = mktime(&tmm);
-	return 1;
+	return ret;
 }
 
 /*
@@ -211,12 +242,13 @@ ical_tzdatetime(struct icalparse *p,
 {
 	const char	*start, *end, *nstart;
 	size_t		 len;
+	int dtret;
 
 	memset(tm, 0, sizeof(struct icaltime));
 
 	/* First, let's parse the raw date and time. */
 
-	if (!ical_datetime(p, &tm->time, np->val))
+	if (!(dtret = ical_datetime(p, &tm->time, np->val)))
 		return 0;
 
 	/* No timezone. */
@@ -226,6 +258,7 @@ ical_tzdatetime(struct icalparse *p,
 
 	/* 
 	 * Scan through the parameters looking for a timezone.
+	 * Make sure that the value matches the value type.
 	 * Ignore other parameters, which are technically allowed by the
 	 * RFC but we don't recognise.
 	 */
@@ -252,11 +285,19 @@ ical_tzdatetime(struct icalparse *p,
 
 		if (len == 15 &&
 		    strncasecmp(start, "VALUE=DATE-TIME", 15) == 0) {
+			if (dtret == ICAL_DT_DATE) {
+				kerrx("%s:%zu: expected a date-time but found a date", p->file, p->line);
+				return 0;
+			}
 			start = nstart;
 			continue;
 		}
 		if (len == 10 &&
 		    strncasecmp(start, "VALUE=DATE", 10) == 0) {
+			if (dtret != ICAL_DT_DATE) {
+				kerrx("%s:%zu: expected a date but found a date-time", p->file, p->line);
+				return 0;
+			}
 			start = nstart;
 			continue;
 		}
@@ -268,6 +309,10 @@ ical_tzdatetime(struct icalparse *p,
 			kinfo("%s:%zu: unrecognised param", p->file, p->line);
 			start = nstart;
 			continue;
+		}
+		if (dtret == ICAL_DT_DATETIMEUTC) {
+			kerrx("%s:%zu: TZID is incompatible with the UTC designator in date-time", p->file, p->line);
+			return 0;
 		}
 		if (tm->tzstr != NULL) {
 			kerrx("%s:%zu: duplicate TZID", p->file, p->line);
@@ -512,8 +557,9 @@ ical_lulong(const struct icalparse *p, unsigned long **v,
  */
 static int
 ical_rrule_param(const struct icalparse *p,
-	struct icalrrule *vp, const char *key, char *v)
+	struct icalrrule *vp, const char *key, char *v, int in_tz)
 {
+	int rv;
 
 	if (0 == strcmp(key, "FREQ")) {
 		vp->freq = ICALFREQ_NONE + 1; 
@@ -522,7 +568,9 @@ ical_rrule_param(const struct icalparse *p,
 				return(1);
 		kerrx("%s:%zu: bad \"FREQ\"", p->file, p->line);
 	} else if (0 == strcmp(key, "UNTIL")) {
-		if (ical_utcdatetime(p, &vp->until, v))
+		rv = ical_datetime(p, &vp->until, v);
+		/* see p.66 of the RFC */
+		if (rv && (!in_tz || rv == ICAL_DT_DATETIMEUTC))
 			return(1);
 		kerrx("%s:%zu: bad \"UNTIL\"", p->file, p->line);
 	} else if (0 == strcmp(key, "COUNT")) {
@@ -587,7 +635,7 @@ ical_rrule_param(const struct icalparse *p,
  */
 static int
 ical_rrule(const struct icalparse *p, 
-	struct icalrrule *vp, const char *cp)
+	struct icalrrule *vp, const char *cp, int in_tz)
 {
 	char	 *tofree, *string, *key, *v;
 
@@ -605,7 +653,7 @@ ical_rrule(const struct icalparse *p,
 			break;
 		}
 		*v++ = '\0';
-		if ( ! ical_rrule_param(p, vp, key, v))
+		if ( ! ical_rrule_param(p, vp, key, v, in_tz))
 			break;
 	}
 
@@ -940,14 +988,18 @@ ical_parsetz(struct icalparse *p, enum icaltztype type)
 			continue;
 		}
 
-		if (0 == strcasecmp(name, "dtstart"))
+		if (0 == strcasecmp(name, "dtstart")) {
 			rc = ical_datetime(p, &c->dtstart, np->val);
+			/* must be a local date-time, see p.65 of the RFC */
+			if (rc != ICAL_DT_DATETIME)
+				rc = 0;
+		}
 		else if (0 == strcasecmp(name, "tzoffsetfrom"))
 			rc = ical_utc_offs(p, &c->tzfrom, np->val);
 		else if (0 == strcasecmp(name, "tzoffsetto"))
 			rc = ical_utc_offs(p, &c->tzto, np->val);
 		else if (0 == strcasecmp(name, "rrule"))
-			rc = ical_rrule(p, &c->rrule, np->val);
+			rc = ical_rrule(p, &c->rrule, np->val, 1);
 		else
 			rc = 1;
 
@@ -1038,7 +1090,7 @@ ical_parsecomp(struct icalparse *p, enum icaltype type)
 		else if (0 == strcasecmp(name, "tzid"))
 			rc = ical_string(p, &c->tzid, np->val);
 		else if (0 == strcasecmp(name, "rrule"))
-			rc = ical_rrule(p, &c->rrule, np->val);
+			rc = ical_rrule(p, &c->rrule, np->val, 0);
 		else
 			rc = 1;
 
