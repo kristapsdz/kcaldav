@@ -36,11 +36,17 @@ enum	icaldatet {
 	ICAL_DT__MAX
 };
 
+/*
+ * The format and expected length of a date-time string.
+ */
 struct	dtparse {
-	const char	*fmt;
-	size_t	 	 fmtlen;
+	const char	*fmt; /* strptime(3) format */
+	size_t	 	 fmtlen; /* length of conforming strings */
 };
 
+/*
+ * Applicable formats for parsing dates and times.
+ */
 const struct dtparse dtparses[ICAL_DT__MAX] = {
 	{ "%Y%m%dT%H%M%SZ", 16 }, /* ICAL_DT_DATETIMEUTC */
 	{ "%Y%m%dT%H%M%S",  15 }, /* ICAL_DT_DATETIME */
@@ -123,7 +129,7 @@ icalnode_free(struct icalnode *p, int first)
 {
 	struct icalnode	*np;
 
-	if (NULL == p)
+	if (p == NULL)
 		return;
 
 	np = p->next;
@@ -132,7 +138,7 @@ icalnode_free(struct icalnode *p, int first)
 	free(p->val);
 	free(p);
 
-	if (0 == first)
+	if (first == 0)
 		icalnode_free(np, 0);
 }
 
@@ -160,11 +166,11 @@ ical_free(struct ical *p)
 	struct icalcomp	*c;
 	size_t		 i, j;
 
-	if (NULL == p)
+	if (p == NULL)
 		return;
 
 	for (i = 0; i < ICALTYPE__MAX; i++) {
-		while (NULL != (c = p->comps[i])) {
+		while ((c = p->comps[i]) != NULL) {
 			p->comps[i] = c->next;
 			icalrrule_free(&c->rrule);
 			for (j = 0; j < c->tzsz; j++)
@@ -282,7 +288,9 @@ ical_tzdatetime(struct icalparse *p,
 		if (len == 15 &&
 		    strncasecmp(start, "VALUE=DATE-TIME", 15) == 0) {
 			if (dtret == ICAL_DT_DATE) {
-				kerrx("%s:%zu: expected a date-time but found a date", p->file, p->line);
+				kerrx("%s:%zu: expected a "
+					"date-time but found a date", 
+					p->file, p->line);
 				return 0;
 			}
 			start = nstart;
@@ -291,7 +299,9 @@ ical_tzdatetime(struct icalparse *p,
 		if (len == 10 &&
 		    strncasecmp(start, "VALUE=DATE", 10) == 0) {
 			if (dtret != ICAL_DT_DATE) {
-				kerrx("%s:%zu: expected a date but found a date-time", p->file, p->line);
+				kerrx("%s:%zu: expected a date "
+					"but found a date-time", 
+					p->file, p->line);
 				return 0;
 			}
 			start = nstart;
@@ -302,12 +312,15 @@ ical_tzdatetime(struct icalparse *p,
 
 		if (len < 6 ||
 		    strncasecmp(start, "TZID=", 5)) {
-			kinfo("%s:%zu: unrecognised param", p->file, p->line);
+			kinfo("%s:%zu: unrecognised param", 
+				p->file, p->line);
 			start = nstart;
 			continue;
 		}
 		if (dtret == ICAL_DT_DATETIMEUTC) {
-			kerrx("%s:%zu: TZID is incompatible with the UTC designator in date-time", p->file, p->line);
+			kerrx("%s:%zu: TZID is incompatible with "
+				"UTC designator in date-time", 
+				p->file, p->line);
 			return 0;
 		}
 		if (tm->tzstr != NULL) {
@@ -385,10 +398,10 @@ ical_long(const struct icalparse *p, long *v,
 	else if (*v < min || *v > max) 
 		kerrx("%s:%zu: bad long", p->file, p->line);
 	else
-		return(1);
+		return 1;
 
 	*v = 0;
-	return(0);
+	return 0;
 }
 
 static int
@@ -397,13 +410,13 @@ ical_wkday(const struct icalparse *p,
 {
 
 	for (*v = 1; *v < ICALWKDAY__MAX; (*v)++) 
-		if (0 == strcmp(icalwkdays[*v], cp))
+		if (strcmp(icalwkdays[*v], cp) == 0)
 			break;
 
-	if (ICALWKDAY__MAX == *v) 
+	if (*v == ICALWKDAY__MAX)
 		kerrx("%s:%zu: unknown weekday", p->file, p->line);
 
-	return(ICALWKDAY__MAX != *v);
+	return *v != ICALWKDAY__MAX;
 }
 
 /*
@@ -420,24 +433,25 @@ ical_wk(const struct icalparse *p,
 	memset(v, 0, sizeof(struct icalwk));
 
 	sign = 0;
-	if ('-' == cp[0]) {
+	if (cp[0] == '-') {
 		sign = 1;
 		cp++;
-	} else if ('+' == cp[0])
+	} else if (cp[0] == '+')
 		cp++;
 
-	if (isdigit(cp[0]) && isdigit(cp[1])) {
+	if (isdigit((unsigned char)cp[0]) &&
+	    isdigit((unsigned char)cp[1])) {
 		v->wk += 10 * (cp[0] - 48);
 		v->wk += 1 * (cp[1] - 48);
 		v->wk *= sign ? -1 : 1;
 		cp += 2;
-	} else if (isdigit(cp[0])) {
+	} else if (isdigit((unsigned char)cp[0])) {
 		v->wk += 1 * (cp[0] - 48);
 		v->wk *= sign ? -1 : 1;
 		cp += 1;
 	} 
 
-	return(ical_wkday(p, &v->wkday, cp));
+	return ical_wkday(p, &v->wkday, cp);
 }
 
 /*
@@ -448,26 +462,25 @@ static int
 ical_wklist(const struct icalparse *p,
 	struct icalwk **v, size_t *vsz, char *cp)
 {
-	char		*string, *tok;
+	char		*string = cp, *tok;
 	struct icalwk	 wk;
 	void		*pp;
 
-	string = cp;
-	while (NULL != (tok = strsep(&string, ","))) {
-		if ( ! ical_wk(p, &wk, tok))
-			return(0);
-		pp = reallocarray
-			(*v, *vsz + 1, sizeof(struct icalwk));
-		if (NULL == pp) {
+	while ((tok = strsep(&string, ",")) != NULL) {
+		if (!ical_wk(p, &wk, tok))
+			return 0;
+		pp = reallocarray(*v, 
+			*vsz + 1, sizeof(struct icalwk));
+		if (pp == NULL) {
 			kerr(NULL);
-			return(0);
+			return 0;
 		}
 		*v = pp;
 		(*v)[*vsz] = wk;
 		(*vsz)++;
 	}
 	
-	return(1);
+	return 1;
 }
 
 /*
@@ -478,26 +491,25 @@ static int
 ical_llong(const struct icalparse *p, long **v, 
 	size_t *vsz, char *cp, long min, long max)
 {
-	char	*string, *tok;
+	char	*string = cp, *tok;
 	long	 lval;
 	void	*pp;
 
-	string = cp;
-	while (NULL != (tok = strsep(&string, ","))) {
-		if ( ! ical_long(p, &lval, tok, min, max))
-			return(0);
-		pp = reallocarray
-			(*v, *vsz + 1, sizeof(long));
-		if (NULL == pp) {
+	while ((tok = strsep(&string, ",")) != NULL) {
+		if (!ical_long(p, &lval, tok, min, max))
+			return 0;
+		pp = reallocarray(*v, 
+			*vsz + 1, sizeof(long));
+		if (pp == NULL) {
 			kerr(NULL);
-			return(0);
+			return 0;
 		}
 		*v = pp;
 		(*v)[*vsz] = lval;
 		(*vsz)++;
 	}
 	
-	return(1);
+	return 1;
 }
 
 /*
@@ -519,10 +531,10 @@ ical_ulong(const struct icalparse *p, unsigned long *v,
 	else if (*v < min || *v > max) 
 		kerrx("%s:%zu: bad ulong", p->file, p->line);
 	else
-		return(1);
+		return 1;
 
 	*v = 0;
-	return(0);
+	return 0;
 }
 
 /*
@@ -533,26 +545,25 @@ static int
 ical_lulong(const struct icalparse *p, unsigned long **v, 
 	size_t *vsz, char *cp, unsigned long min, unsigned long max)
 {
-	char		*string, *tok;
+	char		*string = cp, *tok;
 	unsigned long	 lval;
 	void		*pp;
 
-	string = cp;
-	while (NULL != (tok = strsep(&string, ","))) {
-		if ( ! ical_ulong(p, &lval, tok, min, max))
-			return(0);
-		pp = reallocarray
-			(*v, *vsz + 1, sizeof(unsigned long));
-		if (NULL == pp) {
+	while ((tok = strsep(&string, ",")) != NULL) {
+		if (!ical_ulong(p, &lval, tok, min, max))
+			return 0;
+		pp = reallocarray(*v, 
+			*vsz + 1, sizeof(unsigned long));
+		if (pp == NULL) {
 			kerr(NULL);
-			return(0);
+			return 0;
 		}
 		*v = pp;
 		(*v)[*vsz] = lval;
 		(*vsz)++;
 	}
 	
-	return(1);
+	return 1;
 }
 
 /*
@@ -565,72 +576,72 @@ ical_rrule_param(const struct icalparse *p,
 {
 	enum icaldatet	 rv;
 
-	if (0 == strcmp(key, "FREQ")) {
+	if (strcmp(key, "FREQ") == 0) {
 		vp->freq = ICALFREQ_NONE + 1; 
 		for ( ; vp->freq < ICALFREQ__MAX; vp->freq++)
-			if (0 == strcmp(icalfreqs[vp->freq], v))
-				return(1);
+			if (strcmp(icalfreqs[vp->freq], v) == 0)
+				return 1;
 		kerrx("%s:%zu: bad \"FREQ\"", p->file, p->line);
-	} else if (0 == strcmp(key, "UNTIL")) {
+	} else if (strcmp(key, "UNTIL") == 0) {
 		rv = ical_datetime(p, &vp->until, v);
 		/* See RFC 5545, p. 66. */
 		if (rv != ICAL_DT__MAX && 
 		    (!in_tz || rv == ICAL_DT_DATETIMEUTC))
 			return 1;
 		kerrx("%s:%zu: bad \"UNTIL\"", p->file, p->line);
-	} else if (0 == strcmp(key, "COUNT")) {
+	} else if (strcmp(key, "COUNT") == 0) {
 		if (ical_ulong(p, &vp->count, v, 0, ULONG_MAX))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"COUNT\"", p->file, p->line);
-	} else if (0 == strcmp(key, "INTERVAL")) {
+	} else if (strcmp(key, "INTERVAL") == 0) {
 		if (ical_ulong(p, &vp->interval, v, 0, ULONG_MAX))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"INTERVAL\"", p->file, p->line);
-	} else if (0 == strcmp(key, "BYDAY")) {
+	} else if (strcmp(key, "BYDAY") == 0) {
 		if (ical_wklist(p, &vp->bwkd, &vp->bwkdsz, v))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"BYDAY\"", p->file, p->line);
-	} else if (0 == strcmp(key, "BYHOUR")) {
+	} else if (strcmp(key, "BYHOUR") == 0) {
 		if (ical_lulong(p, &vp->bhr, &vp->bhrsz, v, 0, 23))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"BYHOUR\"", p->file, p->line);
-	} else if (0 == strcmp(key, "BYMINUTE")) {
+	} else if (strcmp(key, "BYMINUTE") == 0) {
 		if (ical_lulong(p, &vp->bmin, &vp->bminsz, v, 0, 59))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"BYMINUTE\"", p->file, p->line);
-	} else if (0 == strcmp(key, "BYMONTHDAY")) {
+	} else if (strcmp(key, "BYMONTHDAY") == 0) {
 		if (ical_llong(p, &vp->bmnd, &vp->bmndsz, v, 1, 31))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"BYMONTHDAY\"", p->file, p->line);
-	} else if (0 == strcmp(key, "BYMONTH")) {
+	} else if (strcmp(key, "BYMONTH") == 0) {
 		if (ical_lulong(p, &vp->bmon, &vp->bmonsz, v, 1, 12))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"BYMONTH\"", p->file, p->line);
-	} else if (0 == strcmp(key, "BYSECOND")) {
+	} else if (strcmp(key, "BYSECOND") == 0) {
 		if (ical_lulong(p, &vp->bsec, &vp->bsecsz, v, 1, 59))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"BYSECOND\"", p->file, p->line);
-	} else if (0 == strcmp(key, "BYSETPOS")) {
+	} else if (strcmp(key, "BYSETPOS") == 0) {
 		if (ical_llong(p, &vp->bsp, &vp->bspsz, v, -366, 366))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"BYSETPOS\"", p->file, p->line);
-	} else if (0 == strcmp(key, "BYWEEKNO")) {
+	} else if (strcmp(key, "BYWEEKNO") == 0) {
 		if (ical_llong(p, &vp->bwkn, &vp->bwknsz, v, 1, 53))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"BYWEEKNO\"", p->file, p->line);
-	} else if (0 == strcmp(key, "BYYEARDAY")) {
+	} else if (strcmp(key, "BYYEARDAY") == 0) {
 		if (ical_llong(p, &vp->byrd, &vp->byrdsz, v, 1, 366))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"BYYEARDAY\"", p->file, p->line);
-	} else if (0 == strcmp(key, "WKST")) {
+	} else if (strcmp(key, "WKST") == 0) {
 		if (ical_wkday(p, &vp->wkst, v))
-			return(1);
+			return 1;
 		kerrx("%s:%zu: bad \"WKST\"", p->file, p->line);
 	} else
 		kerrx("%s:%zu: unknown parameter", p->file, p->line);
 
 	kerrx("%s:%zu: bad RRULE configuration", p->file, p->line);
-	return(0);
+	return 0;
 }
 
 /*
@@ -644,37 +655,38 @@ ical_rrule(const struct icalparse *p,
 {
 	char	 *tofree, *string, *key, *v;
 
-	if (NULL == (tofree = strdup(cp))) {
+	if ((tofree = strdup(cp)) == NULL) {
 		kerr(NULL);
-		return(0);
+		return 0;
 	}
 
 	vp->set = 1;
 
 	string = tofree;
-	while (NULL != (key = strsep(&string, ";"))) {
-		if (NULL == (v = strchr(key, '='))) {
+	while ((key = strsep(&string, ";")) != NULL) {
+		if ((v = strchr(key, '=')) == NULL) {
 			kerrx("%s:%zu: bad RRULE", p->file, p->line);
 			break;
 		}
 		*v++ = '\0';
-		if ( ! ical_rrule_param(p, vp, key, v, in_tz))
+		if (!ical_rrule_param(p, vp, key, v, in_tz))
 			break;
 	}
 
 	free(tofree);
 
 	/* We need only a frequency. */
-	if (NULL == key) {
-		if (ICALFREQ_NONE == vp->freq ||
-			 ICALFREQ__MAX == vp->freq) {
+
+	if (key == NULL) {
+		if (vp->freq == ICALFREQ_NONE ||
+		    vp->freq == ICALFREQ__MAX) {
 			kerrx("%s:%zu: missing RRULE "
 				"FREQ", p->file, p->line);
-			return(0);
+			return 0;
 		}
 	}
 
-	return(NULL == key);
+	return key == NULL;
 }
 
 /*
