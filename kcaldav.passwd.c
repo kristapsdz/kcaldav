@@ -205,13 +205,13 @@ gethash(int new, char *digest,
 int
 main(int argc, char *argv[])
 {
-	int	 	 c, create = 0, rc = 0, passwd = 1;
+	int	 	 c, adduser = 0, rc = 0, passwd = 1;
 	char	 	 dnew[MD5_DIGEST_LENGTH * 2 + 1],
 			 drep[MD5_DIGEST_LENGTH * 2 + 1],
 			 dold[MD5_DIGEST_LENGTH * 2 + 1];
 	const char	*realm = KREALM, *altuser = NULL, 
 	      		*dir = CALPREFIX, *email = NULL, 
-			*coln = NULL, *uid;
+			*coln = NULL, *uid, *cp;
 	size_t		 i, sz;
 	uid_t		 euid = geteuid();
 	gid_t		 egid = getegid();
@@ -242,7 +242,7 @@ main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "Cd:e:f:nu:v")) != -1) 
 		switch (c) {
 		case 'C':
-			create = 1;
+			adduser = 1;
 			break;
 		case 'd':
 			coln = optarg;
@@ -271,7 +271,7 @@ main(int argc, char *argv[])
 
 	/* Override -n used with with -C. */
 
-	if (create)
+	if (adduser)
 		passwd = 1;
 
 	/* Safety: check collection name. */
@@ -297,10 +297,9 @@ main(int argc, char *argv[])
 	 */
 
 	if (altuser == NULL) {
-		if ((altuser = getlogin()) == NULL)
+		if ((cp = getlogin()) == NULL)
 			err(1, "getlogin");
-		user = strdup(altuser);
-		altuser = NULL;
+		user = strdup(cp);
 	} else
 		user = strdup(altuser);
 
@@ -317,7 +316,7 @@ main(int argc, char *argv[])
 	 * password, get the existing password. 
 	 */
 
-	if (!create && altuser == NULL)
+	if (!adduser && altuser == NULL)
 		gethash(0, dold, user, realm);
 
 	/* If we're going to set our password, hash it now. */
@@ -347,10 +346,10 @@ main(int argc, char *argv[])
 	 * Open the database file itself.
 	 * This is a privileged operation, hence occuring with our
 	 * regained effective credentials.
-	 * We only try to create the database if "create" is specified.
+	 * We only try to create the database if "adduser" is set.
 	 */
 
-	if (!db_init(dir, create))
+	if (!db_init(dir, adduser))
 		errx(1, "failed to open database");
 
 	/* Now drop privileges entirely! */
@@ -373,10 +372,10 @@ main(int argc, char *argv[])
 	/* 
 	 * Check security of privileged operations.
 	 * This will also create the database if the database has been
-	 * created with "create" but doesn't exist yet.
+	 * created with "adduser" but doesn't exist yet.
 	 */
 
-	if (create || altuser != NULL) {
+	if (adduser || altuser != NULL) {
 		if ((c = db_owner_check_or_set(getuid())) == 0)
 			errx(1, "db owner does not match real user");
 		else if (c < 0)
@@ -385,7 +384,7 @@ main(int argc, char *argv[])
 
 	/* Now either create or update the principal. */
 
-	if (create) {
+	if (adduser) {
 		/*
 		 * Create e-mail by having our user followed by @
 		 * followed by the system hostname.
