@@ -26,38 +26,24 @@
 .Sh SYNOPSIS
 .Nm kcaldav
 .Sh DESCRIPTION
-The
 .Nm
-CGI program minimally implements CalDAV, with an emphasis on security
-and simplicity.
-To use
-.Nm ,
-you'll need to first install a calendar database in the compile-time
-root directory
-.Pa @CALDIR@
-with
+is a CGI program that minimally implements CalDAV.
+It interfaces with a calendar database
+.Pa @CALDIR@/kcaldav.db
+.Pq in the web server's file-system root
+administered by
 .Xr kcaldav.passwd 1 .
-This root directory is relative to the CGI program's file-system root,
-which is often
-.Pa /var/www
-or similar.
 .Pp
-Once the database has been installed, clients may access individual
-calendars or the calendar root, depending on client functionality.
+For example, assume the CGI program available at:
 .Pp
-For example, consider the CGI program installed into
-.Pa /var/www/cgi-bin/kcaldav
-with the CGI's file-system root at
-.Pa /var/www ,
-reachable via the web server's configuration at
-.Pp
-.Dl https://localhost/cgi-bin/kcaldav
+.Dl https://localhost@CGIURI@
 .Pp
 The calendar root
-.Pa @CALDIR@ ,
-which thus resolves to
-.Pa /var/www@CALDIR@ ,
-contains
+.Pa @CALDIR@
+resolves to
+.Pa @CALPREFIX@
+on the host file-system.
+It contains
 .Pa kcaldav.db
 created by
 .Xr kcaldav.passwd 1
@@ -67,13 +53,13 @@ with a single calendar collection
 .Pa calendar
 as created with
 .Pp
-.Dl # kcaldav.passwd -C -u kristaps
+.Dl # kcaldav.passwd -Cu kristaps
 .Pp
 Most CalDAV clients will ask for the CGI program name, principal name,
 and password.
 The program name in this example is as follows:
 .Pp
-.Dl https://localhost/cgi-bin/kcaldav
+.Dl https://localhost@CGIURI@
 .Pp
 This is further simplified if the web server is configured to handle a
 .Qq well-known
@@ -85,12 +71,12 @@ configuration to be the web server root:
 For some older clients, the CGI program name will need to include the
 principal's name as well as the program name:
 .Pp
-.Dl https://localhost/cgi-bin/kcaldav/kristaps/
+.Dl https://localhost@CGIURI@/kristaps/
 .Pp
 Lastly, there are some clients (possibly only Mozilla Lightning) that
 must connect directly to an individual calendar, such as with:
 .Pp
-.Dl https://localhost/cgi-bin/kcaldav/kristaps/calendar/
+.Dl https://localhost@CGIURI@/kristaps/calendar/
 .Ss Well-Known Service
 Many modern calendar clients use
 .Qq well-known
@@ -100,23 +86,28 @@ To enable the
 service for
 .Nm ,
 the web server's absolute path
-.Pa /.well-known/caldav
+.Pp
+.Dl https://localhost/.well-known/caldav
+.Pp
 must return a 301 redirect to the absolute URL
-.Pa https://localhost@CGIURI@ ,
+.Pp
+.Dl https://localhost@CGIURI@
+.Pp
 assuming
-.Pa localhost
-as the CalDAV host such as in the example.
+the CalDAV host such as in the example.
 .Ss System-Wide Calendar Administration
-Let the root directory be
-.Pa /caldav ,
-a directory within the CGI script's
-.Xr chroot 2
-file-system,
-which is read-writable by the CGI script running as user www.
-Let the dummy user kcaldav be the owner of kcaldav files.
-First make
+Let the calendar directory be
+.Pa @CALDIR@ ,
+resolving to
+.Pa @CALPREFIX@
+in the host file-system, which is read-writable by the web server.
+Let the dummy user
+.Qq kcaldav
+be the owner of the database files.
+.Pp
+First,
 .Xr kcaldav.passwd 1
-set-user-ID for modifying the file.
+must be set-user-ID for modifying the file.
 .Bd -literal -offset indent
 # chown kcaldav @PREFIX@/bin/kcaldav.passwd
 # chmod u+s @PREFIX@/bin/kcaldav.passwd
@@ -124,24 +115,28 @@ set-user-ID for modifying the file.
 .Pp
 Create user principals as follows:
 .Bd -literal -offset indent
-# kcaldav.passwd -f /caldav -C -u user1
-# kcaldav.passwd -f /caldav -C -u user2
+# doas -u kcaldav kcaldav.passwd -Cu user1
+# kcaldav.passwd -Cu user2
 # ...
 .Ed
 .Pp
 Now any local user can modify her principal's password without
 administrator intervention.
 .Pp
-.Dl user1% kcaldav.passwd -f /caldav
+.Dl user1% kcaldav.passwd -f @CALPREFIX@
 .Ss Local Calendar Administration
-Let the root directory be
-.Pa /home/foo/caldav ,
-which is readable by the web server running as user www and
-read-writable by the logged-in user
-.Qq foo .
-First, create the database and add principals as necessary.
+Let the calendar directory be
+.Pa @CALDIR@ ,
+resolving to
+.Pa @CALPREFIX@
+in the host file-system, which is read-writable by the web server.
+The database may then be manipulated solely by root:
 .Pp
-.Dl % kcaldav.passwd -C -u foo -f /home/foo/caldav
+.Dl # kcaldav.passwd -f @CALPREFIX@ -Cu user1
+.Dl # kcaldav.passwd -f @CALPREFIX@ -Cu user2
+.Dl # ...
+.Pp
+Local users may not modify the database.
 .\" .Sh CONTEXT
 .\" For section 9 functions only.
 .Ss Web Calendar Administration
