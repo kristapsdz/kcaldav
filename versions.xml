@@ -422,13 +422,13 @@
 		<header>
 			<h1>0.1.13</h1>
 			<address>Kristaps Dzonsons</address>
-			<time datetime="2020-05-28">2020-05-28</time>
+			<time datetime="2020-07-11">2020-07-11</time>
 		</header>
 		<aside>
 			<div>
                                 Fix for RFC 5545 section 3.8.2.4, which stipulates a more
                                 complicated date setup than initially parsed.
-				Found by and patched with Olivier Taïb, thanks!
+				Found by and patched with Olivier Taïbi, thanks!
 				Bump to newest 
 				<a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
 			</div>
@@ -438,9 +438,18 @@
 		<header>
 			<h1>0.1.14</h1>
 			<address>Kristaps Dzonsons</address>
-			<time datetime="2020-05-28">2020-05-28</time>
+			<time datetime="2020-07-28">2020-07-28</time>
 		</header>
 		<aside>
+			<div>
+				Even better parsing of iCalendar (RFC 5545) dates and times.
+				This is from more work contributed by Olivier Taïbi, thanks!
+			</div>
+			<div>
+				Significantly increase the iCalendar regression suite with a set of
+				valid calendar files from 
+				<a href="https://github.com/ical4j/ical4j">ical4j</a>.
+			</div>
 			<div>
 				Essentially re-write the
 				<a href="kcaldav.passwd.1">kcaldav.passwd(1)</a> manpage for
