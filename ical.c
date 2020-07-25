@@ -259,6 +259,7 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 		return dt;
 	}
 
+	tm->set = 1;
 	tm->tm = mktime(&tmm);
 	return dt;
 }

@@ -191,12 +191,12 @@ struct	icalwk {
 };
 
 /*
- * Time as a YYYYMMDDTHHMMSS and broken down into the number of seconds
- * from the epoch (not tied to any time-zone, including UTC).
- * The "tm" value is zero if nothing has been set.
+ * Various date-time formats broken down into the number of seconds
+ * from the epoch as if the origin date were UTC.
  */
 struct	icaltm {
-	time_t		 tm; /* from epoch (not UTC) */
+	time_t		 tm; /* epoch */
+	int		 set; /* if zero, not parsed */
 };
 
 /*
@@ -303,9 +303,9 @@ struct	icaltime {
 struct	icalcomp {
 	struct icalcomp	*next;
 	enum icaltype	 type;
-	struct icaltm	 created; /* CREATED (or zero) */
-	struct icaltm	 lastmod; /* LASTMODIFIED (or zero) */
-	struct icaltm	 dtstamp; /* DTSTAMP (or zero) */
+	struct icaltm	 created; /* CREATED */
+	struct icaltm	 lastmod; /* LASTMODIFIED */
+	struct icaltm	 dtstamp; /* DTSTAMP */
 	struct icalrrule rrule; /* RRULE (or zeroed) */
 	struct icaltime	 dtstart; /* DTSTART (or zero) */
 	struct icaltime	 dtend; /* DTEND (or zero) */
