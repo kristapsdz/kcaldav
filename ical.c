@@ -247,6 +247,13 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 
 	memset(&tmm, 0, sizeof(struct tm));
 
+	/*
+	 * Don't use strptime(3) here because some systems (e.g., some
+	 * Solaris derivatives) don't properly handle dates prior to
+	 * 1900.  Since many time zones started prior to that, manually
+	 * convert here to a "struct tm" and use mktime(3) to convert.
+	 */
+
 	if (cplen == 16)
 		dt = ical_datetime_datetime_utc(p, &tmm, cp);
 	else if (cplen == 15)
@@ -1280,30 +1287,31 @@ icalnode_putc(int c, void *arg)
 	int	 fd = *(int *)arg;
 	char	 ch = c;
 
-	return(write(fd, &ch, 1));
+	return write(fd, &ch, 1) != -1;
 }
 
 /*
  * Correctly wrap iCalendar output lines.
  * We use (arbitrarily?) 74 written characters til wrapping.
+ * Return zero on failure, non-zero on success.
  */
 static int
 icalnode_putchar(char c, size_t *col, ical_putchar fp, void *arg)
 {
 
-	if (74 == *col) {
-		if ((*fp)('\r', arg) < 0)
-			return(-1);
-		if ((*fp)('\n', arg) < 0)
-			return(-1);
-		if ((*fp)(' ', arg) < 0)
-			return(-1);
+	if (*col == 74) {
+		if (!(*fp)('\r', arg))
+			return 0;
+		if (!(*fp)('\n', arg))
+			return 0;
+		if (!(*fp)(' ', arg))
+			return 0;
 		*col = 1;
 	}
-	if ((*fp)(c, arg) < 0)
-		return(-1);
+	if (!(*fp)(c, arg))
+		return 0;
 	(*col)++;
-	return(1);
+	return 1;
 }
 
 /*
@@ -1319,43 +1327,46 @@ icalnode_puts(const unsigned char *c,
 	size_t *col, ical_putchar fp, void *arg)
 {
 
-	while ('\0' != *c) {
+	while (*c != '\0') {
 		/* Start with printable ASCII. */
+
 		if (c[0] == 0x09 || c[0] == 0x0A || c[0] == 0x0D || 
 		    (0x20 <= c[0] && c[0] <= 0x7E)) {
 			if (*col + 1 >= 74) {
-				if ((*fp)('\r', arg) < 0 ||
-				    (*fp)('\n', arg) < 0 ||
-				    (*fp)(' ', arg) < 0)
-					return(0);
+				if (!(*fp)('\r', arg) ||
+				    !(*fp)('\n', arg) ||
+				    !(*fp)(' ', arg))
+					return 0;
 				*col = 1;
 			}
-			if ((*fp)(c[0], arg) < 0)
-				return(0);
+			if (!(*fp)(c[0], arg))
+				return 0;
 			*col += 1;
 			c += 1;
 			continue;
 		}
 
 		/* Overlong 2-bytes. */
+
 		if ((0xC2 <= c[0] && c[0] <= 0xDF) && 
 		    (0x80 <= c[1] && c[1] <= 0xBF)) {
 			if (*col + 2 >= 74) {
-				if ((*fp)('\r', arg) < 0 ||
-				    (*fp)('\n', arg) < 0 ||
-				    (*fp)(' ', arg) < 0)
-					return(0);
+				if (!(*fp)('\r', arg) ||
+				    !(*fp)('\n', arg) ||
+				    !(*fp)(' ', arg))
+					return 0;
 				*col = 1;
 			}
-			if ((*fp)(c[0], arg) < 0 ||
-			    (*fp)(c[1], arg) < 0)
-				return(0);
+			if (!(*fp)(c[0], arg) ||
+			    !(*fp)(c[1], arg))
+				return 0;
 			*col += 2;
 			c += 2;
 			continue;
 		}
 
 		/* No overlongs, straight 3-byte, no surrogate. */
+
 		if ((c[0] == 0xE0 && (0xA0 <= c[1] && c[1] <= 0xBF) && 
 		     (0x80 <= c[2] && c[2] <= 0xBF)) ||
 		    (((0xE1 <= c[0] && c[0] <= 0xEC) || 
@@ -1365,22 +1376,23 @@ icalnode_puts(const unsigned char *c,
 		    (c[0] == 0xED && (0x80 <= c[1] && c[1] <= 0x9F) && 
 		     (0x80 <= c[2] && c[2] <= 0xBF))) {
 			if (*col + 3 >= 74) {
-				if ((*fp)('\r', arg) < 0 ||
-				    (*fp)('\n', arg) < 0 ||
-				    (*fp)(' ', arg) < 0)
-					return(0);
+				if (!(*fp)('\r', arg) ||
+				    !(*fp)('\n', arg) ||
+				    !(*fp)(' ', arg))
+					return 0;
 				*col = 1;
 			}
-			if ((*fp)(c[0], arg) < 0 ||
-			    (*fp)(c[1], arg) < 0 ||
-			    (*fp)(c[2], arg) < 0)
-				return(0);
+			if (!(*fp)(c[0], arg) ||
+			    !(*fp)(c[1], arg) ||
+			    !(*fp)(c[2], arg))
+				return 0;
 			*col += 3;
 			c += 3;
 			continue;
 		}
 
 		/* All planes. */
+
 		if ((c[0] == 0xF0 &&
 		     (0x90 <= c[1] && c[1] <= 0xBF) &&
 		     (0x80 <= c[2] && c[2] <= 0xBF) &&
@@ -1393,96 +1405,99 @@ icalnode_puts(const unsigned char *c,
 		     (0x80 <= c[2] && c[2] <= 0xBF) &&
 		     (0x80 <= c[3] && c[3] <= 0xBF))) {
 			if (*col + 4 >= 74) {
-				if ((*fp)('\r', arg) < 0 ||
-				    (*fp)('\n', arg) < 0 ||
-				    (*fp)(' ', arg) < 0)
-					return(0);
+				if (!(*fp)('\r', arg) ||
+				    !(*fp)('\n', arg) ||
+				    !(*fp)(' ', arg))
+					return 0;
 				*col = 1;
 			}
-			if ((*fp)(c[0], arg) < 0 ||
-			    (*fp)(c[1], arg) < 0 ||
-			    (*fp)(c[2], arg) < 0 ||
-			    (*fp)(c[3], arg) < 0)
-				return(0);
+			if (!(*fp)(c[0], arg) ||
+			    !(*fp)(c[1], arg) ||
+			    !(*fp)(c[2], arg) ||
+			    !(*fp)(c[3], arg))
+				return 0;
 			*col += 4;
 			c += 4;
 			continue;
 		}
 
 		/* Fall-through: invalid bytes. */
+
 		if (*col + 1 >= 74) {
-			if ((*fp)('\r', arg) < 0 ||
-			    (*fp)('\n', arg) < 0 ||
-			    (*fp)(' ', arg) < 0)
-				return(0);
+			if (!(*fp)('\r', arg) ||
+			    !(*fp)('\n', arg) ||
+			    !(*fp)(' ', arg))
+				return 0;
 			*col = 1;
 		}
-		if ((*fp)(c[0], arg) < 0)
-			return(0);
+		if (!(*fp)(c[0], arg))
+			return 0;
 		*col += 1;
 		c += 1;
 	}
 
-	return(1);
+	return 1;
 }
 
 /*
  * Print an iCalendar using the given callback "fp".
- * We only return zero when "fp" returns <0.
- * Otherwise return non-zero.
+ * Return zero on failure, non-zero on succes.
  */
 static int
 icalnode_print(const struct icalnode *p, ical_putchar fp, void *arg)
 {
-	size_t		 col;
-	const unsigned char *cp;
+	size_t			 col = 0;
+	const unsigned char	*cp;
 
-	if (NULL == p) 
-		return(1);
+	if (p == NULL) 
+		return 1;
 
-	col = 0;
 	cp = (const unsigned char *)p->name;
-	if ( ! icalnode_puts(cp, &col, fp, arg))
-		return(0);
+	if (!icalnode_puts(cp, &col, fp, arg))
+		return 0;
 
-	if (NULL != p->param) {
-		if (icalnode_putchar(';', &col, fp, arg) < 0)
-			return(0);
+	if (p->param != NULL) {
+		if (!icalnode_putchar(';', &col, fp, arg))
+			return 0;
 		cp = (const unsigned char *)p->param;
-		if ( ! icalnode_puts(cp, &col, fp, arg))
-			return(0);
+		if (!icalnode_puts(cp, &col, fp, arg))
+			return 0;
 	}
 
-	if (icalnode_putchar(':', &col, fp, arg) < 0)
-		return(0);
+	if (!icalnode_putchar(':', &col, fp, arg))
+		return 0;
+
 	cp = (const unsigned char *)p->val;
-	if ( ! icalnode_puts(cp, &col, fp, arg))
-		return(0);
-	if ((*fp)('\r', arg) < 0)
-		return(0);
-	if ((*fp)('\n', arg) < 0)
-		return(0);
-	if (icalnode_print(p->next, fp, arg) < 0)
-		return(0);
-	return(1);
+	if (!icalnode_puts(cp, &col, fp, arg))
+		return 0;
+
+	if (!(*fp)('\r', arg))
+		return 0;
+	if (!(*fp)('\n', arg))
+		return 0;
+
+	return icalnode_print(p->next, fp, arg);
 }
 
 /*
  * Print (write) an iCalendar using ical_putchar as a write callback.
+ * The callback must return zero on failure, non-zero on success.
+ * Returns zero on failure, non-zero on success.
  */
 int
 ical_print(const struct ical *p, ical_putchar fp, void *arg)
 {
 
-	return(icalnode_print(p->first, fp, arg));
+	return icalnode_print(p->first, fp, arg);
 }
 
 /*
  * Print an iCalendar directly to the given file descriptor.
+ * Returns zero on failure, non-zero on success.
  */
 int
 ical_printfile(int fd, const struct ical *p)
 {
 
-	return(icalnode_print(p->first, icalnode_putc, &fd));
+	return icalnode_print(p->first, icalnode_putc, &fd);
 }

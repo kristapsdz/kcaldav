@@ -78,7 +78,7 @@ xml_ical_putc(int c, void *arg)
 	struct kxmlreq	*r = arg;
 
 	kxml_putc(r, c);
-	return(1);
+	return 1;
 }
 
 static char
@@ -221,7 +221,7 @@ http_ical_putc(int c, void *arg)
 	struct kreq	*r = arg;
 
 	khttp_putc(r, c);
-	return(1);
+	return 1;
 }
 
 void
