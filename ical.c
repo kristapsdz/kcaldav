@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,23 +35,6 @@ enum	icaldatet {
 	ICAL_DT_DATETIME,
 	ICAL_DT_DATE,
 	ICAL_DT__MAX
-};
-
-/*
- * The format and expected length of a date-time string.
- */
-struct	dtparse {
-	const char	*fmt; /* strptime(3) format */
-	size_t	 	 fmtlen; /* length of conforming strings */
-};
-
-/*
- * Applicable formats for parsing dates and times.
- */
-const struct dtparse dtparses[ICAL_DT__MAX] = {
-	{ "%Y%m%dT%H%M%SZ", 16 }, /* ICAL_DT_DATETIMEUTC */
-	{ "%Y%m%dT%H%M%S",  15 }, /* ICAL_DT_DATETIME */
-	{ "%Y%m%d",          8 }, /* ICAL_DT_DATE */
 };
 
 /*
@@ -186,6 +170,65 @@ ical_free(struct ical *p)
 	free(p);
 }
 
+static enum icaldatet
+ical_datetime_date(const struct icalparse *p,
+	struct tm *tm, const char *cp)
+{
+	unsigned int	day, mon, yr;
+
+	if (sscanf(cp, "%4u%2u%2u", &yr, &mon, &day) != 3)
+		return ICAL_DT__MAX;
+
+	tm->tm_year = yr - 1900;
+	tm->tm_mon = mon - 1;
+	tm->tm_mday = day;
+	return ICAL_DT_DATE;
+}
+
+static enum icaldatet
+ical_datetime_datetime_utc(const struct icalparse *p,
+	struct tm *tm, const char *cp)
+{
+	unsigned int	 day, mon, yr, hr, min, sec;
+	char		 t, z;
+
+	if (sscanf(cp, "%4u%2u%2u%c%2u%2u%2u%c",
+	    &yr, &mon, &day, &t, &hr, &min, &sec, &z) != 8)
+		return ICAL_DT__MAX;
+	else if (t != 'T' || z != 'Z')
+		return ICAL_DT__MAX;
+
+	tm->tm_year = yr - 1900;
+	tm->tm_mon = mon - 1;
+	tm->tm_mday = day;
+	tm->tm_hour = hr;
+	tm->tm_min = min;
+	tm->tm_sec = sec;
+	return ICAL_DT_DATETIMEUTC;
+}
+
+static enum icaldatet
+ical_datetime_datetime(const struct icalparse *p,
+	struct tm *tm, const char *cp)
+{
+	unsigned int	 day, mon, yr, hr, min, sec;
+	char		 t;
+
+	if (sscanf(cp, "%4u%2u%2u%c%2u%2u%2u",
+	    &yr, &mon, &day, &t, &hr, &min, &sec) != 7)
+		return ICAL_DT__MAX;
+	else if (t != 'T')
+		return ICAL_DT__MAX;
+
+	tm->tm_year = yr - 1900;
+	tm->tm_mon = mon - 1;
+	tm->tm_mday = day;
+	tm->tm_hour = hr;
+	tm->tm_min = min;
+	tm->tm_sec = sec;
+	return ICAL_DT_DATETIME;
+}
+
 /*
  * Try to parse the numeric date and time (assumed UTC) into the "tm"
  * value, seconds since epoch.
@@ -200,31 +243,22 @@ ical_datetime(const struct icalparse *p, struct icaltm *tm, const char *cp)
 {
 	struct tm	 tmm;
 	size_t 		 cplen = strlen(cp);
-	enum icaldatet	 dt;
+	enum icaldatet	 dt = ICAL_DT__MAX;
 
-	for (dt = 0; dt < ICAL_DT__MAX; dt++) {
-		if (cplen != dtparses[dt].fmtlen)
-			continue;
-		memset(&tmm, 0, sizeof(struct tm));
-		if (strptime(cp, dtparses[dt].fmt, &tmm) != NULL)
-			break;
-	}
+	memset(&tmm, 0, sizeof(struct tm));
+
+	if (cplen == 16)
+		dt = ical_datetime_datetime_utc(p, &tmm, cp);
+	else if (cplen == 15)
+		dt = ical_datetime_datetime(p, &tmm, cp);
+	else if (cplen == 8)
+		dt = ical_datetime_date(p, &tmm, cp);
 
 	if (dt == ICAL_DT__MAX) {
 		kerrx("%s:%zu: bad date/date-time", p->file, p->line);
 		return dt;
 	}
 
-	tm->year = tmm.tm_year;
-	tm->mon = tmm.tm_mon;
-	tm->mday = tmm.tm_mday;
-	tm->hour = tmm.tm_hour;
-	tm->min = tmm.tm_min;
-	tm->sec = tmm.tm_sec;
-	tm->day = tmm.tm_yday;
-	tm->wday = tmm.tm_mday;
-	tm->ly = ((tm->year & 3) == 0 && 
-		((tm->year % 25) != 0 || (tm->year & 15) == 0));
 	tm->tm = mktime(&tmm);
 	return dt;
 }

@@ -197,15 +197,6 @@ struct	icalwk {
  */
 struct	icaltm {
 	time_t		 tm; /* from epoch (not UTC) */
-	int		 ly; /* in leap year? */
-	unsigned long	 year; /* from 1900 */
-	unsigned long	 mon; /* month from 1 */
-	unsigned long	 mday; /* day of month from 1 */
-	unsigned long	 hour; /* hour (0--23) */
-	unsigned long	 min; /* minute (0--59) */
-	unsigned long	 sec; /* second (0--59) */
-	unsigned long	 day; /* day in year (from 0) */
-	unsigned long	 wday; /* day in week (0 == saturday) */
 };
 
 /*
@@ -398,8 +389,10 @@ void		  ical_free(struct ical *);
 int		  ical_print(const struct ical *, ical_putchar, void *);
 int		  ical_printfile(int, const struct ical *);
 		  /* Experimental... */
+#if 0
 void		  ical_rrule_generate(const struct icaltm *, 
 			const struct icalrrule *);
+#endif
 
 struct caldav 	 *caldav_parse(const char *, size_t);
 void		  caldav_free(struct caldav *);

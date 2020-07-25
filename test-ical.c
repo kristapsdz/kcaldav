@@ -33,30 +33,6 @@
 
 int verbose = 2;
 
-static	const char *const weeks[7] = {
-	"Sat",
-	"Sun",
-	"Mon",
-	"Tues",
-	"Wed",
-	"Thurs",
-	"Fri",
-};
-
-static char *
-ical_datefmt(const struct icaltm *cur)
-{
-	static char	buf[1024];
-
-	snprintf(buf, sizeof(buf), 
-		"%04lu%02lu%02luT%02lu%02lu%02lu (%s)",
-		cur->year + 1900, cur->mon,
-		cur->mday, cur->hour,
-		cur->min, cur->sec, cur->wday < 7 ?
-		weeks[cur->wday] : "unknown-week");
-	return(buf);
-}
-
 static void
 ical_printrrule(const struct icalcomp *c, 
 	enum icaltztype type, const struct icalrrule *r)
@@ -74,9 +50,7 @@ ical_printrrule(const struct icalcomp *c,
 	if (ICALFREQ_NONE != r->freq)
 		printf("%sFREQ = %s\n", buf, icalfreqs[r->freq]);
 	if (0 != r->until.tm)
-		printf("%sUNTIL = %s: %s", buf, 
-			ical_datefmt(&r->until),
-			ctime(&r->until.tm));
+		printf("%sUNTIL = %s", buf, ctime(&r->until.tm));
 	if (0 != r->count)
 		printf("%sCOUNT = %lu\n", buf, r->count);
 	if (0 != r->interval)
@@ -156,19 +130,16 @@ ical_printcomp(const struct icalcomp *c)
 		printf("[%s] TZID = %s\n", 
 			icaltypes[c->type], c->tzid);
 	if (0 != c->created.tm)
-		printf("[%s] CREATED = %s: %s", 
+		printf("[%s] CREATED = %s", 
 			icaltypes[c->type], 
-			ical_datefmt(&c->created),
 			ctime(&c->created.tm));
 	if (0 != c->lastmod.tm)
-		printf("[%s] LASTMODIFIED = %s: %s", 
+		printf("[%s] LASTMODIFIED = %s", 
 			icaltypes[c->type], 
-			ical_datefmt(&c->lastmod),
 			ctime(&c->lastmod.tm));
 	if (0 != c->dtstamp.tm)
-		printf("[%s] DTSTAMP = %s: %s", 
+		printf("[%s] DTSTAMP = %s", 
 			icaltypes[c->type], 
-			ical_datefmt(&c->dtstamp),
 			ctime(&c->dtstamp.tm));
 	if (0 != c->duration.sign)
 		printf("[%s] DURATION = P%c%ldW%ldD%ldH%ldM%ldS\n", 
@@ -187,10 +158,9 @@ ical_printcomp(const struct icalcomp *c)
 			ctime(&c->dtstart.time.tm));
 	for (i = 0; i < c->tzsz; i++) {
 		if (0 != c->tzs[i].dtstart.tm)
-			printf("[%s:%s] DTSTART = %s: %s", 
+			printf("[%s:%s] DTSTART = %s", 
 				icaltypes[c->type], 
 				icaltztypes[c->tzs[i].type], 
-				ical_datefmt(&c->tzs[i].dtstart),
 				ctime(&c->tzs[i].dtstart.tm));
 		if (0 != c->tzs[i].tzto)
 			printf("[%s:%s] TZOFFSETTO = %d\n", 
