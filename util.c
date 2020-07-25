@@ -77,8 +77,7 @@ xml_ical_putc(int c, void *arg)
 {
 	struct kxmlreq	*r = arg;
 
-	kxml_putc(r, c);
-	return 1;
+	return kxml_putc(r, c) == KCGI_OK;
 }
 
 static char
@@ -220,8 +219,7 @@ http_ical_putc(int c, void *arg)
 {
 	struct kreq	*r = arg;
 
-	khttp_putc(r, c);
-	return 1;
+	return khttp_putc(r, c) == KCGI_OK;
 }
 
 void
