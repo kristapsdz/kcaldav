@@ -81,16 +81,14 @@ BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-caldav \
 		   test-ical \
-		   test-nonce \
-		   test-rrule
+		   test-nonce
 TESTSRCS 	 = test-caldav.c \
 		   test-ical.c \
 		   test-nonce.c \
 		   test-rrule.c
 TESTOBJS 	 = test-caldav.o \
 		   test-ical.o \
-		   test-nonce.o \
-		   test-rrule.o
+		   test-nonce.o
 HTMLS	 	 = archive.html \
 		   index.html \
 		   kcaldav.8.html \
@@ -138,7 +136,6 @@ ALLSRCS		 = Makefile \
 		   util.c
 LIBOBJS		 = buf.o \
 		   caldav.o \
-		   datetime.o \
 		   err.o \
 		   ical.o
 OBJS		 = db.o \
@@ -159,6 +156,7 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(LIBOBJS) \
 		   $(BINOBJS) \
 		   $(OBJS) \
+		   compats.o \
 		   kcaldav.passwd.o
 VERSION		 = 0.1.14
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
@@ -345,7 +343,6 @@ distcheck: kcaldav.tgz.sha512 kcaldav.tgz
 
 clean:
 	rm -f $(ALLOBJS) $(BINS) kcaldav.8 kcaldav.passwd.1 libkcaldav.a kcaldav-sql.c
-	rm -rf *.dSYM
 	rm -f $(HTMLS) atom.xml $(BHTMLS) $(JSMINS) kcaldav.tgz kcaldav.tgz.sha512
 
 distclean: clean
