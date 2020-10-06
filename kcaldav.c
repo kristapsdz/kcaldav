@@ -344,7 +344,7 @@ main(void)
 	/* Only open the logfile if it's non-empty. */
 
 	if (logfile[0] != '\0')
-		kutil_openlog(LOGFILE);
+		kutil_openlog(logfile);
 
 	/* Parse the main body. */
 
