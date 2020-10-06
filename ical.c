@@ -365,10 +365,6 @@ ical_tzdatetime(struct icalparse *p,
 				p->file, p->line);
 			return 0;
 		}
-		if (tm->tzstr != NULL) {
-			kerrx("%s:%zu: duplicate TZID", p->file, p->line);
-			return 0;
-		}
 
 		/*
 		 * The RFC doesn't impose any ordering on components, so
@@ -376,6 +372,18 @@ ical_tzdatetime(struct icalparse *p,
 		 * the timezone.  Save the timezone and we'll look it up
 		 * later.
 		 */
+
+		if (tm->tzstr != NULL) {
+			kerrx("%s:%zu: duplicate TZID", p->file, p->line);
+			return 0;
+		}
+
+		/* Unquote strings. */
+
+		if (len && start[5] == '"' && start[len - 1] == '"') {
+			start++;
+			len -= 2;
+		}
 
 		if ((tm->tzstr = strndup(start + 5, len - 5)) == NULL) {
 			kerr(NULL);
@@ -1198,6 +1206,7 @@ ical_postparse_tz(struct icalparse *pp, struct icaltime *tm)
 	/* Try looking up the timezone in our database. */
 
 	tm->tz = pp->ical->comps[ICALTYPE_VTIMEZONE];
+
 	for ( ; NULL != tm->tz; tm->tz = tm->tz->next)
 		if (0 == strcasecmp(tm->tz->tzid, tm->tzstr))
 			return(1);
