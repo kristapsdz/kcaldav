@@ -910,8 +910,9 @@ ical_string(const struct icalparse *p,
 }
 
 /*
- * Parse a CRLF-terminated line out of it the iCalendar file.
- * We ignore the last line, so non-CRLF-terminated EOFs are bad.
+ * Parse a line out of it the iCalendar file into its name (key), value,
+ * and optional (so NULL) subsequent parameter parts.
+ * This handles CRLF lines, LF lines, and continuations.
  * Returns 0 when no lines left, -1 on failure, 1 on success.
  */
 static int
@@ -919,48 +920,74 @@ ical_line(struct icalparse *p,
 	char **name, char **param, char **value)
 {
 	const char	*end;
-	size_t		 len;
+	size_t		 len, skip;
 
 	p->buf.sz = len = 0;
+
+	/*
+	 * Scan til the end of the line (or EOF) and copy those bytes
+	 * into our line buffer (p->buf).
+	 * We want to handle both CRLF, which is standards-compliant,
+	 * and regular LF, which isn't.
+	 * We also need to handle continuation lines where the
+	 * subsequent line begins with whitespace, in which case we need
+	 * to join it to the current line.
+	 */
+
 	while (p->pos < p->sz) {
-		end = memmem(&p->cp[p->pos], 
-			p->sz - p->pos, "\r\n", 2);
-		if (NULL == end) {
-			kerrx("%s:%zu: no CRLF", p->file, p->line);
-			return(-1);
+		end = memchr(&p->cp[p->pos], '\n', p->sz - p->pos);
+		p->line++;
+
+		/* If we're at the EOF, copy everything remaining. */
+
+		if (end == NULL) {
+			bufappend(&p->buf, &p->cp[p->pos], 
+				p->sz - p->pos);
+			p->pos = p->sz;
+			break;
 		}
 
-		p->line++;
+		/* Switch on whether we have CRLF/LF. */
+
 		len = end - &p->cp[p->pos];
+		if (len && end[-1] == '\r') {
+			len--;
+			end--;
+			skip = 2;
+		} else
+			skip = 1;
 
 		bufappend(&p->buf, &p->cp[p->pos], len);
+		p->pos += len + skip;
 
-		if (' ' != end[2] && '\t' != end[2]) 
+		/* Next line does not start with a continuation. */
+
+		if (p->pos < p->sz &&
+		    p->cp[p->pos] != ' ' &&
+		    p->cp[p->pos] != '\t')
 			break;
-		p->pos += len + 2;
-		while (' ' == p->cp[p->pos] || '\t' == p->cp[p->pos])
+
+		/* Skip after the continuation. */
+
+		if (p->pos < p->sz)
 			p->pos++;
 	}
 
-	/* Trailing \r\n. */
-	if (p->pos < p->sz)
-		p->pos += len + 2;
-
 	assert(p->pos <= p->sz);
 
-	if (NULL == (*name = p->buf.buf)) {
+	if ((*name = p->buf.buf) == NULL) {
 		kerrx("%s:%zu: empty line", p->file, p->line);
-		return(-1);
-	} else if (NULL == (*value = strchr(*name, ':'))) { 
+		return (-1);
+	} else if ((*value = strchr(*name, ':')) == NULL) { 
 		kerrx("%s:%zu: no value", p->file, p->line);
-		return(-1);
+		return (-1);
 	} else
 		*(*value)++ = '\0';
 
-	if (NULL != (*param = strchr(*name, ';'))) 
+	if ((*param = strchr(*name, ';')) != NULL) 
 		*(*param)++ = '\0';
 
-	return(p->pos < p->sz);
+	return p->pos < p->sz;
 }
 
 /*
