@@ -1293,26 +1293,27 @@ ical_parse(const char *file, const char *cp, size_t sz)
 
 	while (pp.pos < pp.sz) {
 		if ((rc = ical_line(&pp, &name, &param, &val)) < 0)
-			break;
+			goto err;
 		if (NULL == icalnode_alloc(&pp, name, val, param))
-			break;
+			goto err;
 
 		if (strcasecmp(name, "BEGIN")) {
 			kerrx("%s:%zu: not BEGIN", pp.file, pp.line);
-			break;
+			goto err;
 		} else if (strcasecmp(val, "VCALENDAR")) {
 			kerrx("%s:%zu: not VCALENDAR", pp.file, pp.line);
-			break;
+			goto err;
 		} else if ( ! ical_parsecomp(&pp, ICALTYPE_VCALENDAR))
-			break;
+			goto err;
 	}
 
-	free(pp.buf.buf);
-
-	if (pp.pos == pp.sz && ical_postparse(&pp))
+	if (ical_postparse(&pp)) {
+		free(pp.buf.buf);
 		return(p);
-
+	}
+err:
 	kerrx("%s: parse failed", pp.file);
+	free(pp.buf.buf);
 	ical_free(p);
 	return(NULL);
 }
