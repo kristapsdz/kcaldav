@@ -34,8 +34,6 @@
 
 #include "libkcaldav.h"
 
-int verbose = 2;
-
 static void
 ical_printrrule(const struct icalcomp *c, 
 	enum icaltztype type, const struct icalrrule *r)

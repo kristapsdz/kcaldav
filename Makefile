@@ -136,9 +136,9 @@ ALLSRCS		 = Makefile \
 		   util.c
 LIBOBJS		 = buf.o \
 		   caldav.o \
-		   err.o \
 		   ical.o
 OBJS		 = db.o \
+		   err.o \
 		   kcaldav-sql.o \
 		   principal.o \
 		   resource.o
@@ -297,9 +297,22 @@ kcaldav-sql.c: kcaldav.sql
 	  grep -v '^[ 	]*--' kcaldav.sql | sed -e 's!$$!\\n\\!' ; \
 	  echo '";'; ) >$@
 
-regress: test-caldav test-ical
+regress: test-caldav test-ical test-nonce kcaldav.sql
+	@tmp=`mktemp -d` ; \
+	 sqlite3 $$tmp/kcaldav.db < kcaldav.sql >/dev/null; \
+	 printf "./test-nonce $${tmp}... " ; \
+	 set -e ; \
+	 ./test-nonce $$tmp >/dev/null 2>&1 ; \
+	 if [ $$? -eq 0 ] ; \
+	 then \
+	 	echo "ok" ; \
+	 else \
+	 	echo "fail" ; \
+	 fi ; \
+	 set +e ; \
+	 rm -rf $$tmp 
 	@for f in regress/caldav/*.xml ; \
-	do \
+	 do \
 		set -e ; \
 		printf "%s... " "$$f" ; \
 		./test-caldav $$f >/dev/null 2>&1 ; \
@@ -310,9 +323,9 @@ regress: test-caldav test-ical
 			echo "fail" ; \
 		fi ; \
 		set +e ; \
-	done
+	 done
 	@for f in regress/ical/*.ics ; \
-	do \
+	 do \
 		set -e ; \
 		printf "%s... " "$$f" ; \
 		./test-ical $$f >/dev/null 2>&1 ; \
@@ -323,7 +336,7 @@ regress: test-caldav test-ical
 			echo "fail" ; \
 		fi ; \
 		set +e ; \
-	done
+	 done
 
 distcheck: kcaldav.tgz.sha512 kcaldav.tgz
 	mandoc -Tlint -Werror *.in.[13]

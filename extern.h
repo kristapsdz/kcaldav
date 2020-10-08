@@ -89,35 +89,61 @@ enum	nonceerr {
 
 __BEGIN_DECLS
 
-void		   db_collection_free(struct coln *);
-int		   db_collection_load(struct coln **, const char *, int64_t);
-int		   db_collection_loadid(struct coln **, int64_t, int64_t);
-int		   db_collection_new(const char *, const struct prncpl *);
-int		   db_collection_remove(int64_t, const struct prncpl *);
-int		   db_collection_resources(void (*)(const struct res *, void *), int64_t, void *);
-int		   db_collection_update(const struct coln *, const struct prncpl *);
-int		   db_init(const char *, int);
-int		   db_nonce_delete(const char *, const struct prncpl *);
-int		   db_nonce_new(char **);
-enum nonceerr	   db_nonce_update(const char *, size_t);
-enum nonceerr	   db_nonce_validate(const char *, size_t);
-int		   db_owner_check_or_set(int64_t);
-int64_t		   db_prncpl_identify(const char *);
-int		   db_prncpl_load(struct prncpl **, const char *);
-int		   db_prncpl_new(const char *, const char *, const char *, const char *);
-int		   db_prncpl_proxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
-int		   db_prncpl_rproxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
-int		   db_prncpl_update(const struct prncpl *);
-int		   db_proxy(const struct prncpl *, int64_t, int64_t);
-int		   db_resource_delete(const char *, const char *, int64_t);
-int		   db_resource_remove(const char *, int64_t);
-int		   db_resource_load(struct res **, const char *, int64_t);
-int		   db_resource_new(const char *, const char *, int64_t);
-int		   db_resource_update(const char *, const char *, const char *, int64_t);
+void		db_collection_free(struct coln *);
+int		db_collection_load(struct coln **, const char *, int64_t);
+int		db_collection_loadid(struct coln **, int64_t, int64_t);
+int		db_collection_new(const char *, const struct prncpl *);
+int		db_collection_remove(int64_t, const struct prncpl *);
+int		db_collection_resources(void (*)(const struct res *, void *), int64_t, void *);
+int		db_collection_update(const struct coln *, const struct prncpl *);
+int		db_init(const char *, int);
+int		db_nonce_delete(const char *, const struct prncpl *);
+int		db_nonce_new(char **);
+enum nonceerr	db_nonce_update(const char *, size_t);
+enum nonceerr	db_nonce_validate(const char *, size_t);
+int		db_owner_check_or_set(int64_t);
+int64_t		db_prncpl_identify(const char *);
+int		db_prncpl_load(struct prncpl **, const char *);
+int		db_prncpl_new(const char *, const char *, const char *, const char *);
+int		db_prncpl_proxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
+int		db_prncpl_rproxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
+int		db_prncpl_update(const struct prncpl *);
+int		db_proxy(const struct prncpl *, int64_t, int64_t);
+int		db_resource_delete(const char *, const char *, int64_t);
+int		db_resource_remove(const char *, int64_t);
+int		db_resource_load(struct res **, const char *, int64_t);
+int		db_resource_new(const char *, const char *, int64_t);
+int		db_resource_update(const char *, const char *, const char *, int64_t);
 
-void		   prncpl_free(struct prncpl *);
+void		prncpl_free(struct prncpl *);
 
-void		   res_free(struct res *);
+void		res_free(struct res *);
+
+void		kvdbg(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+void		kvinfo(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+void		kverr(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+void		kverrx(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+
+#define	 	kerr(fmt, ...) \
+		kverr(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define	 	kdbg(fmt, ...) \
+		kvdbg(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define	 	kinfo(fmt, ...) \
+		kvinfo(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define	 	kerrx(fmt, ...) \
+		kverrx(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+
+/*
+ * This pertains to back-end logging.
+ * 0: be totally silent.
+ * 1: print errors and warnings only.
+ * >1: print informational messages.
+ */
+extern int verbose;
 
 extern const char *db_sql;
 

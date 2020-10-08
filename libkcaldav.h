@@ -316,23 +316,6 @@ struct	caldav {
 
 __BEGIN_DECLS
 
-void		  kvdbg(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-void		  kvinfo(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-void		  kverr(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-void		  kverrx(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-#define	 	  kerr(fmt, ...) \
-		  kverr(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define	 	  kdbg(fmt, ...) \
-		  kvdbg(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define	 	  kinfo(fmt, ...) \
-		  kvinfo(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define	 	  kerrx(fmt, ...) \
-		  kverrx(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-
 typedef int	(*ical_putchar)(int, void *);
 
 void 		  bufappend(struct buf *, const char *, size_t);
@@ -358,14 +341,6 @@ extern const char *const icaltypes[ICALTYPE__MAX];
 extern const char *const icaltztypes[ICALTZ__MAX];
 extern const char *const icalfreqs[ICALFREQ__MAX];
 extern const char *const icalwkdays[ICALWKDAY__MAX];
-
-/*
- * This pertains to back-end logging.
- * 0: be totally silent.
- * 1: print errors and warnings only.
- * >1: print informational messages.
- */
-extern int verbose;
 
 __END_DECLS
 

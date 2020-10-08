@@ -31,8 +31,6 @@
 
 #include "libkcaldav.h"
 
-int verbose = 2;
-
 int
 main(int argc, char *argv[])
 {

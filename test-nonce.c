@@ -16,6 +16,9 @@
  */
 #include "config.h"
 
+#if HAVE_ERR
+# include <err.h>
+#endif
 #include <getopt.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -23,7 +26,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "libkcaldav.h"
 #include "extern.h"
 
 int verbose = 2;
@@ -36,35 +38,38 @@ main(int argc, char *argv[])
 	size_t		 i;
 	enum nonceerr	 er;
 
-	if ( ! db_init(CALDIR, 0))
-		return(EXIT_FAILURE);
+	if (getopt(argc, argv, "") != -1)
+		return EXIT_FAILURE;
+
+	argc -= optind;
+	argv += optind;
+
+	if (argc != 1)
+		return EXIT_FAILURE;
+
+	if (!db_init(argv[0], 0))
+		errx(EXIT_FAILURE, "db_init");
 
 	for (i = 0; i < 100; i++) {
 		snprintf(nonce, sizeof(nonce), "%016zu", i);
 		if (NONCE_ERR == (er = db_nonce_update(nonce, 0)))
-			kerrx("nonce database failure");
-		else if (NONCE_NOTFOUND != er)
-			kerrx("found nonce!?");
-		else
-			continue;
-		return(EXIT_FAILURE);
+			errx(EXIT_FAILURE, "nonce database failure");
+		if (NONCE_NOTFOUND != er)
+			errx(EXIT_FAILURE, "found nonce!?");
 	}
 
 	for (i = 0; i < 2000; i++) {
-		if ( ! db_nonce_new(&np))
-			kerrx("nonce database failure");
-		else if (NONCE_ERR == (er = db_nonce_update(np, 1)))
-			kerrx("nonce database failure");
-		else if (NONCE_NOTFOUND == er)
-			kerrx("didn't find nonce!?");
-		else if (NONCE_ERR == (er = db_nonce_update(np, 1)))
-			kerrx("nonce database failure");
-		else if (NONCE_REPLAY != er) 
-			kerrx("replay attack!?");
-		else
-			continue;
-		return(EXIT_FAILURE);
+		if (!db_nonce_new(&np))
+			errx(EXIT_FAILURE, "nonce database failure");
+		if (NONCE_ERR == (er = db_nonce_update(np, 1)))
+			errx(EXIT_FAILURE, "nonce database failure");
+		if (NONCE_NOTFOUND == er)
+			errx(EXIT_FAILURE, "didn't find nonce!?");
+		if (NONCE_ERR == (er = db_nonce_update(np, 1)))
+			errx(EXIT_FAILURE, "nonce database failure");
+		if (NONCE_REPLAY != er) 
+			errx(EXIT_FAILURE, "replay attack!?");
 	}
 
-	return(EXIT_SUCCESS);
+	return EXIT_SUCCESS;
 }
