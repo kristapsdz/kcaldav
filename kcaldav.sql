@@ -1,4 +1,4 @@
-PRAGMA journal_mode = WAL;
+PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
 
 -- A resource is a ``file'' managed by the CalDAV server.
