@@ -1,0 +1,376 @@
+.\"	$OpenBSD$
+.\"
+.\" Copyright (c) 2020 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt ICAL_PARSE 3
+.Os
+.Sh NAME
+.Nm ical_parse
+.Nd parse an iCalendar file
+.Sh LIBRARY
+.Lb libkcaldav
+.Sh SYNOPSIS
+.In libkcaldav.h
+.Ft struct ical *
+.Fo ical_parse
+.Fa const char *file
+.Fa const char *cp
+.Fa size_t len
+.Fa char **er
+.Fc
+.Sh DESCRIPTION
+Parse an iCalendar file given in
+.Fa cp ,
+which may not be
+.Dv NULL ,
+of length
+.Fa sz .
+If
+.Fa file
+is not
+.Dv NULL ,
+it is used for reporting errors only.
+The
+.Fa er ,
+if not
+.Dv NULL ,
+is filled in with an error message on parse failure.
+.Pp
+The parsed iCalendar file must be freed with
+.Xr ical_free 3 .
+If errors occur and
+.Fa er
+is set, the error string must be freed with
+.Xr free 3 .
+.Pp
+The returned
+.Vt struct ical
+structure has the following members:
+.Bl -tag -width Ds
+.It Va unsigned int bits
+Bit-mask of components covered by the object.
+May be one or more of
+.Dv ICAL_VCALENDAR ,
+.Dv ICAL_VEVENT ,
+.Dv ICAL_VTODO ,
+.Dv ICAL_VJOURNAL ,
+.Dv ICAL_VFREEBUSY ,
+.Dv ICAL_VTIMEZONE ,
+or
+.Dv ICAL_VALARM .
+The
+.Dv ICAL_VCALENDAR
+is always set.
+There may be more than one of each of of these components.
+.It Va struct icalnode *first
+A pointer to the first raw parsed properties.
+.It Va struct icalcomp *comps[]
+All components, grouped by type.
+There may be more than one component per bucket in a linked list format.
+If the component is unspecified, it's
+.Dv NULL .
+.El
+.Pp
+Each calendar component is represented by
+.Vt struct icalcomp
+as follows.
+.Bl -tag -width Ds
+.It Va struct icalcomp *next
+The next component of the same type or
+.Dv NULL
+if this is the last.
+.It Va enum icaltype type
+The type of the component.
+.It Va struct icaltm created
+The parsed
+.Dv CREATED
+value.
+.It Va struct icaltm lastmod
+The parsed
+.Dv LASTMODIFIED
+value.
+.It Va struct icaltm dtstamp
+The parsed
+.Dv DTSTAMP
+component.
+.It Va struct icalrrule rrule
+The
+.Dv RRULE
+or all zeroes, if not specified.
+.It Va struct icaltime dtstart
+The
+.Dv DTSTART
+or all zeroes, if not specified.
+.It Va struct icaltime dtend
+The
+.Dv DTEND
+or all zeroes, if not specified.
+.It Va struct icaldur duration
+The
+.Dv DURATION
+or all zeroes, if not specified.
+.It Va struct icaltz *tzs
+The timezone rules or
+.Dv NULL
+if not specified.
+.It Va size_t tzsz
+The number of elements in
+.Va tzs .
+.It Va const char *uid
+The
+.Dv UID
+of the component of
+.Dv NULL
+if not specified.
+.It Va const char *tzid
+The
+.Dv TZID
+of the component.
+.El
+.Pp
+Date-time pairs in iCalendar are represented with
+.Vt struct icaltime :
+.Bl -tag -width Ds
+.It Va const struct icalcomp *tz
+The parsed time-zone component.
+This is
+.Dv NULL
+if the date is in UTC format.
+.It Va struct icaltm time
+The time component.
+.It Va char *tzstr
+String equivalent of
+.Va tz
+or
+.Dv NULL
+if not associated with a time-zone.
+.El
+.Pp
+Time-zone components in
+.Vt struct icalcomp
+have either or both daylight and standard
+.Vt struct icaltz :
+.Bl -tag -width Ds
+.It Va enum icaltztype type
+Type of time-zone definition.
+.It Va int tzfrom
+Seconds from.
+.It Va int tzto
+Seconds to.
+.It Va struct icaltm dtstart
+When the definition is in effect.
+.It Va struct icalrrule rrule
+Either the recursive definition or all zeroes if not set.
+.El
+.Pp
+Recursive rules are parsed into
+.Vt struct icalrrule :
+.Bl -tag -width Ds
+.It Va int set; /* has been set */
+Non-zero if the structure has been set, zero otherwise.
+.It Va enum icalfreq freq
+The
+.Dv FREQ
+value.
+.It Va struct icaltm until
+The
+.Dv UNTIL
+value or zeroes if unset.
+.It Va unsigned long count
+The
+.Dv COUNT
+value or zero if unset.
+.It Va unsigned long interval
+The
+.Dv INTERVAL
+value or zero if unset.
+.It Va unsigned long *bhr
+The
+.Dv BYHOUR
+values or
+.Dv NULL
+if not set.
+.It Va size_t bhrsz
+The number of elements in
+.Va bhr .
+.It Va unsigned long *bmin
+The
+.Dv BYMINUTE
+values or
+.Dv NULL
+if not set.
+.It Va size_t bminsz
+The number of elements in
+.Va bmin .
+.It Va long *bmnd
+The
+.Dv BYMONTHDAY
+values or
+.Dv NULL
+if not set.
+.It Va size_t bmndsz
+The number of elements in
+.Va bmnd .
+.It Va unsigned long *bmon
+The
+.Dv BYMONTH
+values or
+.Dv NULL
+if not set.
+.It Va size_t bmonsz
+The number of elements in
+.Va bmon .
+.It Va unsigned long *bsec
+The
+.Dv BYSECOND
+values or
+.Dv NULL
+if not set.
+.It Va size_t bsecsz
+The number of elements in
+.Va bsec .
+.It Va long *bsp
+The
+.Dv BYSETPOS
+values or
+.Dv NULL
+if not set.
+.It Va size_t bspsz
+The number of elements in
+.Va bsp .
+.It Va struct icalwk *bwkd
+The
+.Dv BYDAY
+values or
+.Dv NULL
+if not set.
+.It Va size_t bwkdsz
+The number of elements in
+.Va bwkd .
+.It Va long *bwkn
+The
+.Dv BYWEEKNO
+values or
+.Dv NULL
+if not set.
+.It Va size_t bwknsz
+The number of elements in
+.Va bwkn .
+.It Va long *byrd
+The
+.Dv BYYEARDAY
+values or
+.Dv NULL
+if not set.
+.It Va size_t byrdsz
+The number of elements in
+.Va byrd .
+.It Va enum icalwkday wkst
+The weekday value.
+.El
+.Pp
+Durations are encoded as
+.Vt struct icaldur :
+.Bl -tag -width Ds
+.It Va int sign; /* >0 pos, <0 neg */
+If greater than zero, a positive duration; ir less than zero, negative.
+This is zero if the duration has not been set.
+.It Va unsigned long day
+The number of days starting at zero.
+.It Va unsigned long week
+The number of weeks starting at zero.
+.It Va unsigned long hour
+The number of hours starting at zero.
+.It Va unsigned long min
+The number of minutes starting at zero.
+.It Va unsigned long sec
+The number of seconds starting at zero.
+.El
+.Pp
+Various components depend upon a simple time value:
+.Bl -tag -width Ds
+.It Va time_t tm
+The UNIX epoch value.
+.Em Note :
+this may be replaced by a native 64-bit value so that 32-bit time
+systems aren't affected.
+.It Va int set
+If non-zero, the value has been set; otherwise, zero.
+.El
+.Pp
+Weekday values are set in
+.Vt struct icalwk :
+.Bl -tag -width Ds
+.It Va long wk
+The week number or zero if not set.
+.It Va enum icalwkday wkday
+Zero if not set or the day of week.
+.El
+.Pp
+The raw parsed but unprocessed properties are held in a linked list of
+.Vt struct icalnode :
+.Bl -tag -width Ds
+.It Va char *name
+The name of the property.
+.It Va char *param
+Additional parameters of the property.
+This may be
+.Dv NULL .
+.It Va char *val
+The value of the property.
+.It Va struct icalnode *next
+The next property in the sequence or
+.Dv NULL
+if there are no more.
+.El
+.\" The following requests should be uncommented and used where appropriate.
+.\" .Sh CONTEXT
+.\" For section 9 functions only.
+.Sh RETURN VALUES
+Returns the parse object on success.
+It must be freed with
+.Xr ical_free 3 .
+On failure, returns
+.Dv NULL .
+.Pp
+The
+.Fa er
+pointer, if not
+.Dv NULL ,
+is provided an error message.
+If the error message is
+.Dv NULL ,
+memory allocation has failed.
+.\" For sections 2, 3, and 9 function return values only.
+.\" .Sh ENVIRONMENT
+.\" For sections 1, 6, 7, and 8 only.
+.\" .Sh FILES
+.\" .Sh EXIT STATUS
+.\" For sections 1, 6, and 8 only.
+.\" .Sh EXAMPLES
+.\" .Sh DIAGNOSTICS
+.\" For sections 1, 4, 6, 7, 8, and 9 printf/stderr messages only.
+.\" .Sh ERRORS
+.\" For sections 2, 3, 4, and 9 errno settings only.
+.Sh SEE ALSO
+.Xr ical_free 3
+.Sh STANDARDS
+The iCalendar format is specified in RFC 5545,
+.Qq Internet Calendaring and Scheduling Core Object .
+.\" .Sh HISTORY
+.\" .Sh AUTHORS
+.\" .Sh CAVEATS
+.\" .Sh BUGS
