@@ -272,27 +272,28 @@ struct	ical {
 	struct icalcomp	*comps[ICALTYPE__MAX];
 };
 
-struct	prop {
-	enum calproptype	 key;
-	char			*name;
-	char			*xmlns;
-	char			*val;
-	int			 valid;
+struct	calprop {
+	enum calproptype	  key;
+	char			 *name;
+	char			 *xmlns;
+	char			 *val;
+	int			  valid;
 };
 
 struct	caldav {
-	enum calreqtype	  type;
-	struct prop	 *props;
-	size_t		  propsz;
-	char		**hrefs;
-	size_t		  hrefsz;
+	enum calreqtype		  type;
+	struct calprop		 *props;
+	size_t			  propsz;
+	char			**hrefs;
+	size_t			  hrefsz;
 };
+
+typedef int (*ical_putchar)(int, void *);
 
 __BEGIN_DECLS
 
-typedef int	(*ical_putchar)(int, void *);
-
-struct ical 	 *ical_parse(const char *, const char *, size_t sz, char **);
+struct ical 	 *ical_parse(const char *, 
+			const char *, size_t sz, char **);
 void		  ical_free(struct ical *);
 int		  ical_print(const struct ical *, ical_putchar, void *);
 int		  ical_printfile(int, const struct ical *);

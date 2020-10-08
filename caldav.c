@@ -299,13 +299,13 @@ propadd(struct parse *p, const XML_Char *name,
 	}
 
 	pp = reallocarray(p->p->props,
-		p->p->propsz + 1, sizeof(struct prop));
+		p->p->propsz + 1, sizeof(struct calprop));
 	if (NULL == pp) {
 		caldav_err(p, "memory exhausted");
 		return;
 	}
 	p->p->props = pp;
-	memset(&p->p->props[p->p->propsz], 0, sizeof(struct prop));
+	memset(&p->p->props[p->p->propsz], 0, sizeof(struct calprop));
 
 	/*
 	 * Copy over the name and XML namespace as the parser gives it
@@ -356,7 +356,7 @@ propadd(struct parse *p, const XML_Char *name,
 }
 
 static void
-prop_free(struct prop *p)
+prop_free(struct calprop *p)
 {
 
 	free(p->xmlns);
