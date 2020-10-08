@@ -32,10 +32,6 @@
 #  endif
 #endif
 
-/*
- * I only handle certain types of XML CalDAV documents (corresponding to
- * the outer XML element).  This defines the request type per method.
- */
 enum	calreqtype {
 	CALREQTYPE_CALMULTIGET,
 	CALREQTYPE_CALQUERY,
@@ -43,9 +39,6 @@ enum	calreqtype {
 	CALREQTYPE_PROPFIND,
 };
 
-/*
- * Each of the XML elements we support.
- */
 enum	calelem {
 	CALELEM_CALENDAR_COLOR,
 	CALELEM_CALENDAR_DATA,
@@ -85,33 +78,33 @@ enum	calelem {
  * Each of the property types within <DAV::prop> elements that we
  * support.
  */
-enum	proptype {
-	PROP_CALENDAR_COLOR,
-	PROP_CALENDAR_DATA,
-	PROP_CALENDAR_DESCRIPTION,
-	PROP_CALENDAR_HOME_SET,
-	PROP_MIN_DATE_TIME,
-	PROP_CALENDAR_PROXY_READ_FOR,
-	PROP_CALENDAR_PROXY_WRITE_FOR,
-	PROP_CALENDAR_TIMEZONE,
-	PROP_CALENDAR_USER_ADDRESS_SET,
-	PROP_CURRENT_USER_PRINCIPAL,
-	PROP_CURRENT_USER_PRIVILEGE_SET,
-	PROP_DISPLAYNAME,
-	PROP_GETCONTENTTYPE,
-	PROP_GETCTAG,
-	PROP_GETETAG,
-	PROP_GROUP_MEMBER_SET,
-	PROP_GROUP_MEMBERSHIP,
-	PROP_OWNER,
-	PROP_PRINCIPAL_URL,
-	PROP_QUOTA_AVAILABLE_BYTES,
-	PROP_QUOTA_USED_BYTES,
-	PROP_RESOURCETYPE,
-	PROP_SCHEDULE_CALENDAR_TRANSP,
-	PROP_SUPPORTED_CALENDAR_COMPONENT_SET,
-	PROP_SUPPORTED_CALENDAR_DATA,
-	PROP__MAX
+enum	calproptype {
+	CALPROP_CALENDAR_COLOR,
+	CALPROP_CALENDAR_DATA,
+	CALPROP_CALENDAR_DESCRIPTION,
+	CALPROP_CALENDAR_HOME_SET,
+	CALPROP_MIN_DATE_TIME,
+	CALPROP_CALENDAR_PROXY_READ_FOR,
+	CALPROP_CALENDAR_PROXY_WRITE_FOR,
+	CALPROP_CALENDAR_TIMEZONE,
+	CALPROP_CALENDAR_USER_ADDRESS_SET,
+	CALPROP_CURRENT_USER_PRINCIPAL,
+	CALPROP_CURRENT_USER_PRIVILEGE_SET,
+	CALPROP_DISPLAYNAME,
+	CALPROP_GETCONTENTTYPE,
+	CALPROP_GETCTAG,
+	CALPROP_GETETAG,
+	CALPROP_GROUP_MEMBER_SET,
+	CALPROP_GROUP_MEMBERSHIP,
+	CALPROP_OWNER,
+	CALPROP_PRINCIPAL_URL,
+	CALPROP_QUOTA_AVAILABLE_BYTES,
+	CALPROP_QUOTA_USED_BYTES,
+	CALPROP_RESOURCETYPE,
+	CALPROP_SCHEDULE_CALENDAR_TRANSP,
+	CALPROP_SUPPORTED_CALENDAR_COMPONENT_SET,
+	CALPROP_SUPPORTED_CALENDAR_DATA,
+	CALPROP__MAX
 };
 
 enum	icaltype {
@@ -280,11 +273,11 @@ struct	ical {
 };
 
 struct	prop {
-	enum proptype	 key;
-	char		*name;
-	char		*xmlns;
-	char		*val;
-	int		 valid;
+	enum calproptype	 key;
+	char			*name;
+	char			*xmlns;
+	char			*val;
+	int			 valid;
 };
 
 struct	caldav {
@@ -311,8 +304,8 @@ void		  ical_rrule_generate(const struct icaltm *,
 struct caldav 	 *caldav_parse(const char *, size_t, char **);
 void		  caldav_free(struct caldav *);
 
-extern const enum proptype calprops[CALELEM__MAX];
-extern const enum calelem calpropelems[PROP__MAX];
+extern const enum calproptype calprops[CALELEM__MAX];
+extern const enum calelem calpropelems[CALPROP__MAX];
 extern const char *const calelems[CALELEM__MAX];
 extern const char *const icaltypes[ICALTYPE__MAX];
 extern const char *const icaltztypes[ICALTZ__MAX];

@@ -120,7 +120,7 @@ void	 method_report(struct kreq *);
 extern const char *const pages[PAGE__MAX];
 extern const char *const xmls[XML__MAX];
 extern const char *const valids[VALID__MAX];
-extern const struct property properties[PROP__MAX];
+extern const struct property properties[CALPROP__MAX];
 
 __END_DECLS
 

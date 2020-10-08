@@ -74,7 +74,7 @@ method_proppatch(struct kreq *r)
 	struct state	*st = r->arg;
 	struct kxmlreq	 xml;
 	size_t		 nf, df, bf, i;
-	int		 accepted[PROP__MAX + 1];
+	int		 accepted[CALPROP__MAX + 1];
 	struct coln	 cfg;
 	enum kmime	 mime;
 
@@ -89,9 +89,9 @@ method_proppatch(struct kreq *r)
 	cfg = *st->cfg;
 
 	memset(accepted, 0, sizeof(accepted));
-	accepted[PROP_CALENDAR_COLOR] = 1;
-	accepted[PROP_CALENDAR_DESCRIPTION] = 1;
-	accepted[PROP_DISPLAYNAME] = 1;
+	accepted[CALPROP_CALENDAR_COLOR] = 1;
+	accepted[CALPROP_CALENDAR_DESCRIPTION] = 1;
+	accepted[CALPROP_DISPLAYNAME] = 1;
 
 	if (CALREQTYPE_PROPERTYUPDATE != dav->type) {
 		kerrx("%s: unknown request type", st->prncpl->email);
@@ -133,17 +133,17 @@ method_proppatch(struct kreq *r)
 		}
 		df++;
 		switch (dav->props[i].key) {
-		case (PROP_DISPLAYNAME):
+		case (CALPROP_DISPLAYNAME):
 			cfg.displayname = dav->props[i].val;
 			kinfo("%s: display name modified",
 				st->prncpl->email);
 			break;
-		case (PROP_CALENDAR_COLOR):
+		case (CALPROP_CALENDAR_COLOR):
 			cfg.colour = dav->props[i].val;
 			kinfo("%s: colour modified",
 				st->prncpl->email);
 			break;
-		case (PROP_CALENDAR_DESCRIPTION):
+		case (CALPROP_CALENDAR_DESCRIPTION):
 			cfg.description = dav->props[i].val;
 			kinfo("%s: description modified",
 				st->prncpl->email);

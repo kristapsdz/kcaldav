@@ -73,10 +73,10 @@ static void
 propfind_coln(struct kreq *req, struct kxmlreq *xml, 
 	const struct caldav *dav, const struct coln *coln)
 {
-	struct state	*st = req->arg;
-	size_t	 	 i;
-	int		 nf;
-	enum proptype	 key;
+	struct state		*st = req->arg;
+	size_t			 i;
+	int			 nf;
+	enum calproptype	 key;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
@@ -92,7 +92,7 @@ propfind_coln(struct kreq *req, struct kxmlreq *xml,
 	kxml_push(xml, XML_DAV_PROP);
 
 	for (nf = 0, i = 0; i < dav->propsz; i++) {
-		if (PROP__MAX == (key = dav->props[i].key)) {
+		if (CALPROP__MAX == (key = dav->props[i].key)) {
 			nf = 1;
 			continue;
 		} else if (NULL == properties[key].cgetfp)
@@ -122,7 +122,7 @@ propfind_coln(struct kreq *req, struct kxmlreq *xml,
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			if (PROP__MAX != dav->props[i].key)
+			if (CALPROP__MAX != dav->props[i].key)
 				continue;
 			khttp_puts(req, "<X:");
 			khttp_puts(req, dav->props[i].name);
@@ -146,10 +146,10 @@ propfind_resource(struct kreq *req,
 	struct kxmlreq *xml, const struct caldav *dav, 
 	const struct coln *c, const struct res *r)
 {
-	struct state	*st = req->arg;
-	size_t		 i;
-	int		 nf;
-	enum proptype	 key;
+	struct state		*st = req->arg;
+	size_t			 i;
+	int			 nf;
+	enum calproptype	 key;
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
@@ -165,7 +165,7 @@ propfind_resource(struct kreq *req,
 	kxml_push(xml, XML_DAV_PROPSTAT);
 	kxml_push(xml, XML_DAV_PROP);
 	for (nf = 0, i = 0; i < dav->propsz; i++) {
-		if (PROP__MAX == (key = dav->props[i].key)) {
+		if (CALPROP__MAX == (key = dav->props[i].key)) {
 			nf = 1;
 			continue;
 		} else if (NULL == properties[key].rgetfp) 
@@ -195,7 +195,7 @@ propfind_resource(struct kreq *req,
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			if (PROP__MAX != dav->props[i].key)
+			if (CALPROP__MAX != dav->props[i].key)
 				continue;
 			khttp_puts(req, "<X:");
 			khttp_puts(req, dav->props[i].name);
@@ -291,10 +291,10 @@ static void
 propfind_prncpl(struct kreq *req, struct kxmlreq *xml, 
 	const struct caldav *dav)
 {
-	struct state	*st = req->arg;
-	size_t	 	 i;
-	int		 nf;
-	enum proptype	 key;
+	struct state		*st = req->arg;
+	size_t			 i;
+	int			 nf;
+	enum calproptype	 key;
 
 	kdbg("%s: showing principal collection", st->prncpl->email);
 
@@ -309,7 +309,7 @@ propfind_prncpl(struct kreq *req, struct kxmlreq *xml,
 	kxml_push(xml, XML_DAV_PROP);
 
 	for (nf = 0, i = 0; i < dav->propsz; i++) {
-		if (PROP__MAX == (key = dav->props[i].key)) {
+		if (CALPROP__MAX == (key = dav->props[i].key)) {
 			nf = 1;
 			continue;
 		} else if (NULL == properties[key].pgetfp)
@@ -335,7 +335,7 @@ propfind_prncpl(struct kreq *req, struct kxmlreq *xml,
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			if (PROP__MAX != dav->props[i].key)
+			if (CALPROP__MAX != dav->props[i].key)
 				continue;
 			khttp_puts(req, "<X:");
 			khttp_puts(req, dav->props[i].name);
@@ -395,11 +395,11 @@ propfind_proxy(struct kreq *req, struct kxmlreq *xml,
 		 * We honour the resource type and group member set
 		 * property requests.
 		 */
-		if (PROP_RESOURCETYPE == dav->props[i].key) {
+		if (CALPROP_RESOURCETYPE == dav->props[i].key) {
 			kxml_pushnull(xml, XML_DAV_PRINCIPAL);
 			kxml_pushnull(xml, type);
 			continue;
-		} else if (PROP_GROUP_MEMBER_SET != dav->props[i].key) {
+		} else if (CALPROP_GROUP_MEMBER_SET != dav->props[i].key) {
 			nf = 1;
 			continue;
 		}
@@ -441,8 +441,8 @@ propfind_proxy(struct kreq *req, struct kxmlreq *xml,
 		kxml_push(xml, XML_DAV_PROPSTAT);
 		kxml_push(xml, XML_DAV_PROP);
 		for (i = 0; i < dav->propsz; i++) {
-			if (PROP_RESOURCETYPE == dav->props[i].key ||
-			    PROP_GROUP_MEMBER_SET == dav->props[i].key)
+			if (CALPROP_RESOURCETYPE == dav->props[i].key ||
+			    CALPROP_GROUP_MEMBER_SET == dav->props[i].key)
 				continue;
 			khttp_puts(req, "<X:");
 			khttp_puts(req, dav->props[i].name);

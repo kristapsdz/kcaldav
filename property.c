@@ -621,128 +621,128 @@ resource_getcontenttype(struct kreq *req, struct kxmlreq *xml,
 	kxml_puts(xml, kmimetypes[KMIME_TEXT_CALENDAR]);
 }
 
-const struct property properties[PROP__MAX] = {
-	{ /* PROP_CALENDAR_COLOR */
+const struct property properties[CALPROP__MAX] = {
+	{ /* CALPROP_CALENDAR_COLOR */
 	  0, 
 	  collection_calendar_colour, 
 	  NULL,
 	  NULL }, 
-	{ /* PROP_CALENDAR_DATA */
+	{ /* CALPROP_CALENDAR_DATA */
 	  0, 
 	  NULL, 
 	  resource_calendar_data,
 	  NULL }, 
-	{ /* PROP_CALENDAR_DESCRIPTION */
+	{ /* CALPROP_CALENDAR_DESCRIPTION */
 	  0, 
 	  collection_calendar_description, 
 	  NULL,
 	  NULL }, 
-	{ /* PROP_CALENDAR_HOME_SET */
+	{ /* CALPROP_CALENDAR_HOME_SET */
 	  0, 
 	  collection_calendar_home_set, 
 	  resource_calendar_home_set,
 	  principal_calendar_home_set }, 
-	{ /* PROP_MIN_DATE_TIME */
+	{ /* CALPROP_MIN_DATE_TIME */
 	  0, 
 	  collection_min_date_time, 
 	  NULL,
 	  NULL }, 
-	{ /* PROP_CALENDAR_PROXY_READ_FOR */
+	{ /* CALPROP_CALENDAR_PROXY_READ_FOR */
 	  0, 
 	  NULL, 
 	  NULL,
 	  principal_calendar_proxy_read_for }, 
-	{ /* PROP_CALENDAR_PROXY_WRITE_FOR */
+	{ /* CALPROP_CALENDAR_PROXY_WRITE_FOR */
 	  0, 
 	  NULL, 
 	  NULL,
 	  principal_calendar_proxy_write_for }, 
-	{ /* PROP_CALENDAR_TIMEZONE */
+	{ /* CALPROP_CALENDAR_TIMEZONE */
 	  0, 
 	  collection_calendar_timezone, 
 	  NULL,
 	  NULL }, 
-	{ /* PROP_CALENDAR_USER_ADDRESS_SET */
+	{ /* CALPROP_CALENDAR_USER_ADDRESS_SET */
 	  0, 
 	  collection_calendar_user_address_set, 
 	  resource_calendar_user_address_set,
 	  principal_calendar_user_address_set }, 
-	{ /* PROP_CURRENT_USER_PRINCIPAL */
+	{ /* CALPROP_CURRENT_USER_PRINCIPAL */
 	  0, 
 	  collection_current_user_principal, 
 	  resource_current_user_principal,
 	  principal_current_user_principal }, 
-	{ /* PROP_CURRENT_USER_PRIVILEGE_SET */
+	{ /* CALPROP_CURRENT_USER_PRIVILEGE_SET */
   	  0, 
 	  collection_current_user_privilege_set, 
 	  resource_current_user_privilege_set,
 	  NULL }, 
-	{ /* PROP_DISPLAYNAME */
+	{ /* CALPROP_DISPLAYNAME */
 	  0, 
 	  collection_displayname, 
 	  NULL,
 	  NULL }, 
-	{ /* PROP_GETCONTENTTYPE */
+	{ /* CALPROP_GETCONTENTTYPE */
 	  0, 
 	  collection_getcontenttype, 
 	  resource_getcontenttype,
 	  principal_getcontenttype }, 
-	{ /* PROP_GETCTAG */
+	{ /* CALPROP_GETCTAG */
 	  0, 
 	  collection_getctag, 
 	  NULL,
 	  NULL }, 
-	{ /* PROP_GETETAG */
+	{ /* CALPROP_GETETAG */
 	  0, 
 	  NULL, 
 	  resource_getetag,
 	  NULL }, 
-	{ /* PROP_GROUP_MEMBER_SET */
+	{ /* CALPROP_GROUP_MEMBER_SET */
 	  0, 
 	  NULL, 
 	  NULL,
 	  NULL }, 
-	{ /* PROP_GROUP_MEMBERSHIP */
+	{ /* CALPROP_GROUP_MEMBERSHIP */
 	  0, 
 	  NULL, 
 	  NULL,
 	  principal_group_membership }, 
-	{ /* PROP_OWNER */
+	{ /* CALPROP_OWNER */
 	  0, 
 	  collection_owner, 
 	  resource_owner,
 	  NULL }, 
-	{ /* PROP_PRINCIPAL_URL */
+	{ /* CALPROP_PRINCIPAL_URL */
 	  0, 
 	  collection_principal_url, 
 	  resource_principal_url,
 	  principal_principal_url }, 
-	{ /* PROP_QUOTA_AVAILABLE_BYTES */
+	{ /* CALPROP_QUOTA_AVAILABLE_BYTES */
 	  0, 
 	  collection_quota_available_bytes, 
 	  resource_quota_available_bytes,
 	  NULL }, 
-	{ /* PROP_QUOTA_USED_BYTES */
+	{ /* CALPROP_QUOTA_USED_BYTES */
 	  0, 
 	  collection_quota_used_bytes, 
 	  resource_quota_used_bytes,
 	  NULL }, 
-	{ /* PROP_RESOURCETYPE */
+	{ /* CALPROP_RESOURCETYPE */
 	  0, 
 	  collection_resourcetype, 
 	  resource_resourcetype,
 	  principal_resourcetype }, 
-	{ /* PROP_SCHEDULE_CALENDAR_TRANSP */
+	{ /* CALPROP_SCHEDULE_CALENDAR_TRANSP */
 	  0, 
 	  collection_schedule_calendar_transp, 
 	  NULL,
 	  NULL }, 
-	{ /* PROP_SUPPORTED_CALENDAR_COMPONENT_SET */
+	{ /* CALPROP_SUPPORTED_CALENDAR_COMPONENT_SET */
 	  0, 
 	  collection_supported_calendar_component_set, 
 	  NULL,
 	  NULL }, 
-	{ /* PROP_SUPPORTED_CALENDAR_DATA */
+	{ /* CALPROP_SUPPORTED_CALENDAR_DATA */
 	  0, 
 	  collection_supported_calendar_data, 
 	  NULL,
