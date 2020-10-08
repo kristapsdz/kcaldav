@@ -191,6 +191,11 @@ main(int argc, char *argv[])
 	char		*map, *er = NULL;
 	struct ical	*p = NULL;
 
+#if HAVE_PLEDGE
+	if (pledge("stdio rpath", NULL) == -1)
+		err(EXIT_FAILURE, "pledge");
+#endif
+
 	if ((c = getopt(argc, argv, "")) != -1)
 		return EXIT_FAILURE;
 
@@ -202,6 +207,11 @@ main(int argc, char *argv[])
 
 	if ((fd = open(argv[0], O_RDONLY, 0)) == -1)
 		err(EXIT_FAILURE, "%s", argv[0]);
+
+#if HAVE_PLEDGE
+	if (pledge("stdio", NULL) == -1)
+		err(EXIT_FAILURE, "pledge");
+#endif
 
 	if (fstat(fd, &st) == -1)
 		err(EXIT_FAILURE, "%s", argv[0]);
