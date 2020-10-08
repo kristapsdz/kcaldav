@@ -1,0 +1,135 @@
+.\"	$OpenBSD$
+.\"
+.\" Copyright (c) 2020 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt CALDAV_PARSE 3
+.Os
+.Sh NAME
+.Nm ical_parse
+.Nd parse a CalDAV file
+.Sh LIBRARY
+.Lb libkcaldav
+.Sh SYNOPSIS
+.In libkcaldav.h
+.Ft struct caldav *
+.Fo caldav_parse
+.Fa const char *file
+.Fa const char *cp
+.Fa size_t len
+.Fa char **er
+.Fc
+.Sh DESCRIPTION
+Parse an CalDAV file given in
+.Fa cp ,
+which may not be
+.Dv NULL ,
+of length
+.Fa sz .
+If
+.Fa file
+is not
+.Dv NULL ,
+it is used for reporting errors only.
+The
+.Fa er ,
+if not
+.Dv NULL ,
+is filled in with an error message on parse failure.
+.Pp
+The parsed CalDAV file must be freed with
+.Xr caldav_free 3 .
+If errors occur and
+.Fa er
+is set, the error string must be freed with
+.Xr free 3 .
+.Pp
+The returned
+.Vt struct caldav
+structure has the following members:
+.Bl -tag -width Ds -offset indent
+.It Va enum calreqtype type
+Type of CalDAV request.
+.It Va struct calprop *props
+Array of properties passed in the request.
+This is
+.Dv NULL
+if the request has no properties.
+.It Va size_t propsz
+The number of properties in
+.Fa props .
+.It Va char **hrefs
+Any URLs passed in with the request or
+.Dv NULL
+if not having an URLs.
+These are interpreted depending upon the request.
+.It Va size_t hrefsz
+The number of elements in
+.Fa hrefs .
+.El
+The calendar properties are encoded in
+.Vt struct calprop :
+.Bl -tag -width -Ds -offset indent
+.It Va enum calproptype key
+The property type or 
+.Dv CALPROP__MAX
+if unknown.
+.It Va char *name
+The property name (without its XML namespace).
+.It Va char *xmlns
+The property XML namespace.
+.It Va char *val
+The value of the property or
+.Dv NULL
+if it has none.
+.It Va int valid
+Validity of property: if -1, invalid; if zero, not valid; if 1, valid.
+.El
+.\" The following requests should be uncommented and used where appropriate.
+.\" .Sh CONTEXT
+.\" For section 9 functions only.
+.Sh RETURN VALUES
+Returns the parse object on success.
+It must be freed with
+.Xr caldav_free 3 .
+On failure, returns
+.Dv NULL .
+.Pp
+The
+.Fa er
+pointer, if not
+.Dv NULL ,
+is provided an error message.
+If the error message is
+.Dv NULL ,
+memory allocation has failed.
+.\" For sections 2, 3, and 9 function return values only.
+.\" .Sh ENVIRONMENT
+.\" For sections 1, 6, 7, and 8 only.
+.\" .Sh FILES
+.\" .Sh EXIT STATUS
+.\" For sections 1, 6, and 8 only.
+.\" .Sh EXAMPLES
+.\" .Sh DIAGNOSTICS
+.\" For sections 1, 4, 6, 7, 8, and 9 printf/stderr messages only.
+.\" .Sh ERRORS
+.\" For sections 2, 3, 4, and 9 errno settings only.
+.Sh SEE ALSO
+.Xr caldav_free 3
+.\" .Sh STANDARDS
+.\" .Sh HISTORY
+.\" .Sh AUTHORS
+.\" .Sh CAVEATS
+.\" .Sh BUGS
