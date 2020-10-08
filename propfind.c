@@ -585,8 +585,8 @@ method_report(struct kreq *req)
 	} else if (NULL == (dav = req2caldav(req, &mime)))
 		return;
 
-	if (TYPE_CALMULTIGET != dav->type &&
-		 TYPE_CALQUERY != dav->type) {
+	if (CALREQTYPE_CALMULTIGET != dav->type &&
+		 CALREQTYPE_CALQUERY != dav->type) {
 		kerrx("%s: unknown request type", st->prncpl->email);
 		http_error(req, KHTTP_415);
 		caldav_free(dav);
@@ -623,9 +623,9 @@ method_report(struct kreq *req)
 		"xmlns:D", "DAV:", NULL);
 
 	if (NULL == res) {
-		if (TYPE_CALMULTIGET == dav->type)
+		if (CALREQTYPE_CALMULTIGET == dav->type)
 			propfind_list(req, &xml, dav);
-		else if (TYPE_CALQUERY == dav->type)
+		else if (CALREQTYPE_CALQUERY == dav->type)
 			propfind_directory(req, &xml, dav, st->cfg);
 	} else
 		propfind_resource(req, &xml, dav, st->cfg, res);
@@ -655,7 +655,7 @@ method_propfind(struct kreq *req)
 	if (NULL == (dav = req2caldav(req, &mime)))
 		return;
 
-	if (TYPE_PROPFIND != dav->type) {
+	if (CALREQTYPE_PROPFIND != dav->type) {
 		kerrx("%s: unknown request type", st->prncpl->email);
 		http_error(req, KHTTP_415);
 		caldav_free(dav);

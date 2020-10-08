@@ -93,7 +93,7 @@ method_proppatch(struct kreq *r)
 	accepted[PROP_CALENDAR_DESCRIPTION] = 1;
 	accepted[PROP_DISPLAYNAME] = 1;
 
-	if (TYPE_PROPERTYUPDATE != dav->type) {
+	if (CALREQTYPE_PROPERTYUPDATE != dav->type) {
 		kerrx("%s: unknown request type", st->prncpl->email);
 		http_error(r, KHTTP_415);
 		caldav_free(dav);

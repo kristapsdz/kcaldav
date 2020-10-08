@@ -273,8 +273,8 @@ caldav_err(struct parse *p, const char *fmt, ...)
 /*
  * Add a property we've parsed from our input.
  * Properties appear in nearly all CalDAV XML requests, either as
- * requests for a property (e.g, TYPE_PROPFIND) or for setting
- * properties (e.g., TYPE_PROPERTYUPDATE).
+ * requests for a property (e.g, CALREQTYPE_PROPFIND) or for setting
+ * properties (e.g., CALREQTYPE_PROPERTYUPDATE).
  * If we know about a property, it's type isn't PROP__MAX.
  * If we're setting a property, we also validate the value to make sure
  * it's ok.
@@ -332,7 +332,7 @@ propadd(struct parse *p, const XML_Char *name,
 	/* Now prep for settable properties... */
 	if (PROP__MAX == prop)
 		return;
-	if (TYPE_PROPERTYUPDATE != p->p->type) 
+	if (CALREQTYPE_PROPERTYUPDATE != p->p->type) 
 		return;
 
 	/*
@@ -365,7 +365,7 @@ prop_free(struct prop *p)
 }
 
 static int
-caldav_alloc(struct parse *p, enum type type)
+caldav_alloc(struct parse *p, enum calreqtype type)
 {
 
 	if (NULL != p->p) {
@@ -464,8 +464,8 @@ parseclose(void *dat, const XML_Char *s)
 
 			if ('\0' == p->buf.buf[i + 1] ||
 			    '\0' == p->buf.buf[i + 2] ||
-			    ! isalnum(p->buf.buf[i + 1]) ||
-			    ! isalnum(p->buf.buf[i + 2])) {
+			    !isalnum((unsigned char)p->buf.buf[i + 1]) ||
+			    !isalnum((unsigned char)p->buf.buf[i + 2])) {
 				caldav_err(p, "bad percent-encoding");
 				break;
 			}
@@ -544,16 +544,16 @@ parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 
 	switch (calelem_find(s)) {
 	case CALELEM_CALENDAR_QUERY:
-		caldav_alloc(p, TYPE_CALQUERY);
+		caldav_alloc(p, CALREQTYPE_CALQUERY);
 		break;
 	case CALELEM_CALENDAR_MULTIGET:
-		caldav_alloc(p, TYPE_CALMULTIGET);
+		caldav_alloc(p, CALREQTYPE_CALMULTIGET);
 		break;
 	case CALELEM_PROPERTYUPDATE:
-		caldav_alloc(p, TYPE_PROPERTYUPDATE);
+		caldav_alloc(p, CALREQTYPE_PROPERTYUPDATE);
 		break;
 	case CALELEM_PROPFIND:
-		caldav_alloc(p, TYPE_PROPFIND);
+		caldav_alloc(p, CALREQTYPE_PROPFIND);
 		break;
 	case CALELEM_HREF:
 		p->buf.sz = 0;

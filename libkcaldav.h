@@ -36,11 +36,11 @@
  * I only handle certain types of XML CalDAV documents (corresponding to
  * the outer XML element).  This defines the request type per method.
  */
-enum	type {
-	TYPE_CALMULTIGET,
-	TYPE_CALQUERY,
-	TYPE_PROPERTYUPDATE,
-	TYPE_PROPFIND,
+enum	calreqtype {
+	CALREQTYPE_CALMULTIGET,
+	CALREQTYPE_CALQUERY,
+	CALREQTYPE_PROPERTYUPDATE,
+	CALREQTYPE_PROPFIND,
 };
 
 /*
@@ -279,24 +279,16 @@ struct	ical {
 	struct icalcomp	*comps[ICALTYPE__MAX];
 };
 
-/*
- * A CalDAV or DAV property in the XML request.
- */
 struct	prop {
-	enum proptype	 key; /* key or PROP__MAX if unknown */
-	char		*name; /* name (without namespace */
-	char		*xmlns; /* XML namespace */
-	char		*val; /* the value if provided for setting */
-	int		 valid; /* -1 invalid, 0 no valid, 1 valid */
+	enum proptype	 key;
+	char		*name;
+	char		*xmlns;
+	char		*val;
+	int		 valid;
 };
 
-/*
- * A parsed CalDAV request.
- * Given the type, this might have properties or hrefs that we care
- * about--it depends.
- */
 struct	caldav {
-	enum type	  type;
+	enum calreqtype	  type;
 	struct prop	 *props;
 	size_t		  propsz;
 	char		**hrefs;
@@ -311,7 +303,6 @@ struct ical 	 *ical_parse(const char *, const char *, size_t sz, char **);
 void		  ical_free(struct ical *);
 int		  ical_print(const struct ical *, ical_putchar, void *);
 int		  ical_printfile(int, const struct ical *);
-		  /* Experimental... */
 #if 0
 void		  ical_rrule_generate(const struct icaltm *, 
 			const struct icalrrule *);
