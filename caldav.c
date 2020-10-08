@@ -33,6 +33,12 @@
 #define	DAVNS		"DAV::"
 #define	CALSERVNS	"http://calendarserver.org/ns/:"
 
+struct	buf {
+	char		*buf;
+	size_t		 sz;
+	size_t		 max;
+};
+
 /*
  * Parse sequence.
  */
@@ -178,6 +184,27 @@ static void	parseclose(void *, const XML_Char *);
 static void	propclose(void *, const XML_Char *);
 static void	propopen(void *, const XML_Char *, const XML_Char **);
 static void	parseopen(void *, const XML_Char *, const XML_Char **);
+
+static int
+bufappend(struct buf *p, const char *s, size_t len)
+{
+	void	*pp;
+
+	if (0 == len)
+		return 1;
+
+	if (p->sz + len + 1 > p->max) {
+		p->max = p->sz + len + 1024;
+		if ((pp = realloc(p->buf, p->max)) == NULL)
+			return 0;
+		p->buf = pp;
+	}
+
+	memcpy(p->buf + p->sz, s, len);
+	p->sz += len;
+	p->buf[p->sz] = '\0';
+	return 1;
+}
 
 static int
 propvalid_rgb(const char *cp)
@@ -485,7 +512,8 @@ parsebuffer(void *dat, const XML_Char *s, int len)
 	if (0 == len)
 		return;
 	assert(len > 0);
-	bufappend(&p->buf, s, (size_t)len);
+	if (!bufappend(&p->buf, s, (size_t)len))
+		caldav_err(p, "memory exhausted");
 }
 
 static void
@@ -553,14 +581,16 @@ caldav_parse(const char *buf, size_t sz, char **er)
 	if ((p.xp = XML_ParserCreateNS(NULL, ':')) == NULL)
 		return NULL;
 
-	bufappend(&p.buf, " ", 1);
-
 	XML_SetDefaultHandler(p.xp, NULL);
 	XML_SetElementHandler(p.xp, parseopen, parseclose);
 	XML_SetCdataSectionHandler(p.xp, cdata, cdata);
 	XML_SetUserData(p.xp, &p);
 
-	if (XML_Parse(p.xp, buf, (int)sz, 1) != XML_STATUS_OK) {
+	if (!bufappend(&p.buf, " ", 1)) {
+		caldav_err(&p, "memory exhausted");
+		caldav_free(p.p);
+		p.p = NULL;
+	} else if (XML_Parse(p.xp, buf, (int)sz, 1) != XML_STATUS_OK) {
 		caldav_err(&p, "%s", 
 			XML_ErrorString
 			(XML_GetErrorCode(p.xp)));

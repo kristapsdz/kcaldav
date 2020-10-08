@@ -114,17 +114,6 @@ enum	proptype {
 	PROP__MAX
 };
 
-/*
- * Buffers are just dynamic nil-terminated strings that we constantly
- * resize upward, then size to zero when we're done.
- * I use these in several different places for growable strings.
- */
-struct	buf {
-	char		*buf;
-	size_t		 sz;
-	size_t		 max;
-};
-
 enum	icaltype {
 	ICALTYPE_VCALENDAR,
 	ICALTYPE_VEVENT,
@@ -317,9 +306,6 @@ struct	caldav {
 __BEGIN_DECLS
 
 typedef int	(*ical_putchar)(int, void *);
-
-void 		  bufappend(struct buf *, const char *, size_t);
-void		  bufreset(struct buf *);
 
 struct ical 	 *ical_parse(const char *, const char *, size_t sz, char **);
 void		  ical_free(struct ical *);

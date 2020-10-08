@@ -87,6 +87,12 @@ const char *const icalfreqs[ICALFREQ__MAX] = {
 	"YEARLY", /* ICALFREQ_YEARLY */
 };
 
+struct	buf {
+	char		*buf;
+	size_t		 sz;
+	size_t		 max;
+};
+
 /*
  * This structure manages the parse sequence, either from a real file or
  * just an anonymous input buffer.
@@ -103,6 +109,27 @@ struct	icalparse {
 	struct icalnode	*cur; /* current node parse */
 	struct icalcomp	*comps[ICALTYPE__MAX]; /* current comps */
 };
+
+static int
+bufappend(struct buf *p, const char *s, size_t len)
+{
+	void	*pp;
+
+	if (0 == len)
+		return 1;
+
+	if (p->sz + len + 1 > p->max) {
+		p->max = p->sz + len + 1024;
+		if ((pp = realloc(p->buf, p->max)) == NULL)
+			return 0;
+		p->buf = pp;
+	}
+
+	memcpy(p->buf + p->sz, s, len);
+	p->sz += len;
+	p->buf[p->sz] = '\0';
+	return 1;
+}
 
 static void
 ical_err(char **er, const char *file, size_t line, const char *fmt, ...)
@@ -992,8 +1019,9 @@ ical_line(struct icalparse *p, char **name,
 		/* If we're at the EOF, copy everything remaining. */
 
 		if (end == NULL) {
-			bufappend(&p->buf, &p->cp[p->pos], 
-				p->sz - p->pos);
+			if (!bufappend(&p->buf, 
+		            &p->cp[p->pos], p->sz - p->pos))
+				return 0;
 			p->pos = p->sz;
 			break;
 		}
@@ -1008,7 +1036,8 @@ ical_line(struct icalparse *p, char **name,
 		} else
 			skip = 1;
 
-		bufappend(&p->buf, &p->cp[p->pos], len);
+		if (!bufappend(&p->buf, &p->cp[p->pos], len))
+			return 0;
 		p->pos += len + skip;
 
 		/* Next line does not start with a continuation. */

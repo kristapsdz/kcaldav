@@ -102,7 +102,6 @@ JSMINS		 = collection.min.js \
 ALLSRCS		 = Makefile \
 		   $(TESTSRCS) \
 		   $(MANS) \
-		   buf.c \
 		   caldav.c \
 		   collection.js \
 		   collection.xml \
@@ -134,8 +133,7 @@ ALLSRCS		 = Makefile \
 		   style.css \
 		   tests.c \
 		   util.c
-LIBOBJS		 = buf.o \
-		   caldav.o \
+LIBOBJS		 = caldav.o \
 		   ical.o
 OBJS		 = db.o \
 		   err.o \
