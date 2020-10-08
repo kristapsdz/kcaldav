@@ -263,7 +263,7 @@ kvalid_body(struct kpair *kp)
 
 	/* Try to parse an XML file. */
 
-	dav = caldav_parse(kp->val, kp->valsz);
+	dav = caldav_parse(kp->val, kp->valsz, NULL);
 	caldav_free(dav);
 	return (dav != NULL);
 }

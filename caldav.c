@@ -40,6 +40,7 @@ struct	parse {
 	struct caldav	 *p; /* resulting structure */
 	XML_Parser	  xp;
 	struct buf	  buf;
+	char		**er;
 };
 
 typedef	int (*propvalid)(const char *);
@@ -164,13 +165,13 @@ static const propvalid propvalids[PROP__MAX] = {
 	NULL, /* PROP_GROUP_MEMBER_SET */
 	NULL, /* PROP_GROUP_MEMBERSHIP */
 	NULL, /* PROP_OWNER */
-	NULL,/* PROP_PRINCIPAL_URL */
+	NULL, /* PROP_PRINCIPAL_URL */
 	NULL, /* PROP_QUOTA_AVAILABLE_BYTES */
 	NULL, /* PROP_QUOTA_USED_BYTES */
-	NULL,/* PROP_RESOURCETYPE */
-	NULL,/* PROP_SCHEDULE_CALENDAR_TRANSP */
-	NULL,/* PROP_SUPPORTED_CALENDAR_COMPONENT_SET */
-	NULL,/* PROP_SUPPORTED_CALENDAR_DATA */
+	NULL, /* PROP_RESOURCETYPE */
+	NULL, /* PROP_SCHEDULE_CALENDAR_TRANSP */
+	NULL, /* PROP_SUPPORTED_CALENDAR_COMPONENT_SET */
+	NULL, /* PROP_SUPPORTED_CALENDAR_DATA */
 };
 
 static void	parseclose(void *, const XML_Char *);
@@ -188,9 +189,9 @@ propvalid_rgb(const char *cp)
 	if ('#' != cp[0])
 		return(0);
 	for (i = 1; i < sz; i++) {
-		if (isdigit((int)cp[i]))
+		if (isdigit((unsigned char)cp[i]))
 			continue;
-		if (isalpha((int)cp[i]) && 
+		if (isalpha((unsigned char)cp[i]) && 
 			((cp[i] >= 'a' && 
 			  cp[i] <= 'f') ||
 			 (cp[i] >= 'A' &&
@@ -210,27 +211,36 @@ calelem_find(const XML_Char *name)
 		if (0 == strcmp(calelems[i], name))
 			return(i);
 
-	return(CALELEM__MAX);
+	return CALELEM__MAX;
 }
 
 static void
 caldav_err(struct parse *p, const char *fmt, ...)
 {
 	va_list	 ap;
-	char	 buf[1024];
-
-	if (fmt == NULL)
-		return;
-
-	va_start(ap, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, ap);
-	va_end(ap);
-
-	kerrx("%zu:%zu: %s", 
-		XML_GetCurrentLineNumber(p->xp),
-		XML_GetCurrentColumnNumber(p->xp), buf);
+	char	*buf;
+	int	 c;
 
 	XML_StopParser(p->xp, 0);
+
+	if (p->er == NULL || *p->er != NULL)
+		return;
+
+	*p->er = NULL;
+
+	assert(fmt != NULL);
+	va_start(ap, fmt);
+	c = vasprintf(&buf, fmt, ap);
+	va_end(ap);
+
+	if (c < 0)
+		return;
+
+	c = asprintf(p->er, "%zu:%zu: %s", 
+		XML_GetCurrentLineNumber(p->xp),
+		XML_GetCurrentColumnNumber(p->xp), buf);
+	
+	free(buf);
 }
 
 /*
@@ -316,9 +326,6 @@ propadd(struct parse *p, const XML_Char *name,
 
 	if (p->p->props[p->p->propsz - 1].valid >= 0) 
 		return;
-
-	kdbg("Bad property value: %s", 
-		p->p->props[p->p->propsz - 1].name);
 }
 
 static void
@@ -375,7 +382,8 @@ static char
 parsehex(char ch)
 {
 
-	return(isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
+	return isdigit((unsigned char)ch) ? 
+		ch - '0' : tolower((unsigned char)ch) - 'a' + 10;
 }
 
 static void
@@ -387,15 +395,15 @@ parseclose(void *dat, const XML_Char *s)
 	char		**array;
 
 	switch (calelem_find(s)) {
-	case (CALELEM_CALENDAR_MULTIGET):
-	case (CALELEM_CALENDAR_QUERY):
-	case (CALELEM_PROPERTYUPDATE):
-	case (CALELEM_PROPFIND):
+	case CALELEM_CALENDAR_MULTIGET:
+	case CALELEM_CALENDAR_QUERY:
+	case CALELEM_PROPERTYUPDATE:
+	case CALELEM_PROPFIND:
 		/* Clear our parsing context. */
 		XML_SetDefaultHandler(p->xp, NULL);
 		XML_SetElementHandler(p->xp, NULL, NULL);
 		break;
-	case (CALELEM_HREF):
+	case CALELEM_HREF:
 		if (0 == p->buf.sz)
 			break;
 		/*
@@ -455,9 +463,9 @@ propclose(void *dat, const XML_Char *s)
 	enum calelem	 elem;
 
 	switch ((elem = calelem_find(s))) {
-	case (CALELEM__MAX):
+	case CALELEM__MAX:
 		break;
-	case (CALELEM_PROP):
+	case CALELEM_PROP:
 		XML_SetElementHandler(p->xp, parseopen, parseclose);
 		break;
 	default:
@@ -486,13 +494,8 @@ propopen(void *dat, const XML_Char *s, const XML_Char **atts)
 	struct parse	*p = dat;
 	enum calelem	 elem;
 
-	if (CALELEM__MAX == (elem = calelem_find(s))) 
-		kdbg("Unknown property: %s", s);
-	else
-		kdbg("Known property: %s", s);
-
-	switch (elem) {
-	case (CALELEM__MAX):
+	switch ((elem = calelem_find(s))) {
+	case CALELEM__MAX:
 		propadd(p, s, PROP__MAX, NULL);
 		break;
 	default:
@@ -510,31 +513,25 @@ static void
 parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 {
 	struct parse	*p = dat;
-	enum calelem	 elem;
 
-	if (CALELEM__MAX != (elem = calelem_find(s)))
-		kdbg("Known element: %s", s);
-	else
-		kdbg("Unknown element: %s", s);
-
-	switch (elem) {
-	case (CALELEM_CALENDAR_QUERY):
+	switch (calelem_find(s)) {
+	case CALELEM_CALENDAR_QUERY:
 		caldav_alloc(p, TYPE_CALQUERY);
 		break;
-	case (CALELEM_CALENDAR_MULTIGET):
+	case CALELEM_CALENDAR_MULTIGET:
 		caldav_alloc(p, TYPE_CALMULTIGET);
 		break;
-	case (CALELEM_PROPERTYUPDATE):
+	case CALELEM_PROPERTYUPDATE:
 		caldav_alloc(p, TYPE_PROPERTYUPDATE);
 		break;
-	case (CALELEM_PROPFIND):
+	case CALELEM_PROPFIND:
 		caldav_alloc(p, TYPE_PROPFIND);
 		break;
-	case (CALELEM_HREF):
+	case CALELEM_HREF:
 		p->buf.sz = 0;
 		XML_SetDefaultHandler(p->xp, parsebuffer);
 		break;
-	case (CALELEM_PROP):
+	case CALELEM_PROP:
 		XML_SetElementHandler(p->xp, propopen, propclose);
 		break;
 	default:
@@ -543,16 +540,18 @@ parseopen(void *dat, const XML_Char *s, const XML_Char **atts)
 }
 
 struct caldav *
-caldav_parse(const char *buf, size_t sz)
+caldav_parse(const char *buf, size_t sz, char **er)
 {
 	struct parse	 p;
 
+	if (er != NULL)
+		*er = NULL;
+
 	memset(&p, 0, sizeof(struct parse));
 
-	if (NULL == (p.xp = XML_ParserCreateNS(NULL, ':'))) {
-		kerr(NULL);
-		return(NULL);
-	}
+	p.er = er;
+	if ((p.xp = XML_ParserCreateNS(NULL, ':')) == NULL)
+		return NULL;
 
 	bufappend(&p.buf, " ", 1);
 
@@ -571,6 +570,6 @@ caldav_parse(const char *buf, size_t sz)
 
 	XML_ParserFree(p.xp);
 	free(p.buf.buf);
-	return(p.p);
+	return p.p;
 }
 

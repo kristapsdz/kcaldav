@@ -66,7 +66,7 @@ req2caldav(struct kreq *req, enum kmime *mime)
 
 	return(caldav_parse
 		(req->fieldmap[VALID_BODY]->val, 
-		 req->fieldmap[VALID_BODY]->valsz));
+		 req->fieldmap[VALID_BODY]->valsz, NULL));
 }
 
 static void

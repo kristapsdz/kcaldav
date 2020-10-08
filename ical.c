@@ -816,7 +816,6 @@ ical_duration(const struct icalparse *p,
 	}
 
 	while ('\0' != *cp) {
-		/* Ignore the time designation. */
 		if ('T' == *cp) {
 			if ('\0' == cp[1])
 				break;

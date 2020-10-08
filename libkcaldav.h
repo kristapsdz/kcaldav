@@ -125,9 +125,6 @@ struct	buf {
 	size_t		 max;
 };
 
-/*
- * An iCalendar component type.
- */
 enum	icaltype {
 	ICALTYPE_VCALENDAR,
 	ICALTYPE_VEVENT,
@@ -139,15 +136,10 @@ enum	icaltype {
 	ICALTYPE__MAX
 };
 
-/*
- * A node in an iCalendar parse tree.
- * Nodes don't necessarily correspond to component types.
- * Use "struct icalcomp" for any real work.
- */
 struct	icalnode {
 	char		*name;
-	char		*param; /* might be NULL */
-	char		*val; /* might be NULL */
+	char		*param;
+	char		*val;
 	struct icalnode	*next;
 };
 
@@ -181,29 +173,16 @@ enum	icalwkday {
 	ICALWKDAY__MAX
 };
 
-/*
- * An iCalendar weekday consists of both a signed numeric value and a
- * named weekday component.
- */
 struct	icalwk {
-	long	 	 wk; /* zero if not set */
-	enum icalwkday	 wkday;  /* ICALWKDAY_NONE if not set */
+	long	 	 wk;
+	enum icalwkday	 wkday;
 };
 
-/*
- * Various date-time formats broken down into the number of seconds
- * from the epoch as if the origin date were UTC.
- */
 struct	icaltm {
-	time_t		 tm; /* epoch */
-	int		 set; /* if zero, not parsed */
+	time_t		 tm;
+	int		 set;
 };
 
-/*
- * An iCalendar duration (RFC 2445, 4.3.6).
- * If this has no values, the sign is zero.
- * All values are counted from zero.
- */
 struct	icaldur {
 	int		 sign; /* >0 pos, <0 neg */
 	unsigned long	 day;
@@ -242,55 +221,44 @@ struct	icalrdate {
 #endif
 
 struct	icalrrule {
-	int		 set; /* has been set */
-	enum icalfreq	 freq; /* FREQ */
-	struct icaltm	 until; /* UNTIL */
-	unsigned long	 count; /* COUNT */
-	unsigned long	 interval; /* INTERVAL */
-	unsigned long	*bhr; /* BYHOUR */
+	int		 set;
+	enum icalfreq	 freq;
+	struct icaltm	 until;
+	unsigned long	 count;
+	unsigned long	 interval;
+	unsigned long	*bhr;
 	size_t		 bhrsz;
-	unsigned long	*bmin; /* BYMINUTE */
+	unsigned long	*bmin;
 	size_t		 bminsz;
-	long		*bmnd; /* BYMONTHDAY */
+	long		*bmnd;
 	size_t		 bmndsz;
-	unsigned long	*bmon; /* BYMONTH */
+	unsigned long	*bmon;
 	size_t		 bmonsz;
-	unsigned long	*bsec; /* BYSECOND */
+	unsigned long	*bsec;
 	size_t		 bsecsz;
-	long		*bsp; /* BYSETPOS */
+	long		*bsp;
 	size_t		 bspsz;
-	struct icalwk	*bwkd; /* BYDAY */
+	struct icalwk	*bwkd;
 	size_t		 bwkdsz;
-	long		*bwkn; /* BYWEEKNO */
+	long		*bwkn;
 	size_t		 bwknsz;
-	long		*byrd; /* BYYEARDAY */
+	long		*byrd;
 	size_t		 byrdsz;
-	enum icalwkday	 wkst; /* WKST */
+	enum icalwkday	 wkst;
 };
 
-/*
- * This is either a daylight or standard-time time-zone block.
- * Each iCalendar timezone has at least one of these.
- */
 struct	icaltz {
 	enum icaltztype	 type;
-	int		 tzfrom; /* seconds from */
-	int		 tzto; /* seconds to */
+	int		 tzfrom;
+	int		 tzto;
 	struct icaltm	 dtstart;
 	struct icalrrule rrule;
 };
 
-/*
- * An iCalendar date-time can also be associated with a time-zone, e.g.,
- * DTSTART for a VEVENT.
- * This structure contains the timezone or NULL if there is no time-zone
- * (i.e., the date is in UTC).
- * It also contains the time within the timezone (or UTC).
- */
 struct	icaltime {
 	const struct icalcomp *tz;
 	struct icaltm	 time;
-	char		*tzstr; /* string representation of "tz" */
+	char		*tzstr;
 };
 
 struct	icalcomp {
@@ -380,7 +348,7 @@ void		  ical_rrule_generate(const struct icaltm *,
 			const struct icalrrule *);
 #endif
 
-struct caldav 	 *caldav_parse(const char *, size_t);
+struct caldav 	 *caldav_parse(const char *, size_t, char **);
 void		  caldav_free(struct caldav *);
 
 extern const enum proptype calprops[CALELEM__MAX];

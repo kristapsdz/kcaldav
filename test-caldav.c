@@ -19,6 +19,9 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#if HAVE_ERR
+# include <err.h>
+#endif
 #include <fcntl.h>
 #include <getopt.h>
 #include <inttypes.h>
@@ -36,38 +39,36 @@ main(int argc, char *argv[])
 	int		 fd, c;
 	struct stat	 st;
 	size_t		 sz;
-	char		*map;
+	char		*map, *er = NULL;
 	struct caldav	*p;
 
-	if (-1 != (c = getopt(argc, argv, "")))
-		return(EXIT_FAILURE);
+	if ((c = getopt(argc, argv, "")) != -1)
+		return EXIT_FAILURE;
 
 	argc -= optind;
 	argv += optind;
 
-	if (0 == argc)
-		return(EXIT_FAILURE);
+	if (argc == 0)
+		return EXIT_FAILURE;
 
-	if (-1 == (fd = open(argv[0], O_RDONLY, 0))) {
-		perror(argv[0]);
-		return(EXIT_FAILURE);
-	} else if (-1 == fstat(fd, &st)) {
-		perror(argv[0]);
-		close(fd);
-		return(EXIT_FAILURE);
-	} 
+	if ((fd = open(argv[0], O_RDONLY, 0)) == -1)
+		err(EXIT_FAILURE, "%s", argv[0]);
+	if (fstat(fd, &st) == -1)
+		err(EXIT_FAILURE, "%s", argv[0]);
 
 	sz = st.st_size;
 	map = mmap(NULL, sz, PROT_READ, MAP_SHARED, fd, 0);
 	close(fd);
 
-	if (MAP_FAILED == map) {
-		perror(argv[0]);
-		return(EXIT_FAILURE);
-	}
+	if (map == MAP_FAILED)
+		err(EXIT_FAILURE, "%s", argv[0]);
 
-	p = caldav_parse(map, sz);
-	caldav_free(p);
+	if ((p = caldav_parse(map, sz, &er)) == NULL)
+		warnx("%s", er == NULL ? "memory failure" : er);
+
 	munmap(map, sz);
-	return(NULL == p ? EXIT_FAILURE : EXIT_SUCCESS);
+	caldav_free(p);
+	free(er);
+
+	return p == NULL ? EXIT_FAILURE : EXIT_SUCCESS;
 }
