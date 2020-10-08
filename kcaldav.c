@@ -256,7 +256,7 @@ kvalid_body(struct kpair *kp)
 	struct caldav	*dav;
 
 	if (kp->ctypepos == KMIME_TEXT_CALENDAR) {
-		ical = ical_parse(NULL, kp->val, kp->valsz);
+		ical = ical_parse(NULL, kp->val, kp->valsz, NULL);
 		ical_free(ical);
 		return (ical != NULL);
 	}

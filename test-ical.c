@@ -20,6 +20,9 @@
 #include <sys/mman.h>
 
 #include <assert.h>
+#if HAVE_ERR
+# include <err.h>
+#endif
 #include <fcntl.h>
 #include <getopt.h>
 #include <inttypes.h>
@@ -119,7 +122,9 @@ ical_printcomp(const struct icalcomp *c)
 {
 	size_t	 i;
 
-	assert(NULL != c);
+	if (c == NULL)
+		return;
+
 	assert(ICALTYPE__MAX != c->type);
 
 	printf("[%s] Parsed...\n", icaltypes[c->type]);
@@ -176,8 +181,7 @@ ical_printcomp(const struct icalcomp *c)
 			ical_printrrule(c, c->tzs[i].type, &c->tzs[i].rrule);
 	}
 
-	if (NULL != c->next)
-		ical_printcomp(c->next);
+	ical_printcomp(c->next);
 }
 
 int
@@ -186,43 +190,42 @@ main(int argc, char *argv[])
 	int		 fd, c;
 	struct stat	 st;
 	size_t		 i, sz;
-	char		*map;
+	char		*map, *er = NULL;
 	struct ical	*p = NULL;
 
-	if (-1 != (c = getopt(argc, argv, "")))
-		return(EXIT_FAILURE);
+	if ((c = getopt(argc, argv, "")) != -1)
+		return EXIT_FAILURE;
 
 	argc -= optind;
 	argv += optind;
 
-	if (0 == argc)
-		return(EXIT_FAILURE);
+	if (argc == 0)
+		return EXIT_FAILURE;
 
-	if (-1 == (fd = open(argv[0], O_RDONLY, 0))) {
-		perror(argv[0]);
-		return(EXIT_FAILURE);
-	} else if (-1 == fstat(fd, &st)) {
-		perror(argv[0]);
-		close(fd);
-		return(EXIT_FAILURE);
-	} 
+	if ((fd = open(argv[0], O_RDONLY, 0)) == -1)
+		err(EXIT_FAILURE, "%s", argv[0]);
+
+	if (fstat(fd, &st) == -1)
+		err(EXIT_FAILURE, "%s", argv[0]);
 
 	sz = st.st_size;
 	map = mmap(NULL, sz, PROT_READ, MAP_SHARED, fd, 0);
 	close(fd);
 
-	if (MAP_FAILED == map) {
-		perror(argv[0]);
-		return(EXIT_FAILURE);
-	} else if (NULL != (p = ical_parse(argv[0], map, sz))) {
+	if (map == MAP_FAILED)
+		err(EXIT_FAILURE, "%s", argv[0]);
+	
+	if ((p = ical_parse(argv[0], map, sz, &er)) != NULL) {
 		for (i = 0; i < ICALTYPE__MAX; i++)
-			if (NULL != p->comps[i])
-				ical_printcomp(p->comps[i]);
+			ical_printcomp(p->comps[i]);
 		fflush(stdout);
 		ical_printfile(STDOUT_FILENO, p);
-	}
+	} else 
+		warnx("%s", er == NULL ? "memory failure" : er);
 
 	munmap(map, sz);
 	ical_free(p);
-	return(NULL == p ? EXIT_FAILURE : EXIT_SUCCESS);
+	free(er);
+
+	return p == NULL ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -293,36 +293,22 @@ struct	icaltime {
 	char		*tzstr; /* string representation of "tz" */
 };
 
-/*
- * An iCalendar component.
- * Each of these may be associated with component properties such as the
- * UID or DTSTART, which are referenced here.
- * Some of these components are type-specific (such as anything related
- * to the timezones), but we put them all here anyway.
- */
 struct	icalcomp {
 	struct icalcomp	*next;
 	enum icaltype	 type;
-	struct icaltm	 created; /* CREATED */
-	struct icaltm	 lastmod; /* LASTMODIFIED */
-	struct icaltm	 dtstamp; /* DTSTAMP */
-	struct icalrrule rrule; /* RRULE (or zeroed) */
-	struct icaltime	 dtstart; /* DTSTART (or zero) */
-	struct icaltime	 dtend; /* DTEND (or zero) */
-	struct icaldur	 duration; /* DURATION (or zero) */
-	struct icaltz	*tzs; /* timezone rules (or NULL) */
-	size_t		 tzsz; /* size of tzs */
-	const char	*uid; /* UID of component */
-	const char	*tzid; /* TZID of component */
+	struct icaltm	 created;
+	struct icaltm	 lastmod;
+	struct icaltm	 dtstamp;
+	struct icalrrule rrule;
+	struct icaltime	 dtstart;
+	struct icaltime	 dtend;
+	struct icaldur	 duration;
+	struct icaltz	*tzs;
+	size_t		 tzsz;
+	const char	*uid;
+	const char	*tzid;
 };
 
-/*
- * Each iCalendar has a set of component types associated with it picked
- * up during the parse (it's certainly an error not to define
- * ICAL_VCALENDAR).
- * Mark these off, then make a list of the correspondong nodes picked up
- * for those types in the array of component pointers.
- */
 struct	ical {
 	unsigned int	 bits;
 #define	ICAL_VCALENDAR	 0x001
@@ -384,7 +370,7 @@ typedef int	(*ical_putchar)(int, void *);
 void 		  bufappend(struct buf *, const char *, size_t);
 void		  bufreset(struct buf *);
 
-struct ical 	 *ical_parse(const char *, const char *, size_t sz);
+struct ical 	 *ical_parse(const char *, const char *, size_t sz, char **);
 void		  ical_free(struct ical *);
 int		  ical_print(const struct ical *, ical_putchar, void *);
 int		  ical_printfile(int, const struct ical *);

@@ -1252,7 +1252,7 @@ db_collection_resources(void (*fp)(const struct res *, void *),
 		p.url = (char *)sqlite3_column_text(stmt, 2);
 		p.id = sqlite3_column_int64(stmt, 3);
 		p.collection = sqlite3_column_int64(stmt, 4);
-		p.ical = ical_parse(NULL, p.data, strlen(p.data));
+		p.ical = ical_parse(NULL, p.data, strlen(p.data), NULL);
 		if (p.ical == NULL)
 			goto err;
 		(*fp)(&p, arg);
@@ -1546,7 +1546,7 @@ db_resource_load(struct res **pp, const char *url, int64_t colid)
 		/* Parse the full iCalendar. */
 
 		(*pp)->ical = ical_parse(NULL, 
-			(*pp)->data, strlen((*pp)->data));
+			(*pp)->data, strlen((*pp)->data), NULL);
 		if ((*pp)->ical == NULL) {
 			kerrx("%s: failed to parse ical", url);
 			goto err;

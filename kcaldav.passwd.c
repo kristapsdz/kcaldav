@@ -128,7 +128,7 @@ read_whole_file(const char *name)
 
 	/* Try to parse as an iCalendar. */
 
-	if ((ical = ical_parse(name, p, sz)) == NULL) 
+	if ((ical = ical_parse(name, p, sz, NULL)) == NULL) 
 		errx(1, "%s: not an iCalendar file", name);
 
 	ical_free(ical);
