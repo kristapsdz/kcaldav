@@ -49,7 +49,7 @@ req2caldav(struct kreq *r, enum kmime *mime)
 	struct state	*st = r->arg;
 
 	if (r->fieldmap[VALID_BODY] == NULL) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"failed CalDAV parse");
 		http_error(r, KHTTP_400);
 		return NULL;
@@ -57,7 +57,7 @@ req2caldav(struct kreq *r, enum kmime *mime)
 
 	if (r->fieldmap[VALID_BODY]->ctypepos != KMIME_TEXT_XML &&
 	    r->fieldmap[VALID_BODY]->ctypepos != KMIME_APP_XML) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"bad CalDAV MIME type");
 		http_error(r, KHTTP_415);
 		return NULL;
@@ -244,7 +244,7 @@ propfind_resource_lookup(struct kreq *r, struct kxmlreq *xml,
 
 	sz = strlen(r->pname);
 	if (strncmp(r->pname, cp, sz)) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"bad script name");
 		return 0;
 	}
@@ -254,11 +254,11 @@ propfind_resource_lookup(struct kreq *r, struct kxmlreq *xml,
 	cp += sz;
 
 	if (!http_paths(cp, &prncp, &comp, &res)) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"bad request path");
 		goto err;
 	} else if (strcmp(st->rprncpl->name, prncp)) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"bad request principal: %s", prncp);
 		goto err;
 	}
@@ -270,7 +270,7 @@ propfind_resource_lookup(struct kreq *r, struct kxmlreq *xml,
 			break;
 
 	if (i == st->rprncpl->colsz) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"bad request collection: %s", comp);
 		goto err;
 	}
@@ -278,10 +278,10 @@ propfind_resource_lookup(struct kreq *r, struct kxmlreq *xml,
 	rc = db_resource_load(p, res, st->rprncpl->cols[i].id);
 
 	if (rc == 0)
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"resource not found: %s", res);
 	else if (rc < 0)
-		kutil_warnx(r, st->prncpl->name,
+		kutil_errx_noexit(r, st->prncpl->name,
 			"cannot load resource: %s", res);
 err:
 	free(prncp);
@@ -298,8 +298,6 @@ propfind_prncpl(struct kreq *req, struct kxmlreq *xml,
 	size_t			 i;
 	int			 nf;
 	enum calproptype	 key;
-
-	kdbg("%s: showing principal collection", st->prncpl->email);
 
 	kxml_push(xml, XML_DAV_RESPONSE);
 	kxml_push(xml, XML_DAV_HREF);
@@ -371,10 +369,8 @@ propfind_proxy(struct kreq *req, struct kxmlreq *xml,
 	int		 bits;
 	enum xml	 type;
 
-	kdbg("%s: showing proxy collection: %s", 
-		st->prncpl->email, proxy);
-
 	/* Are we asking for writers or readers? */
+
 	type = 0 == strcmp(proxy, "calendar-proxy-write") ?
 	       XML_CALDAVSERV_PROXY_WRITE : XML_CALDAVSERV_PROXY_READ;
 	bits = 0 == strcmp(proxy, "calendar-proxy-write") ?
@@ -486,9 +482,6 @@ propfind_directory(struct kreq *req, struct kxmlreq *xml,
 	else
 		depth = 1;
 
-	kdbg("%s: responding to PROPFIND, depth: %zu", 
-		st->prncpl->email, depth);
-
 	/* Look up the root collection/principal. */
 
 	if (NULL == c)
@@ -583,7 +576,7 @@ method_report(struct kreq *r)
 	int		 rc;
 
 	if (st->cfg == NULL) {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"REPORT of non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;
@@ -592,7 +585,7 @@ method_report(struct kreq *r)
 
 	if (dav->type != CALREQTYPE_CALMULTIGET &&
 	    dav->type != CALREQTYPE_CALQUERY) {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"unknown REPORT request type");
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
@@ -602,13 +595,13 @@ method_report(struct kreq *r)
 	if (st->resource[0] != '\0') {
 		rc = db_resource_load(&res, st->resource, st->cfg->id);
 		if (rc < 0) {
-			kutil_warnx(r, st->prncpl->name,
+			kutil_errx_noexit(r, st->prncpl->name,
 				"cannot load resource: %s", 
 				st->resource);
 			http_error(r, KHTTP_505);
 			return;
 		} else if (0 == rc) {
-			kutil_warnx(r, st->prncpl->name,
+			kutil_errx_noexit(r, st->prncpl->name,
 				"REPORT for unknown resource: %s", 
 				st->resource);
 			http_error(r, KHTTP_404);
@@ -667,7 +660,7 @@ method_propfind(struct kreq *r)
 		return;
 
 	if (dav->type != CALREQTYPE_PROPFIND) {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"unknown PROPFIND request type");
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
@@ -678,20 +671,20 @@ method_propfind(struct kreq *r)
 		rc = db_resource_load(&res,
 			st->resource, st->cfg->id);
 		if (rc < 0) {
-			kutil_warnx(r, st->prncpl->name,
+			kutil_errx_noexit(r, st->prncpl->name,
 				"cannot load resource: %s", 
 				st->resource);
 			http_error(r, KHTTP_505);
 			return;
 		} else if (rc == 0) {
-			kutil_warnx(r, st->prncpl->name,
+			kutil_errx_noexit(r, st->prncpl->name,
 				"PROPFIND for unknown resource: %s", 
 				st->resource);
 			http_error(r, KHTTP_404);
 			return;
 		}
 	} else if (st->cfg == NULL && st->resource[0] != '\0') {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"PROPFIND from non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;

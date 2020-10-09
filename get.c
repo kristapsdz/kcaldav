@@ -45,12 +45,12 @@ method_get(struct kreq *r)
 	const char	*digest = NULL;
 
 	if (st->resource[0] == '\0') {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"GET for non-resource (collection?)");
 		http_error(r, KHTTP_404);
 		return;
 	} else if (st->cfg == NULL) {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"GET from non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;
@@ -59,12 +59,12 @@ method_get(struct kreq *r)
 	rc = db_resource_load(&p, st->resource, st->cfg->id);
 
 	if (rc < 0) {
-		kutil_warnx(r, st->prncpl->name,
+		kutil_errx_noexit(r, st->prncpl->name,
 			"cannot load resource: %s", st->resource);
 		http_error(r, KHTTP_505);
 		return;
 	} else if (rc == 0) {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"GET for unknown resource: %s", st->resource);
 		http_error(r, KHTTP_404);
 		return;

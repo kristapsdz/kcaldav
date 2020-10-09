@@ -115,24 +115,6 @@ int		db_resource_load(struct res **, const char *, int64_t);
 int		db_resource_new(const char *, const char *, int64_t);
 int		db_resource_update(const char *, const char *, const char *, int64_t);
 
-void		kvdbg(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-void		kvinfo(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-void		kverr(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-void		kverrx(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-
-#define	 	kerr(fmt, ...) \
-		kverr(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define	 	kdbg(fmt, ...) \
-		kvdbg(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define	 	kinfo(fmt, ...) \
-		kvinfo(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define	 	kerrx(fmt, ...) \
-		kverrx(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-
 /*
  * This pertains to back-end logging.
  * 0: be totally silent.

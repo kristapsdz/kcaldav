@@ -290,6 +290,39 @@ state_load(struct state *st, const char *nonce, const char *name)
 	return db_prncpl_load(&st->prncpl, name);
 }
 
+void
+kutil_err_noexit(struct kreq *r, const char *id, const char *fmt, ...)
+{
+	va_list	 ap;
+
+	va_start(ap, fmt);
+	kutil_vlog(r, "ERROR", id, fmt, ap);
+	va_end(ap);
+}
+
+void
+kutil_errx_noexit(struct kreq *r, const char *id, const char *fmt, ...)
+{
+	va_list	 ap;
+
+	va_start(ap, fmt);
+	kutil_vlogx(r, "ERROR", id, fmt, ap);
+	va_end(ap);
+}
+
+void
+kutil_dbg(struct kreq *r, const char *id, const char *fmt, ...)
+{
+	va_list	 ap;
+
+	if (verbose < 2)
+		return;
+
+	va_start(ap, fmt);
+	kutil_vlogx(r, "DEBUG", id, fmt, ap);
+	va_end(ap);
+}
+
 int
 main(void)
 {
@@ -387,7 +420,7 @@ main(void)
 		http_error(&r, KHTTP_401);
 		goto out;
 	} else if (r.rawauth.authorised == 0) {
-		kutil_info(&r, NULL, "bad HTTP authorisation");
+		kutil_warnx(&r, NULL, "bad HTTP authorisation");
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 
@@ -423,16 +456,12 @@ main(void)
 	     &st->principal, &st->collection, &st->resource))
 		goto out;
 
-	kdbg("%s: %s: /<%s>/<%s>/<%s>", 
-		r.rawauth.d.digest.user, kmethods[r.method], 
-		st->principal, st->collection, st->resource);
-
 	/* Copy over the calendar directory as well. */
 
 	sz = strlcpy(st->caldir, CALDIR, sizeof(st->caldir));
 
 	if (sz >= sizeof(st->caldir)) {
-		kutil_warn(&r, NULL, "caldir too long");
+		kutil_errx_noexit(&r, NULL, "caldir too long");
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (st->caldir[sz - 1] == '/')
@@ -458,11 +487,11 @@ main(void)
 
 	rc = khttpdigest_validatehash(&r, st->prncpl->hash);
 	if (rc < 0) {
-		kutil_info(&r, NULL, "bad authorisation sequence");
+		kutil_warnx(&r, NULL, "bad authorisation sequence");
 		http_error(&r, KHTTP_401);
 		goto out;
 	} else if (rc == 0) {
-		kutil_info(&r, NULL, "failed authorisation sequence");
+		kutil_warnx(&r, NULL, "failed authorisation sequence");
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 
@@ -475,8 +504,6 @@ main(void)
 	}
 #endif
 
-	kdbg("%s: principal validated", st->prncpl->name);
-
 	/*
 	 * Perform the steps required to check the nonce database
 	 * without allowing an attacker to overwrite the database.
@@ -485,12 +512,12 @@ main(void)
 	 */
 
 	if ((rc = nonce_validate(&r.rawauth.d.digest, &np)) < -1) {
-		kutil_warnx(&r, st->prncpl->name, 
+		kutil_errx_noexit(&r, st->prncpl->name, 
 			"cannot validate nonce");
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (rc < 0) {
-		kutil_info(&r, st->prncpl->name, 
+		kutil_warnx(&r, st->prncpl->name, 
 			"nonce replay attack");
 		http_error(&r, KHTTP_403);
 		goto out;
@@ -527,9 +554,6 @@ main(void)
 	 */
 
 	if (st->principal[0] == '\0') {
-		kdbg("%s: redirecting probe from client", 
-			st->prncpl->email);
-
 		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname);
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_307]);
@@ -544,9 +568,6 @@ main(void)
 	}
 
 	if (strcmp(st->principal, st->prncpl->name)) {
-		kdbg("%s: requesting other principal "
-			"collection", st->prncpl->name);
-
 		rc = db_prncpl_load
 			(&st->rprncpl, st->principal);
 		if (rc < 0) {
@@ -568,7 +589,7 @@ main(void)
 			    st->rprncpl->proxies[i].proxy)
 				break;
 		if (i == st->rprncpl->proxiesz) {
-			kutil_info(&r, st->prncpl->name,
+			kutil_warnx(&r, st->prncpl->name,
 				"disallowed reverse proxy "
 				"on principal: %s",
 				st->rprncpl->email);
@@ -584,7 +605,7 @@ main(void)
 			/* Implies read. */
 			if (st->proxy == PROXY_WRITE)
 				break;
-			kutil_info(&r, st->prncpl->name,
+			kutil_warnx(&r, st->prncpl->name,
 				"disallowed reverse proxy "
 				"write on principal: %s",
 				st->rprncpl->email);
@@ -594,7 +615,7 @@ main(void)
 			if (st->proxy == PROXY_READ || 
 			    st->proxy == PROXY_WRITE)
 				break;
-			kutil_info(&r, st->prncpl->name,
+			kutil_warnx(&r, st->prncpl->name,
 				"disallowed reverse proxy "
 				"read on principal: %s",
 				st->rprncpl->email);
@@ -619,7 +640,7 @@ main(void)
 		if (st->cfg == NULL &&
 		    strcmp(st->collection, "calendar-proxy-read") &&
   		    strcmp(st->collection, "calendar-proxy-write")) {
-			kutil_info(&r, st->prncpl->name,
+			kutil_warnx(&r, st->prncpl->name,
 				"request unknown collection");
 			http_error(&r, KHTTP_404);
 			goto out;
@@ -645,11 +666,11 @@ main(void)
 		 */
 
 		if (st->resource[0] == '\0') {
-			kutil_info(&r, st->prncpl->name,
+			kutil_warnx(&r, st->prncpl->name,
 				"ignore POST to collection");
 			http_error(&r, KHTTP_404);
 		} else {
-			kutil_info(&r, st->prncpl->name,
+			kutil_warnx(&r, st->prncpl->name,
 				"bad POST to resource");
 			http_error(&r, KHTTP_405);
 		}
@@ -663,7 +684,7 @@ main(void)
 		 */
 
 		if (st->resource[0] == '\0') {
-			kutil_info(&r, st->prncpl->name,
+			kutil_warnx(&r, st->prncpl->name,
 				"ignore GET of collection");
 			http_error(&r, KHTTP_404);
 		} else
@@ -676,7 +697,7 @@ main(void)
 		method_delete(&r);
 		break;
 	default:
-		kutil_info(&r, st->prncpl->name,
+		kutil_warnx(&r, st->prncpl->name,
 			"ignore unsupported HTTP method: %s",
 			kmethods[r.method]);
 		http_error(&r, KHTTP_405);

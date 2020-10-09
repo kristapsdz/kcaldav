@@ -111,7 +111,6 @@ ALLSRCS		 = Makefile \
 		   db.h \
 		   delete.c \
 		   dynamic.c \
-		   err.c \
 		   get.c \
 		   home.js \
 		   home.xml \
@@ -134,7 +133,6 @@ ALLSRCS		 = Makefile \
 LIBOBJS		 = caldav.o \
 		   ical.o
 DBOBJS		 = db.o \
-		   err.o \
 		   kcaldav-sql.o
 BINOBJS		 = delete.o \
 		   dynamic.o \

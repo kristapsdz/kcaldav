@@ -19,6 +19,7 @@
 #include <sys/statvfs.h>
 
 #include <assert.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
@@ -26,6 +27,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <sqlite3.h>
@@ -33,11 +35,104 @@
 #include "libkcaldav.h"
 #include "db.h"
 
+static void	 kvdbg(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+static void 	 kvinfo(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+static void	 kverr(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+static void	 kverrx(const char *, size_t, const char *, ...)
+			__attribute__((format(printf, 3, 4)));
+
+#define		 kerr(fmt, ...) \
+		 kverr(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define		 kdbg(fmt, ...) \
+		 kvdbg(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define		 kinfo(fmt, ...) \
+		 kvinfo(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define		 kerrx(fmt, ...) \
+		 kverrx(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+
 static sqlite3	*db;
 static char	 dbname[PATH_MAX];
 
 #define NONCEMAX 1000
 #define NONCESZ	 16
+
+static void
+kvdbg(const char *file, size_t line, const char *fmt, ...)
+{
+	va_list	 ap;
+	char	 buf[32];
+	time_t	 t = time(NULL);
+
+	if (verbose < 2 || fmt == NULL)
+		return;
+
+	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
+	fprintf(stderr, "%s%s:%zu: DEBUG: ", buf, file, line);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
+}
+
+static void
+kverrx(const char *file, size_t line, const char *fmt, ...)
+{
+	va_list	 ap;
+	char	 buf[32];
+	time_t	 t = time(NULL);
+	
+	if (verbose == 0 || fmt == NULL)
+		return;
+
+	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
+	fprintf(stderr, "%s%s:%zu: WARNING: ", buf, file, line);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
+}
+
+static void
+kverr(const char *file, size_t line, const char *fmt, ...)
+{
+	int	 er = errno;
+	va_list	 ap;
+	char	 buf[32];
+	time_t	 t = time(NULL);
+
+	if (verbose == 0)
+		return;
+
+	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
+	fprintf(stderr, "%s%s:%zu: ERROR: ", buf, file, line);
+	if (NULL != fmt) {
+		va_start(ap, fmt);
+		vfprintf(stderr, fmt, ap);
+		va_end(ap);
+	}
+	fprintf(stderr, ": %s\n", strerror(er));
+}
+
+static void
+kvinfo(const char *file, size_t line, const char *fmt, ...)
+{
+	va_list	 ap;
+	char	 buf[32];
+	time_t	 t = time(NULL);
+
+	if (verbose < 2 || fmt == NULL)
+		return;
+
+	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
+	fprintf(stderr, "%s%s:%zu: ", buf, file, line);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
+}
 
 /*
  * Close the database and reset the database filename.

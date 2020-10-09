@@ -39,7 +39,7 @@ method_delete(struct kreq *r)
 	char		*buf = NULL;
 
 	if (st->cfg == NULL) {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"DELETE of non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;
@@ -68,47 +68,45 @@ method_delete(struct kreq *r)
 		rc = db_resource_delete
 			(st->resource, digest, st->cfg->id);
 		if (rc == 0) {
-			kutil_warnx(r, st->prncpl->name,
+			kutil_errx_noexit(r, st->prncpl->name,
 				"cannot delete resource: %s", 
 				st->resource);
 			http_error(r, KHTTP_505);
 		} else {
-			kinfo("%s: resource deleted: %s",
-				st->prncpl->name, r->fullpath);
+			kutil_dbg(r, st->prncpl->name,
+				"resource deleted: %s", 
+				st->resource);
 			http_error(r, KHTTP_204);
 		}
-		free(buf);
-		return;
 	} else if (digest == NULL && st->resource[0] != '\0') {
 		rc = db_resource_remove
 			(st->resource, st->cfg->id);
 		if (rc == 0) {
-			kutil_warnx(r, st->prncpl->name,
+			kutil_errx_noexit(r, st->prncpl->name,
 				"cannot delete resource: %s", 
 				st->resource);
 			http_error(r, KHTTP_505);
 		} else {
-			kinfo("%s: resource (unsafe) deleted: %s",
-				st->prncpl->name, r->fullpath);
+			kutil_dbg(r, st->prncpl->name,
+				"resource (unsafe) deleted: %s", 
+				st->resource);
 			http_error(r, KHTTP_204);
 		}
-		free(buf);
-		return;
-	} 
+	} else {
+		/* 
+		 * FIXME: deleting the collection should do the same check with
+		 * the etag (using the ctag, in this case).
+		 */
 
-	/* 
-	 * FIXME: deleting the collection should do the same check with
-	 * the etag (using the ctag, in this case).
-	 */
-
-	if (db_collection_remove(st->cfg->id, st->prncpl) == 0) {
-		kutil_warnx(r, st->prncpl->name,
-			"cannot delete collection");
-		http_error(r, KHTTP_505);
-	} else { 
-		kinfo("%s: collection unlinked: %s", 
-			st->prncpl->name, r->fullpath);
-		http_error(r, KHTTP_204);
+		if (db_collection_remove(st->cfg->id, st->prncpl) == 0) {
+			kutil_errx_noexit(r, st->prncpl->name,
+				"cannot delete collection");
+			http_error(r, KHTTP_505);
+		} else { 
+			kutil_dbg(r, st->prncpl->name,
+				"collection deleted");
+			http_error(r, KHTTP_204);
+		}
 	}
 
 	free(buf);

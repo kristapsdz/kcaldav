@@ -118,6 +118,13 @@ void		 method_proppatch(struct kreq *);
 void		 method_put(struct kreq *);
 void		 method_report(struct kreq *);
 
+void		 kutil_err_noexit(struct kreq *,
+			const char *, const char *, ...);
+void		 kutil_errx_noexit(struct kreq *,
+			const char *, const char *, ...);
+void		 kutil_dbg(struct kreq *,
+			const char *, const char *, ...);
+
 extern const char *const xmls[XML__MAX];
 extern const struct property properties[CALPROP__MAX];
 

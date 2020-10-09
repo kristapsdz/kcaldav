@@ -42,7 +42,7 @@ req2caldav(struct kreq *r, enum kmime *mime)
 	struct state	*st = r->arg;
 
 	if (r->fieldmap[VALID_BODY] == NULL) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"failed CalDAV parse");
 		http_error(r, KHTTP_400);
 		return NULL;
@@ -50,7 +50,7 @@ req2caldav(struct kreq *r, enum kmime *mime)
 
 	if (r->fieldmap[VALID_BODY]->ctypepos != KMIME_TEXT_XML &&
 	    r->fieldmap[VALID_BODY]->ctypepos != KMIME_APP_XML) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"bad CalDAV MIME type");
 		http_error(r, KHTTP_415);
 		return NULL;
@@ -82,7 +82,7 @@ method_proppatch(struct kreq *r)
 	enum kmime	 mime;
 
 	if (st->cfg == NULL) {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"PROPPATCH of non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;
@@ -97,7 +97,7 @@ method_proppatch(struct kreq *r)
 	accepted[CALPROP_DISPLAYNAME] = 1;
 
 	if (CALREQTYPE_PROPERTYUPDATE != dav->type) {
-		kutil_info(r, st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name, 
 			"unknown PROPPATCH request type");
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
@@ -142,18 +142,18 @@ method_proppatch(struct kreq *r)
 		switch (dav->props[i].key) {
 		case CALPROP_DISPLAYNAME:
 			cfg.displayname = dav->props[i].val;
-			kinfo("%s: display name modified",
-				st->prncpl->email);
+			kutil_dbg(r, st->prncpl->name,
+				"display name modified");
 			break;
 		case CALPROP_CALENDAR_COLOR:
 			cfg.colour = dav->props[i].val;
-			kinfo("%s: colour modified",
-				st->prncpl->email);
+			kutil_dbg(r, st->prncpl->name,
+				"calendar colour modified");
 			break;
 		case CALPROP_CALENDAR_DESCRIPTION:
 			cfg.description = dav->props[i].val;
-			kinfo("%s: description modified",
-				st->prncpl->email);
+			kutil_dbg(r, st->prncpl->name,
+				"calendar description modified");
 			break;
 		default:
 			abort();
@@ -223,7 +223,7 @@ method_proppatch(struct kreq *r)
 	/* FIXME: do this first to catch any HTTP 505 errors. */
 
 	if (df != 0 && !db_collection_update(&cfg, st->rprncpl))
-		kutil_warnx(r, st->prncpl->name, 
+		kutil_errx_noexit(r, st->prncpl->name, 
 			"cannot update collection");
 
 	caldav_free(dav);

@@ -36,14 +36,14 @@ req2ical(struct kreq *r)
 	struct state	*st = r->arg;
 
 	if ( r->fieldmap[VALID_BODY] == NULL) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"failed iCalendar parse");
 		http_error(r, KHTTP_400);
 		return NULL;
 	} 
 	
 	if (r->fieldmap[VALID_BODY]->ctypepos != KMIME_TEXT_CALENDAR) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"bad iCalendar MIME type");
 		http_error(r, KHTTP_415);
 		return NULL;
@@ -70,7 +70,7 @@ method_put(struct kreq *r)
 	const char	*digest = NULL;
 
 	if (st->cfg == NULL) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"PUT into non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;
@@ -90,7 +90,7 @@ method_put(struct kreq *r)
 		if (sz < 5 ||
 		    buf[0] != '(' || buf[1] != '[' ||
 		    buf[sz - 2] != ']' || buf[sz - 1] != ')' ) {
-			kutil_info(r, st->prncpl->name,
+			kutil_warnx(r, st->prncpl->name,
 				"malformed \"If\" statement");
 			http_error(r, KHTTP_400);
 			ical_free(p);
@@ -129,18 +129,18 @@ method_put(struct kreq *r)
 			 st->resource, digest, st->cfg->id);
 
 	if (rc < 0) {
-		kutil_warnx(r, st->prncpl->name,
+		kutil_errx_noexit(r, st->prncpl->name,
 			"cannot %s resource: %s", 
 			digest == NULL ? "create" : "update",
 			r->fullpath);
 		http_error(r, KHTTP_505);
 	} else if (rc == 0) {
-		kutil_info(r, st->prncpl->name,
+		kutil_warnx(r, st->prncpl->name,
 			"duplicate resource: %s", r->fullpath);
 		http_error(r, KHTTP_403);
 	} else {
-		kinfo("%s: resource %s: %s",
-			st->prncpl->name, 
+		kutil_dbg(r, st->prncpl->name,
+			"resource %s: %s",
 			digest == NULL ? "created" : "updated",
 			r->fullpath);
 		http_error(r, KHTTP_201);
