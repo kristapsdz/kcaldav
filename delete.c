@@ -39,8 +39,8 @@ method_delete(struct kreq *r)
 	char		*buf = NULL;
 
 	if (st->cfg == NULL) {
-		kerrx("%s: DELETE from non-calendar "
-			"collection", st->prncpl->name);
+		kutil_info(r, st->prncpl->name, 
+			"DELETE of non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;
 	}
@@ -68,8 +68,9 @@ method_delete(struct kreq *r)
 		rc = db_resource_delete
 			(st->resource, digest, st->cfg->id);
 		if (rc == 0) {
-			kerrx("%s: cannot delete resource: %s",
-				st->prncpl->name, r->fullpath);
+			kutil_warnx(r, st->prncpl->name,
+				"cannot delete resource: %s", 
+				st->resource);
 			http_error(r, KHTTP_505);
 		} else {
 			kinfo("%s: resource deleted: %s",
@@ -82,8 +83,9 @@ method_delete(struct kreq *r)
 		rc = db_resource_remove
 			(st->resource, st->cfg->id);
 		if (rc == 0) {
-			kerrx("%s: failed delete resource: %s",
-				st->prncpl->name, r->fullpath);
+			kutil_warnx(r, st->prncpl->name,
+				"cannot delete resource: %s", 
+				st->resource);
 			http_error(r, KHTTP_505);
 		} else {
 			kinfo("%s: resource (unsafe) deleted: %s",
@@ -100,8 +102,8 @@ method_delete(struct kreq *r)
 	 */
 
 	if (db_collection_remove(st->cfg->id, st->prncpl) == 0) {
-		kinfo("%s: cannot delete collection: %s", 
-			st->prncpl->name, r->fullpath);
+		kutil_warnx(r, st->prncpl->name,
+			"cannot delete collection");
 		http_error(r, KHTTP_505);
 	} else { 
 		kinfo("%s: collection unlinked: %s", 
