@@ -92,16 +92,16 @@ TESTOBJS 	 = test-caldav.o \
 HTMLS	 	 = archive.html \
 		   index.html \
 		   kcaldav.8.html \
-		   kcaldav.passwd.1.html \
-		   libkcaldav.3.html
-MANS		 = kcaldav.in.8 \
-		   kcaldav.passwd.in.1 \
-		   libkcaldav.3
+		   kcaldav.passwd.1.html
+MAN3S		 = man/caldav_free.3 \
+		   man/caldav_parse.3 \
+		   man/ical_free.3 \
+		   man/ical_parse.3
+MANS		 = $(MAN3S)
 JSMINS		 = collection.min.js \
 		   home.min.js
 ALLSRCS		 = Makefile \
 		   $(TESTSRCS) \
-		   $(MANS) \
 		   caldav.c \
 		   collection.js \
 		   collection.xml \
@@ -120,6 +120,8 @@ ALLSRCS		 = Makefile \
 		   kcaldav.h \
 		   kcaldav.passwd.c \
 		   kcaldav.sql \
+		   kcaldav.in.8 \
+		   kcaldav.passwd.in.1 \
 		   libkcaldav.h \
 		   md5.js \
 		   options.c \
@@ -205,7 +207,7 @@ install: all
 	$(INSTALL_PROGRAM) kcaldav.passwd $(DESTDIR)$(BINDIR)
 	$(INSTALL_MAN) kcaldav.passwd.1 $(DESTDIR)$(MANDIR)/man1
 	$(INSTALL_MAN) kcaldav.8 $(DESTDIR)$(MANDIR)/man8
-	$(INSTALL_MAN) libkcaldav.3 $(DESTDIR)$(MANDIR)/man3
+	$(INSTALL_MAN) $(MAN3S) $(DESTDIR)$(MANDIR)/man3
 	$(INSTALL_LIB) libkcaldav.a $(DESTDIR)$(LIBDIR)
 	$(INSTALL_DATA) libkcaldav.h $(DESTDIR)$(INCLUDEDIR)
 
@@ -213,7 +215,9 @@ uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/kcaldav.passwd
 	rm -f $(DESTDIR)$(MANDIR)/man1/kcaldav.passwd.1
 	rm -f $(DESTDIR)$(MANDIR)/man8/kcaldav.8
-	rm -f $(DESTDIR)$(MANDIR)/man3/libkcaldav.3
+	for f in $(MAN3S) ; do \
+		rm -f $(DESTDIR)$(MANDIR)/man3/`basename $$f` ; \
+	done
 	rm -f $(DESTDIR)$(LIBDIR)/libkcaldav.a
 	rm -f $(DESTDIR)$(INCLUDEDIR)/libkcaldav.h
 
@@ -229,11 +233,13 @@ kcaldav.tgz.sha512: kcaldav.tgz
 
 kcaldav.tgz: Makefile
 	mkdir -p .dist/kcaldav-$(VERSION)
+	mkdir -p .dist/kcaldav-$(VERSION)/man
 	mkdir -p .dist/kcaldav-$(VERSION)/regress
 	mkdir -p .dist/kcaldav-$(VERSION)/regress/caldav
 	mkdir -p .dist/kcaldav-$(VERSION)/regress/ical
 	$(INSTALL) -m 0644 $(ALLSRCS) .dist/kcaldav-$(VERSION)
 	$(INSTALL) -m 0755 configure .dist/kcaldav-$(VERSION)
+	$(INSTALL) -m 0644 $(MANS) .dist/kcaldav-$(VERSION)/man
 	$(INSTALL) -m 0644 regress/ical/*.ics .dist/kcaldav-$(VERSION)/regress/ical
 	$(INSTALL) -m 0644 regress/caldav/*.xml .dist/kcaldav-$(VERSION)/regress/caldav
 	( cd .dist && tar zcf ../$@ kcaldav-$(VERSION) )

@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2015 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2015, 2020 Kristaps Dzonsons <kristaps@bsd.lv>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -118,13 +118,6 @@ enum	icaltype {
 	ICALTYPE__MAX
 };
 
-struct	icalnode {
-	char		*name;
-	char		*param;
-	char		*val;
-	struct icalnode	*next;
-};
-
 enum	icaltztype {
 	ICALTZ_DAYLIGHT,
 	ICALTZ_STANDARD,
@@ -153,6 +146,13 @@ enum	icalwkday {
 	ICALWKDAY_FRI,
 	ICALWKDAY_SAT,
 	ICALWKDAY__MAX
+};
+
+struct	icalnode {
+	char		*name;
+	char		*param;
+	char		*val;
+	struct icalnode	*next;
 };
 
 struct	icalwk {
