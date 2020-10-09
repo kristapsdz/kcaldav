@@ -41,25 +41,28 @@ req2caldav(struct kreq *r, enum kmime *mime)
 {
 	struct state	*st = r->arg;
 
-	if (NULL == r->fieldmap[VALID_BODY]) {
-		kerrx("%s: failed parse CalDAV XML "
-			"in client request", st->prncpl->email);
+	if (r->fieldmap[VALID_BODY] == NULL) {
+		kutil_info(r, st->prncpl->name,
+			"failed CalDAV parse");
 		http_error(r, KHTTP_400);
-		return(NULL);
+		return NULL;
 	} 
 
-	if (KMIME_TEXT_XML != r->fieldmap[VALID_BODY]->ctypepos &&
-	    KMIME_APP_XML != r->fieldmap[VALID_BODY]->ctypepos) {
-		kerrx("%s: not CalDAV MIME", st->prncpl->email);
+	if (r->fieldmap[VALID_BODY]->ctypepos != KMIME_TEXT_XML &&
+	    r->fieldmap[VALID_BODY]->ctypepos != KMIME_APP_XML) {
+		kutil_info(r, st->prncpl->name,
+			"bad CalDAV MIME type");
 		http_error(r, KHTTP_415);
-		return(NULL);
+		return NULL;
 	}
 
 	*mime = r->fieldmap[VALID_BODY]->ctypepos;
 
-	return(caldav_parse
+	/* This shouldn't fail now. */
+
+	return caldav_parse
 		(r->fieldmap[VALID_BODY]->val, 
-		 r->fieldmap[VALID_BODY]->valsz, NULL));
+		 r->fieldmap[VALID_BODY]->valsz, NULL);
 }
 
 /*
@@ -78,12 +81,12 @@ method_proppatch(struct kreq *r)
 	struct coln	 cfg;
 	enum kmime	 mime;
 
-	if (NULL == st->cfg) {
-		kerrx("%s: PROPPATCH for non-calendar "
-			"collection", st->prncpl->email);
+	if (st->cfg == NULL) {
+		kutil_info(r, st->prncpl->name, 
+			"PROPPATCH of non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;
-	} else if (NULL == (dav = req2caldav(r, &mime)))
+	} else if ((dav = req2caldav(r, &mime)) == NULL)
 		return;
 
 	cfg = *st->cfg;
@@ -94,7 +97,8 @@ method_proppatch(struct kreq *r)
 	accepted[CALPROP_DISPLAYNAME] = 1;
 
 	if (CALREQTYPE_PROPERTYUPDATE != dav->type) {
-		kerrx("%s: unknown request type", st->prncpl->email);
+		kutil_info(r, st->prncpl->name, 
+			"unknown PROPPATCH request type");
 		http_error(r, KHTTP_415);
 		caldav_free(dav);
 		return;
@@ -120,10 +124,12 @@ method_proppatch(struct kreq *r)
 	 * If we understand it but the value wasn't valid, skip it.
 	 * Otherwise, set into a temporary "struct config".
 	 */
+
 	kxml_push(&xml, XML_DAV_PROPSTAT);
 	kxml_push(&xml, XML_DAV_PROP);
+
 	for (nf = df = bf = i = 0; i < dav->propsz; i++) {
-		if ( ! accepted[dav->props[i].key]) {
+		if (!accepted[dav->props[i].key]) {
 			nf++;
 			bf += dav->props[i].valid < 0;
 			continue;
@@ -131,19 +137,20 @@ method_proppatch(struct kreq *r)
 			bf++;
 			continue;
 		}
+
 		df++;
 		switch (dav->props[i].key) {
-		case (CALPROP_DISPLAYNAME):
+		case CALPROP_DISPLAYNAME:
 			cfg.displayname = dav->props[i].val;
 			kinfo("%s: display name modified",
 				st->prncpl->email);
 			break;
-		case (CALPROP_CALENDAR_COLOR):
+		case CALPROP_CALENDAR_COLOR:
 			cfg.colour = dav->props[i].val;
 			kinfo("%s: colour modified",
 				st->prncpl->email);
 			break;
-		case (CALPROP_CALENDAR_DESCRIPTION):
+		case CALPROP_CALENDAR_DESCRIPTION:
 			cfg.description = dav->props[i].val;
 			kinfo("%s: description modified",
 				st->prncpl->email);
@@ -164,6 +171,7 @@ method_proppatch(struct kreq *r)
 	 * In this event, we didn't understand one or more properties.
 	 * Serialise these as error 404 according to the spec.
 	 */
+
 	if (nf > 0) {
 		kxml_push(&xml, XML_DAV_PROPSTAT);
 		kxml_push(&xml, XML_DAV_PROP);
@@ -188,6 +196,7 @@ method_proppatch(struct kreq *r)
 	 * Bad things: we're asked to set invalid data.
 	 * Use code 409 as specified by RFC 4918, 9.2.1.
 	 */
+
 	if (bf > 0) {
 		kxml_push(&xml, XML_DAV_PROPSTAT);
 		kxml_push(&xml, XML_DAV_PROP);
@@ -211,17 +220,12 @@ method_proppatch(struct kreq *r)
 	kxml_popall(&xml);
 	kxml_close(&xml);
 
-	/*
-	 * If we're making any changes, then do so now.
-	 * We do this post-factum to avoid long requests clogging up the
-	 * configuration file in exclusive write mode.
-	 */
-	if (0 == df || db_collection_update(&cfg, st->rprncpl)) {
-		caldav_free(dav);
-		return;
-	}
+	/* FIXME: do this first to catch any HTTP 505 errors. */
+
+	if (df != 0 && !db_collection_update(&cfg, st->rprncpl))
+		kutil_warnx(r, st->prncpl->name, 
+			"cannot update collection");
 
 	caldav_free(dav);
-	kerrx("%s: couldn't update collection", st->prncpl->email);
 }
 
