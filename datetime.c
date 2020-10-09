@@ -27,6 +27,10 @@
 
 #include "libkcaldav.h"
 
+/*
+ * THIS FILE IS NOT BUILT.
+ */
+
 struct	icaltmcmp {
 	unsigned long	 year; /* x-1900, x>=1970 */
 	unsigned long	 mon; /* 1--12 */

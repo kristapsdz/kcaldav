@@ -275,8 +275,8 @@ state_free(struct state *st)
 	if (st == NULL)
 		return;
 	if (st->prncpl != st->rprncpl)
-		prncpl_free(st->rprncpl);
-	prncpl_free(st->prncpl);
+		db_prncpl_free(st->rprncpl);
+	db_prncpl_free(st->prncpl);
 	free(st->principal);
 	free(st->collection);
 	free(st->resource);

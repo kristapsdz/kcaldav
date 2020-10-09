@@ -96,7 +96,7 @@ method_get(struct kreq *r)
 			"%s", khttps[KHTTP_304]);
 		khttp_head(r, kresps[KRESP_ETAG], "%s", p->etag);
 		khttp_body(r);
-		res_free(p);
+		db_resource_free(p);
 		free(buf);
 		return;
 	} 
@@ -108,7 +108,7 @@ method_get(struct kreq *r)
 	khttp_head(r, kresps[KRESP_ETAG], "%s", p->etag);
 	khttp_body(r);
 	ical_print(p->ical, http_ical_putc, r);
-	res_free(p);
+	db_resource_free(p);
 	free(buf);
 }
 

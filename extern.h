@@ -102,6 +102,7 @@ int		db_nonce_new(char **);
 enum nonceerr	db_nonce_update(const char *, size_t);
 enum nonceerr	db_nonce_validate(const char *, size_t);
 int		db_owner_check_or_set(int64_t);
+void		db_prncpl_free(struct prncpl *);
 int64_t		db_prncpl_identify(const char *);
 int		db_prncpl_load(struct prncpl **, const char *);
 int		db_prncpl_new(const char *, const char *, const char *, const char *);
@@ -110,14 +111,11 @@ int		db_prncpl_rproxies(const struct prncpl *, void (*)(const char *, int64_t, v
 int		db_prncpl_update(const struct prncpl *);
 int		db_proxy(const struct prncpl *, int64_t, int64_t);
 int		db_resource_delete(const char *, const char *, int64_t);
+void		db_resource_free(struct res *);
 int		db_resource_remove(const char *, int64_t);
 int		db_resource_load(struct res **, const char *, int64_t);
 int		db_resource_new(const char *, const char *, int64_t);
 int		db_resource_update(const char *, const char *, const char *, int64_t);
-
-void		prncpl_free(struct prncpl *);
-
-void		res_free(struct res *);
 
 void		kvdbg(const char *, size_t, const char *, ...)
 			__attribute__((format(printf, 3, 4)));

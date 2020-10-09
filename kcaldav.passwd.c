@@ -470,7 +470,7 @@ main(int argc, char *argv[])
 	 * directories contained therein.
 	 */
 
-	prncpl_free(p);
+	db_prncpl_free(p);
 	p = NULL;
 
 	if ((c = db_prncpl_load(&p, user)) == 0)
@@ -522,7 +522,7 @@ main(int argc, char *argv[])
 	}
 
 out:
-	prncpl_free(p);
+	db_prncpl_free(p);
 	free(user);
 	free(emailp);
 	return 0;

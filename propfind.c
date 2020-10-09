@@ -541,7 +541,7 @@ propfind_list(struct kreq *req, struct kxmlreq *xml,
 			assert(j < st->rprncpl->colsz);
 			propfind_resource(req, xml, dav, 
 				&st->rprncpl->cols[j], res);
-			res_free(res);
+			db_resource_free(res);
 			continue;
 		}
 		kerrx("%s: bad resource request: %s",

@@ -126,12 +126,10 @@ ALLSRCS		 = Makefile \
 		   libkcaldav.h \
 		   md5.js \
 		   options.c \
-		   principal.c \
 		   propfind.c \
 		   property.c \
 		   proppatch.c \
 		   put.c \
-		   resource.c \
 		   script.js \
 		   style.css \
 		   tests.c \
@@ -140,9 +138,7 @@ LIBOBJS		 = caldav.o \
 		   ical.o
 OBJS		 = db.o \
 		   err.o \
-		   kcaldav-sql.o \
-		   principal.o \
-		   resource.o
+		   kcaldav-sql.o
 BINOBJS		 = delete.o \
 		   dynamic.o \
 		   get.o \

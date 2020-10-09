@@ -1189,7 +1189,7 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 	return(1);
 err:
 	*pp = NULL;
-	prncpl_free(p);
+	db_prncpl_free(p);
 	db_finalise(&stmt);
 	kerrx("%s: failure", dbname);
 	return(rc);
@@ -1468,12 +1468,12 @@ db_resource_update(const char *data, const char *url,
 
 	if (strcmp(res->etag, digest)) {
 		db_trans_rollback();
-		res_free(res);
+		db_resource_free(res);
 		return 0;
 	}
 
 	id = res->id;
-	res_free(res);
+	db_resource_free(res);
 
 	sql = "UPDATE resource SET data=?,etag=? WHERE id=?";
 	if ((stmt = db_prepare(sql)) == NULL)
@@ -1616,4 +1616,48 @@ err:
 	db_finalise(&stmt);
 	kerrx("%s: %s: failure", dbname, __func__);
 	return(-1);
+}
+
+void
+db_prncpl_free(struct prncpl *p)
+{
+	size_t	 i;
+
+	if (NULL == p)
+		return;
+
+	free(p->name);
+	free(p->hash);
+	free(p->email);
+	for (i = 0; i < p->colsz; i++) {
+		free(p->cols[i].url);
+		free(p->cols[i].displayname);
+		free(p->cols[i].colour);
+		free(p->cols[i].description);
+	}
+	free(p->cols);
+	for (i = 0; i < p->proxiesz; i++) {
+		free(p->proxies[i].email);
+		free(p->proxies[i].name);
+	}
+	free(p->proxies);
+	for (i = 0; i < p->rproxiesz; i++) {
+		free(p->rproxies[i].email);
+		free(p->rproxies[i].name);
+	}
+	free(p->rproxies);
+	free(p);
+}
+
+void
+db_resource_free(struct res *p)
+{
+
+	if (NULL == p)
+		return;
+	free(p->etag);
+	free(p->url);
+	free(p->data);
+	ical_free(p->ical);
+	free(p);
 }
