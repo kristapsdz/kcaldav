@@ -98,7 +98,6 @@ MAN3S		 = man/caldav_free.3 \
 		   man/ical_free.3 \
 		   man/ical_parse.3 \
 		   man/ical_print.3
-MANS		 = $(MAN3S)
 JSMINS		 = collection.min.js \
 		   home.min.js
 ALLSRCS		 = Makefile \
@@ -120,8 +119,6 @@ ALLSRCS		 = Makefile \
 		   kcaldav.c \
 		   kcaldav.passwd.c \
 		   kcaldav.sql \
-		   kcaldav.in.8 \
-		   kcaldav.passwd.in.1 \
 		   libkcaldav.h \
 		   md5.js \
 		   options.c \
@@ -208,16 +205,6 @@ install: all
 	$(INSTALL_LIB) libkcaldav.a $(DESTDIR)$(LIBDIR)
 	$(INSTALL_DATA) libkcaldav.h $(DESTDIR)$(INCLUDEDIR)
 
-uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/kcaldav.passwd
-	rm -f $(DESTDIR)$(MANDIR)/man1/kcaldav.passwd.1
-	rm -f $(DESTDIR)$(MANDIR)/man8/kcaldav.8
-	for f in $(MAN3S) ; do \
-		rm -f $(DESTDIR)$(MANDIR)/man3/`basename $$f` ; \
-	done
-	rm -f $(DESTDIR)$(LIBDIR)/libkcaldav.a
-	rm -f $(DESTDIR)$(INCLUDEDIR)/libkcaldav.h
-
 installwww: www
 	mkdir -p $(DESTDIR)$(WWWDIR)/snapshots
 	$(INSTALL_DATA) index.css $(HTMLS) atom.xml $(DESTDIR)$(WWWDIR)
@@ -236,7 +223,9 @@ kcaldav.tgz: Makefile
 	mkdir -p .dist/kcaldav-$(VERSION)/regress/ical
 	$(INSTALL) -m 0644 $(ALLSRCS) .dist/kcaldav-$(VERSION)
 	$(INSTALL) -m 0755 configure .dist/kcaldav-$(VERSION)
-	$(INSTALL) -m 0644 $(MANS) .dist/kcaldav-$(VERSION)/man
+	$(INSTALL) -m 0644 $(MAN3S) .dist/kcaldav-$(VERSION)/man
+	$(INSTALL) -m 0644 man/kcaldav.passwd.in.1 .dist/kcaldav-$(VERSION)/man
+	$(INSTALL) -m 0644 man/kcaldav.in.8 .dist/kcaldav-$(VERSION)/man
 	$(INSTALL) -m 0644 regress/ical/*.ics .dist/kcaldav-$(VERSION)/regress/ical
 	$(INSTALL) -m 0644 regress/caldav/*.xml .dist/kcaldav-$(VERSION)/regress/caldav
 	( cd .dist && tar zcf ../$@ kcaldav-$(VERSION) )
@@ -276,15 +265,15 @@ archive.html: archive.xml versions.xml
 atom.xml: versions.xml atom-template.xml
 	sblg -s date -o $@ -a versions.xml
 
-kcaldav.8: kcaldav.in.8
+kcaldav.8: man/kcaldav.in.8
 	sed -e "s!@CALDIR@!$(CALDIR)!g" \
 	    -e "s!@CGIURI@!$(CGIURI)!g" \
 	    -e "s!@CALPREFIX@!$(CALPREFIX)!g" \
-	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.in.8 >$@
+	    -e "s!@PREFIX@!$(PREFIX)!g" man/kcaldav.in.8 >$@
 
-kcaldav.passwd.1: kcaldav.passwd.in.1
+kcaldav.passwd.1: man/kcaldav.passwd.in.1
 	sed -e "s!@CALPREFIX@!$(CALPREFIX)!g" \
-	    -e "s!@PREFIX@!$(PREFIX)!g" kcaldav.passwd.in.1 >$@
+	    -e "s!@PREFIX@!$(PREFIX)!g" man/kcaldav.passwd.in.1 >$@
 
 # We generate a database on-the-fly.
 
@@ -339,7 +328,7 @@ regress: test-caldav test-ical test-nonce kcaldav.sql
 	 done
 
 distcheck: kcaldav.tgz.sha512 kcaldav.tgz
-	mandoc -Tlint -Werror *.in.[13]
+	mandoc -Tlint -Werror man/*.[138]
 	newest=`grep "<h1>" versions.xml | tail -1 | sed 's![ 	]*!!g'` ; \
 	       [ "$$newest" = "<h1>$(VERSION)</h1>" ] || \
 		{ echo "Version $(VERSION) not newest in versions.xml" 1>&2 ; exit 1 ; }

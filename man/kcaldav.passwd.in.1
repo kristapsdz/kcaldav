@@ -1,0 +1,157 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2015, 2020 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt KCALDAV.PASSWD 1
+.Os
+.Sh NAME
+.Nm kcaldav.passwd
+.Nd change kcaldav principal information
+.Sh SYNOPSIS
+.Nm kcaldav.passwd
+.Op Fl Cnv
+.Op Fl d Ar collection
+.Op Fl e Ar email
+.Op Fl f Ar caldir
+.Op Fl u Ar principal
+.Op Ar resource...
+.Sh DESCRIPTION
+Updates database entries for
+.Xr kcaldav 8
+principals.
+Its arguments are as follows:
+.Bl -tag -width Ds
+.It Fl C
+Create a new principal with an initial collection
+.Qq calendar .
+The e-mail address is the principal's name at the current host (see
+.Xr hostname 1 )
+or
+.Qq localhost
+if there's no system-wide hostname set.
+.It Fl n
+Do not change the principal's password: only change attributes (such as
+with
+.Fl e ) .
+Ignored if used with
+.Fl C .
+.It Fl d Ar collection
+Add a collection for the principal, doing nothing if the collection
+already exists.
+If used with
+.Fl C ,
+sets the initial collection.
+.It Fl e Ar email
+Set the principal's e-mail address.
+.It Fl f Ar caldir
+The database directory.
+.It Fl u Ar principal
+The principal to look up in the database.
+.It Fl v
+Verbose.
+Use once for underlying errors and warnings and twice for debugging
+output.
+.It Ar resource...
+A list of resources to add to the collection of
+.Fl d
+or
+.Qq calendar
+by default.
+The name of each resource is set from its filename component.
+.El
+.Pp
+By default, the password is changed for the principal matching the
+logged-in user (see
+.Xr logname 1 ) .
+The database
+.Pa kcaldav.db
+is looked for in
+.Pa @CALPREFIX@ .
+.Pp
+If the database is created with
+.Fl C ,
+its owner is set to the current real user.
+If the database exists and
+.Fl C
+or
+.Fl u
+is used, the current real user (via
+.Xr getuid 2 )
+must match the database owner or be root.
+.Pp
+The database must be read-writable by the web server.
+.\" .Sh IMPLEMENTATION NOTES
+.\" Not used in OpenBSD.
+.\" .Sh RETURN VALUES
+.\" For sections 2, 3, and 9 function return values only.
+.\" .Sh ENVIRONMENT
+.\" For sections 1, 6, 7, and 8 only.
+.\" .Sh FILES
+.Sh EXIT STATUS
+.Ex -std
+.Sh EXAMPLES
+In the simplest case, root creates and maintains the database.
+Assuming the database is in
+.Pa @CALPREFIX@ :
+.Bd -literal -offset indent
+# kcaldav.passwd -Cu kristaps
+New password: *********
+Repeat new password: *********
+.Ed
+.Pp
+After this time, the user
+.Qq kristaps
+can access their default calendar
+.Qq calendar .
+.Pp
+To have the database modifiable by local users, use a dummy
+.Qq kcaldav
+user owning the file and creating new users.
+Thi assumes that the database doesn't already exist.
+.Bd -literal -offset indent
+# chown _kcaldav @PREFIX@/bin/kcaldav.passwd
+# chmod u+s @PREFIX@/bin/kcaldav.passwd
+# doas -u _kcaldav kcaldav.passwd -Cu kristaps
+New password: *********
+Repeat new password: *********
+.Ed
+.Pp
+The user may then set their password:
+.Pp
+.Dl % kcaldav.passwd -ne kristaps@bsd.lv
+.Pp
+Or add calendars:
+.Bd -literal -offset indent
+% kcaldav.passwd -nd newcalendar
+% kcaldav.passwd -nd secondcalendar
+.Ed
+.Pp
+To add resources to a new or existing calendar:
+.Pp
+.Dl % kcaldav.passwd -nd newcalendar file1.ics file2.ics
+.\" .Sh DIAGNOSTICS
+.\" For sections 1, 4, 6, 7, 8, and 9 printf/stderr messages only.
+.\" .Sh ERRORS
+.\" For sections 2, 3, 4, and 9 errno settings only.
+.Sh SEE ALSO
+.Xr kcaldav 8
+.\" .Sh STANDARDS
+.\" .Sh HISTORY
+.\" .Sh AUTHORS
+.\" .Sh CAVEATS
+.\" .Sh BUGS
+.\" .Sh SECURITY CONSIDERATIONS
+.\" Not used in OpenBSD.
