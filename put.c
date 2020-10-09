@@ -35,21 +35,25 @@ req2ical(struct kreq *r)
 {
 	struct state	*st = r->arg;
 
-	if (NULL == r->fieldmap[VALID_BODY]) {
-		kerrx("%s: failed iCalendar parse", st->prncpl->name);
+	if ( r->fieldmap[VALID_BODY] == NULL) {
+		kutil_info(r, st->prncpl->name,
+			"failed iCalendar parse");
 		http_error(r, KHTTP_400);
-		return(NULL);
+		return NULL;
 	} 
 	
-	if (KMIME_TEXT_CALENDAR != r->fieldmap[VALID_BODY]->ctypepos) {
-		kerrx("%s: bad iCalendar MIME", st->prncpl->name);
+	if (r->fieldmap[VALID_BODY]->ctypepos != KMIME_TEXT_CALENDAR) {
+		kutil_info(r, st->prncpl->name,
+			"bad iCalendar MIME type");
 		http_error(r, KHTTP_415);
-		return(NULL);
+		return NULL;
 	}
 
-	return(ical_parse(NULL, 
+	/* This shouldn't fail now. */
+
+	return ical_parse(NULL, 
 		r->fieldmap[VALID_BODY]->val, 
-		r->fieldmap[VALID_BODY]->valsz, NULL));
+		r->fieldmap[VALID_BODY]->valsz, NULL);
 }
 
 /*
@@ -65,12 +69,12 @@ method_put(struct kreq *r)
 	char		*buf = NULL;
 	const char	*digest = NULL;
 
-	if (NULL == st->cfg) {
-		kerrx("%s: PUT into non-calendar "
-			"collection", st->prncpl->name);
+	if (st->cfg == NULL) {
+		kutil_info(r, st->prncpl->name,
+			"PUT into non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;
-	} else if (NULL == (p = req2ical(r)))
+	} else if ((p = req2ical(r)) == NULL)
 		return;
 
 	/* 
@@ -86,8 +90,8 @@ method_put(struct kreq *r)
 		if (sz < 5 ||
 		    buf[0] != '(' || buf[1] != '[' ||
 		    buf[sz - 2] != ']' || buf[sz - 1] != ')' ) {
-			kerrx("%s: \"If\" malformed", 
-				st->prncpl->name);
+			kutil_info(r, st->prncpl->name,
+				"malformed \"If\" statement");
 			http_error(r, KHTTP_400);
 			ical_free(p);
 			free(buf);
@@ -125,14 +129,14 @@ method_put(struct kreq *r)
 			 st->resource, digest, st->cfg->id);
 
 	if (rc < 0) {
-		kerrx("%s: cannot %s resource: %s", 
-			st->prncpl->name, 
+		kutil_warnx(r, st->prncpl->name,
+			"cannot %s resource: %s", 
 			digest == NULL ? "create" : "update",
 			r->fullpath);
 		http_error(r, KHTTP_505);
 	} else if (rc == 0) {
-		kerrx("%s: duplicate resource: %s", 
-			st->prncpl->name, r->fullpath);
+		kutil_info(r, st->prncpl->name,
+			"duplicate resource: %s", r->fullpath);
 		http_error(r, KHTTP_403);
 	} else {
 		kinfo("%s: resource %s: %s",
