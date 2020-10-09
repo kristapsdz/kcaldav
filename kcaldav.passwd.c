@@ -42,7 +42,7 @@
 #include <unistd.h>
 
 #include "libkcaldav.h"
-#include "extern.h"
+#include "db.h"
 
 int verbose = 0;
 

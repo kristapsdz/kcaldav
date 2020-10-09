@@ -109,10 +109,10 @@ ALLSRCS		 = Makefile \
 		   compats.c \
 		   datetime.c \
 		   db.c \
+		   db.h \
 		   delete.c \
 		   dynamic.c \
 		   err.c \
-		   extern.h \
 		   get.c \
 		   home.js \
 		   home.xml \
@@ -136,7 +136,7 @@ ALLSRCS		 = Makefile \
 		   util.c
 LIBOBJS		 = caldav.o \
 		   ical.o
-OBJS		 = db.o \
+DBOBJS		 = db.o \
 		   err.o \
 		   kcaldav-sql.o
 BINOBJS		 = delete.o \
@@ -152,7 +152,7 @@ BINOBJS		 = delete.o \
 ALLOBJS		 = $(TESTOBJS) \
 		   $(LIBOBJS) \
 		   $(BINOBJS) \
-		   $(OBJS) \
+		   $(DBOBJS) \
 		   compats.o \
 		   kcaldav.passwd.o
 VERSION		 = 0.1.15
@@ -245,11 +245,11 @@ kcaldav.tgz: Makefile
 libkcaldav.a: $(LIBOBJS)
 	$(AR) -rs $@ $(LIBOBJS)
 
-kcaldav: $(BINOBJS) $(OBJS) compats.o libkcaldav.a
-	$(CC) -o $@ $(LDADD_STATIC) $(BINOBJS) $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(CGILIBS) 
+kcaldav: $(BINOBJS) $(DBOBJS) compats.o libkcaldav.a
+	$(CC) -o $@ $(LDADD_STATIC) $(BINOBJS) $(DBOBJS) compats.o libkcaldav.a $(LDFLAGS) $(CGILIBS) 
 
-kcaldav.passwd: kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a
-	$(CC) -o $@ kcaldav.passwd.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
+kcaldav.passwd: kcaldav.passwd.o $(DBOBJS) compats.o libkcaldav.a
+	$(CC) -o $@ kcaldav.passwd.o $(DBOBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
 
 test-ical: test-ical.o compats.o libkcaldav.a
 	$(CC) -o $@ test-ical.o compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
@@ -257,15 +257,15 @@ test-ical: test-ical.o compats.o libkcaldav.a
 test-rrule: test-rrule.o compats.o libkcaldav.a
 	$(CC) -o $@ test-rrule.o compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
 
-test-nonce: test-nonce.o $(OBJS) compats.o libkcaldav.a
-	$(CC) -o $@ test-nonce.o $(OBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
+test-nonce: test-nonce.o $(DBOBJS) compats.o libkcaldav.a
+	$(CC) -o $@ test-nonce.o $(DBOBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
 
 test-caldav: test-caldav.o compats.o libkcaldav.a
 	$(CC) -o $@ test-caldav.o compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
 
-$(ALLOBJS): extern.h libkcaldav.h config.h
+# We can make this more refined, but this is easier.
 
-$(BINOBJS): kcaldav.h
+$(ALLOBJS): config.h db.h kcaldav.h libkcaldav.h
 
 index.html: index.xml versions.xml
 	sblg -t index.xml -o $@ versions.xml
@@ -292,8 +292,7 @@ kcaldav-sql.c: kcaldav.sql
 	( echo "#include <stdlib.h>"; \
 	  echo "#include <stdint.h>"; \
 	  echo "#include <time.h>"; \
-	  echo "#include \"libkcaldav.h\""; \
-	  echo "#include \"extern.h\""; \
+	  echo "#include \"db.h\""; \
 	  printf "const char *db_sql = \""; \
 	  grep -v '^[ 	]*--' kcaldav.sql | sed -e 's!$$!\\n\\!' ; \
 	  echo '";'; ) >$@

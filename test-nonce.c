@@ -26,7 +26,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "extern.h"
+#include "db.h"
 
 int verbose = 2;
 

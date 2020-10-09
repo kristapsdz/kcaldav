@@ -24,7 +24,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "extern.h"
+#include "db.h"
 
 void
 kvdbg(const char *file, size_t line, const char *fmt, ...)

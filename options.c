@@ -26,7 +26,7 @@
 #include <kcgixml.h>
 
 #include "libkcaldav.h"
-#include "extern.h"
+#include "db.h"
 #include "kcaldav.h"
 
 void

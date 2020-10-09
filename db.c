@@ -28,12 +28,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <kcgi.h>
-#include <kcgixml.h>
 #include <sqlite3.h>
 
 #include "libkcaldav.h"
-#include "extern.h"
+#include "db.h"
 
 static sqlite3	*db;
 static char	 dbname[PATH_MAX];

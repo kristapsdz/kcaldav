@@ -43,7 +43,7 @@
 #include <sqlite3.h>
 
 #include "libkcaldav.h"
-#include "extern.h"
+#include "db.h"
 #include "kcaldav.h"
 
 int verbose = 1;
