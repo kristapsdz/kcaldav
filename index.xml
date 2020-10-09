@@ -62,6 +62,11 @@
 					auditable <a href="https://github.com/kristapsdz/kcaldav">source code</a>.
 				</p>
 				<p>
+					To hack on <span class="nm">kcaldav</span>, visit the
+					<a href="https://github.com/kristapsdz/kcaldav">GitHub page</a> for regression tests, source code
+					layout, and so on.
+				</p>
+				<p>
 					<span class="nm">kcaldav</span> is designed for simple setups, like sharing a calendar collection
 					between Mozilla Lightning, Mac OS X iCal, DAVdroid forks, and iOS (iPhone) clients.
 					It compiles and runs on OpenBSD, Linux, NetBSD, FreeBSD, Mac OS X, Solaris, and OmniOS.
