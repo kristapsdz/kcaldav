@@ -96,7 +96,8 @@ HTMLS	 	 = archive.html \
 MAN3S		 = man/caldav_free.3 \
 		   man/caldav_parse.3 \
 		   man/ical_free.3 \
-		   man/ical_parse.3
+		   man/ical_parse.3 \
+		   man/ical_print.3
 MANS		 = $(MAN3S)
 JSMINS		 = collection.min.js \
 		   home.min.js
