@@ -17,18 +17,6 @@
 #ifndef KCALDAV_H
 #define KCALDAV_H
 
-struct	state {
-	struct prncpl	*prncpl; /* current user principal */
-	struct prncpl	*rprncpl; /* requested user principal */
-	struct coln	*cfg; /* (resource in?) requested collection */
-	int		 proxy; /* permission of this proxy request */
-	char		 caldir[PATH_MAX]; /* calendar root */
-	char		*principal; /* principal in request */
-	char		*collection; /* collection in request */
-	char		*resource; /* resource in request */
-	const char	*nonce; /* requested nonce */
-};
-
 enum	xml {
 	XML_CALDAV_CALENDAR,
 	XML_CALDAV_CALENDAR_DATA,
@@ -81,11 +69,26 @@ enum	valid {
 	VALID__MAX
 };
 
-typedef	 void (*principalfp)(struct kreq *, struct kxmlreq *);
-typedef	 void (*collectionfp)(struct kreq *, struct kxmlreq *, 
-		const struct coln *);
-typedef	 void (*resourcefp)(struct kreq *, struct kxmlreq *, 
-		const struct coln *, const struct res *);
+/*
+ * State carried through the system for a single operator.
+ */
+struct	state {
+	struct prncpl	*prncpl; /* current user principal */
+	struct prncpl	*rprncpl; /* requested user principal */
+	struct coln	*cfg; /* (resource in?) requested collection */
+	int		 proxy; /* permission of this proxy request */
+	char		 caldir[PATH_MAX]; /* calendar root */
+	char		*principal; /* principal in request */
+	char		*collection; /* collection in request */
+	char		*resource; /* resource in request */
+	const char	*nonce; /* requested nonce */
+};
+
+typedef void (*principalfp)(struct kreq *, struct kxmlreq *);
+typedef void (*collectionfp)(struct kreq *,
+	struct kxmlreq *, const struct coln *);
+typedef void (*resourcefp)(struct kreq *, 
+	struct kxmlreq *, const struct coln *, const struct res *);
 
 /*
  * This fully describes the properties that we handle and their various
@@ -98,26 +101,24 @@ struct	property {
 	principalfp	pgetfp;
 };
 
-int	 xml_ical_putc(int, void *);
-int	 http_ical_putc(int, void *);
+int		 xml_ical_putc(int, void *);
+int		 http_ical_putc(int, void *);
 
-void	 http_error(struct kreq *, enum khttp);
-int	 http_paths(const char *, char **, char **, char **);
-int	 http_safe_string(const char *);
-const char *http_etag_if_match(const char *, char **);
+void		 http_error(struct kreq *, enum khttp);
+int		 http_paths(const char *, char **, char **, char **);
+int		 http_safe_string(const char *);
+const char	*http_etag_if_match(const char *, char **);
 
-void	 method_delete(struct kreq *);
-void	 method_get(struct kreq *);
-void	 method_json(struct kreq *);
-void	 method_options(struct kreq *);
-void	 method_propfind(struct kreq *);
-void	 method_proppatch(struct kreq *);
-void	 method_put(struct kreq *);
-void	 method_report(struct kreq *);
+void		 method_delete(struct kreq *);
+void		 method_get(struct kreq *);
+void		 method_json(struct kreq *);
+void		 method_options(struct kreq *);
+void		 method_propfind(struct kreq *);
+void		 method_proppatch(struct kreq *);
+void		 method_put(struct kreq *);
+void		 method_report(struct kreq *);
 
-extern const char *const pages[PAGE__MAX];
 extern const char *const xmls[XML__MAX];
-extern const char *const valids[VALID__MAX];
 extern const struct property properties[CALPROP__MAX];
 
 #endif

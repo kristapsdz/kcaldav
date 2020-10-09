@@ -48,7 +48,7 @@
 
 int verbose = 1;
 
-const char *const pages[PAGE__MAX] = {
+static const char *const pages[PAGE__MAX] = {
 	"delcoln", /* PAGE_DELCOLN */
 	"index", /* PAGE_INDEX */
 	"logout", /* PAGE_LOGOUT */
@@ -59,7 +59,7 @@ const char *const pages[PAGE__MAX] = {
 	"setpass", /* PAGE_SETPASS */
 };
 
-const char *const valids[VALID__MAX] = {
+static const char *const valids[VALID__MAX] = {
 	"bits", /* VALID_BITS */
 	"", /* VALID_BODY */
 	"colour", /* VALID_COLOUR */
