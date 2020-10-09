@@ -665,7 +665,7 @@ method_propfind(struct kreq *req)
 		rc = db_resource_load
 			(&res, st->resource, st->cfg->id);
 		if (rc < 0) {
-			http_error(req, KHTTP_403);
+			http_error(req, KHTTP_505);
 			return;
 		} else if (0 == rc) {
 			http_error(req, KHTTP_404);

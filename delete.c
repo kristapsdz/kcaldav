@@ -70,7 +70,7 @@ method_delete(struct kreq *r)
 		if (rc == 0) {
 			kerrx("%s: cannot delete resource: %s",
 				st->prncpl->name, r->fullpath);
-			http_error(r, KHTTP_403);
+			http_error(r, KHTTP_505);
 		} else {
 			kinfo("%s: resource deleted: %s",
 				st->prncpl->name, r->fullpath);
@@ -82,9 +82,9 @@ method_delete(struct kreq *r)
 		rc = db_resource_remove
 			(st->resource, st->cfg->id);
 		if (rc == 0) {
-			kerrx("%s: cannot delete resource: %s",
+			kerrx("%s: failed delete resource: %s",
 				st->prncpl->name, r->fullpath);
-			http_error(r, KHTTP_403);
+			http_error(r, KHTTP_505);
 		} else {
 			kinfo("%s: resource (unsafe) deleted: %s",
 				st->prncpl->name, r->fullpath);
