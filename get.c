@@ -45,23 +45,27 @@ method_get(struct kreq *r)
 	const char	*digest = NULL;
 
 	if (st->resource[0] == '\0') {
-		kerrx("%s: GET for collection", st->prncpl->name);
+		kutil_info(r, st->prncpl->name, 
+			"GET for non-resource (collection?)");
 		http_error(r, KHTTP_404);
 		return;
 	} else if (st->cfg == NULL) {
-		kerrx("%s: GET from non-calendar "
-			"collection", st->prncpl->name);
+		kutil_info(r, st->prncpl->name, 
+			"GET from non-calendar collection");
 		http_error(r, KHTTP_403);
 		return;
 	}
 
 	rc = db_resource_load(&p, st->resource, st->cfg->id);
+
 	if (rc < 0) {
-		kerrx("%s: cannot load resource", st->prncpl->name);
+		kutil_warnx(r, st->prncpl->name,
+			"cannot load resource: %s", st->resource);
 		http_error(r, KHTTP_505);
 		return;
 	} else if (rc == 0) {
-		kerrx("%s: unknown resource", st->prncpl->name);
+		kutil_info(r, st->prncpl->name, 
+			"GET for unknown resource: %s", st->resource);
 		http_error(r, KHTTP_404);
 		return;
 	}
@@ -96,18 +100,16 @@ method_get(struct kreq *r)
 			"%s", khttps[KHTTP_304]);
 		khttp_head(r, kresps[KRESP_ETAG], "%s", p->etag);
 		khttp_body(r);
-		db_resource_free(p);
-		free(buf);
-		return;
-	} 
+	} else {
+		khttp_head(r, kresps[KRESP_STATUS], 
+			"%s", khttps[KHTTP_200]);
+		khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
+			"%s", kmimetypes[KMIME_TEXT_CALENDAR]);
+		khttp_head(r, kresps[KRESP_ETAG], "%s", p->etag);
+		khttp_body(r);
+		ical_print(p->ical, http_ical_putc, r);
+	}
 
-	khttp_head(r, kresps[KRESP_STATUS], 
-		"%s", khttps[KHTTP_200]);
-	khttp_head(r, kresps[KRESP_CONTENT_TYPE], 
-		"%s", kmimetypes[KMIME_TEXT_CALENDAR]);
-	khttp_head(r, kresps[KRESP_ETAG], "%s", p->etag);
-	khttp_body(r);
-	ical_print(p->ical, http_ical_putc, r);
 	db_resource_free(p);
 	free(buf);
 }
