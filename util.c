@@ -84,8 +84,8 @@ static char
 parsehex(char ch)
 {
 
-	return(isdigit((int)ch) ? ch - '0' : 
-		tolower((int)ch) - 'a' + 10);
+	return(isdigit((unsigned char)ch) ? ch - '0' : 
+		tolower((unsigned char)ch) - 'a' + 10);
 }
 
 static void
@@ -106,8 +106,8 @@ http_decode(const char *in, char **rp)
 		}
 		if ('\0' == in[i + 1] ||
 		    '\0' == in[i + 2] ||
-		    ! isalnum((int)in[i + 1]) ||
-		    ! isalnum((int)in[i + 2])) {
+		    ! isalnum((unsigned char)in[i + 1]) ||
+		    ! isalnum((unsigned char)in[i + 2])) {
 			(*rp)[j] = in[i];
 			continue;
 		}
@@ -123,8 +123,7 @@ http_decode(const char *in, char **rp)
  * We manage this as follows:
  *   /principal/collection/resource
  * For now, the collection can't have directories of its own.
- * Return zero on failure (no leading slash or memory failure), non-zero
- * on success.
+ * Return zero on failure (no leading slash), non-zero on success.
  * All pointers will be set.
  */
 int
@@ -135,40 +134,35 @@ http_paths(const char *in, char **pp, char **cp, char **rp)
 	*pp = *cp = *rp = NULL;
 
 	/* Strip leading absolute path. */
+
 	if ('/' != in[0])
-		return(0);
+		return 0;
+
 	in++;
 
-	if (NULL != (p = strchr(in, '/'))) {
-		*pp = malloc(p - in + 1);
+	if ((p = strchr(in, '/')) != NULL) {
+		*pp = kmalloc(p - in + 1);
 		memcpy(*pp, in, p - in);
 		(*pp)[p - in] = '\0';
 		in = p + 1;
-		if (NULL != (p = strrchr(in, '/'))) {
-			*cp = malloc(p - in + 1);
+
+		if ((p = strrchr(in, '/')) != NULL) {
+			*cp = kmalloc(p - in + 1);
 			memcpy(*cp, in, p - in);
 			(*cp)[p - in] = '\0';
 			in = p + 1;
 			http_decode(in, rp);
 		} else {
-			*cp = strdup("");
+			*cp = kstrdup("");
 			http_decode(in, rp);
 		}
 	} else {
-		*pp = strdup(in);
-		*cp = strdup("");
-		*rp = strdup("");
+		*pp = kstrdup(in);
+		*cp = kstrdup("");
+		*rp = kstrdup("");
 	}
 
-	if (NULL == *pp || NULL == *cp || NULL == *rp) {
-		kerr(NULL);
-		free(*pp);
-		free(*cp);
-		free(*rp);
-		return(0);
-	}
-
-	return(1);
+	return 1;
 }
 
 /*
@@ -206,7 +200,7 @@ http_safe_string(const char *cp)
 		case ('@'):
 			break;
 		default:
-			if (isalnum(*cp))
+			if (isalnum((unsigned char)*cp))
 				break;
 			return(0);
 		}
@@ -290,7 +284,6 @@ http_etag_if_match(const char *val, char **buf)
 		if (sz == 1)
 			return NULL;
 		*buf = kstrdup(val);
-		assert(*buf != NULL);
 		(*buf)[sz - 1] = '\0';
 		return (*buf);
 	}
