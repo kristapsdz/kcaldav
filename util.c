@@ -30,7 +30,7 @@
 
 #include "libkcaldav.h"
 #include "db.h"
-#include "kcaldav.h"
+#include "server.h"
 
 const char *const xmls[XML__MAX] = {
 	"C:calendar", /* XML_CALDAV_CALENDAR */

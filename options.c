@@ -27,7 +27,7 @@
 
 #include "libkcaldav.h"
 #include "db.h"
-#include "kcaldav.h"
+#include "server.h"
 
 void
 method_options(struct kreq *r)

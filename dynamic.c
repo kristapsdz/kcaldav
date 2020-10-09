@@ -28,7 +28,7 @@
 
 #include "libkcaldav.h"
 #include "db.h"
-#include "kcaldav.h"
+#include "server.h"
 
 static void
 send500(struct kreq *r)

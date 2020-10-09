@@ -118,7 +118,6 @@ ALLSRCS		 = Makefile \
 		   home.xml \
 		   ical.c \
 		   kcaldav.c \
-		   kcaldav.h \
 		   kcaldav.passwd.c \
 		   kcaldav.sql \
 		   kcaldav.in.8 \
@@ -131,6 +130,7 @@ ALLSRCS		 = Makefile \
 		   proppatch.c \
 		   put.c \
 		   script.js \
+		   server.h \
 		   style.css \
 		   tests.c \
 		   util.c
@@ -265,7 +265,7 @@ test-caldav: test-caldav.o compats.o libkcaldav.a
 
 # We can make this more refined, but this is easier.
 
-$(ALLOBJS): config.h db.h kcaldav.h libkcaldav.h
+$(ALLOBJS): config.h db.h server.h libkcaldav.h
 
 index.html: index.xml versions.xml
 	sblg -t index.xml -o $@ versions.xml

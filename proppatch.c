@@ -28,7 +28,7 @@
 
 #include "libkcaldav.h"
 #include "db.h"
-#include "kcaldav.h"
+#include "server.h"
 
 /*
  * This converts the request into a CalDav object.

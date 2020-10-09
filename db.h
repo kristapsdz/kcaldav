@@ -49,14 +49,14 @@ struct	coln {
  * current principal.
  */
 struct	proxy {
-	int64_t		 proxy; 
-	char		*email;
-	char		*name;
-	int64_t		 bits;
+	int64_t		 proxy; /* principal with proxy access */
+	char		*email; /* email of proxied principal */
+	char		*name; /* name of proxied principal */
+	int64_t		 bits; /* type of proxy access */
 #define	PROXY_NONE	 0x00
 #define	PROXY_READ	 0x01
 #define	PROXY_WRITE	 0x02
-	int64_t		 id;
+	int64_t		 id; /* unique identifier */
 };
 
 /*
@@ -71,9 +71,9 @@ struct	prncpl {
 	struct coln	*cols; /* owned collections */
 	size_t		 colsz; /* number of owned collections */
 	struct proxy	*proxies; /* principals who can proxy as us */
-	size_t		 proxiesz;
+	size_t		 proxiesz; /* elements in proxies */
 	struct proxy	*rproxies; /* principals as whom we proxy */
-	size_t		 rproxiesz; 
+	size_t		 rproxiesz;  /* elements in rproxies */
 	int64_t		 id; /* unique identifier */
 };
 
@@ -86,8 +86,6 @@ enum	nonceerr {
 	NONCE_REPLAY, /* replay attack detected! */
 	NONCE_OK /* nonce checks out */
 };
-
-__BEGIN_DECLS
 
 void		db_collection_free(struct coln *);
 int		db_collection_load(struct coln **, const char *, int64_t);
@@ -144,7 +142,5 @@ void		kverrx(const char *, size_t, const char *, ...)
 extern int verbose;
 
 extern const char *db_sql;
-
-__END_DECLS
 
 #endif

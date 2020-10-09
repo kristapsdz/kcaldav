@@ -28,7 +28,7 @@
 
 #include "libkcaldav.h"
 #include "db.h"
-#include "kcaldav.h"
+#include "server.h"
 
 /*
  * RFC 4791 doesn't specify any special behaviour for GET, and RFC 2518

@@ -28,7 +28,7 @@
 
 #include "libkcaldav.h"
 #include "db.h"
-#include "kcaldav.h"
+#include "server.h"
 
 static struct ical *
 req2ical(struct kreq *r)
