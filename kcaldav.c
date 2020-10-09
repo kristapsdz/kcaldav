@@ -85,22 +85,20 @@ static const char *const valids[VALID__MAX] = {
 static int
 nonce_validate(const struct khttpdigest *auth, char **np)
 {
-	enum nonceerr	 er;
-
 	/*
-	 * Now we see whether our nonce lookup fails.
+	 * See whether our nonce lookup fails.
 	 * This is still occuring over a read-only database, as an
 	 * adversary could be playing us by submitting replay attacks
 	 * (or random nonce values) over and over again in the hopes of
 	 * filling up our nonce database.
 	 */
 
-	er = db_nonce_validate(auth->nonce, auth->count);
-
-	if (er == NONCE_ERR) {
-		kerrx("%s: nonce database failure", auth->user);
+	switch (db_nonce_validate(auth->nonce, auth->count)) {
+	case NONCE_ERR:
 		return (-2);
-	} else if (er == NONCE_NOTFOUND) {
+	case NONCE_REPLAY:
+		return (-1);
+	case NONCE_NOTFOUND:
 		/*
 		 * We don't have the nonce.
 		 * This means that the client has either used one of our
@@ -108,15 +106,11 @@ nonce_validate(const struct khttpdigest *auth, char **np)
 		 * earlier session.
 		 * Tell them to retry with a new nonce.
 		 */
-
-		if (!db_nonce_new(np)) {
-			kerrx("%s: nonce database failure", auth->user);
+		if (!db_nonce_new(np))
 			return (-2);
-		}
 		return 0;
-	} else if (er == NONCE_REPLAY) {
-		kerrx("%s: REPLAY ATTACK", auth->user);
-		return (-1);
+	default:
+		break;
 	} 
 
 	/*
@@ -124,21 +118,17 @@ nonce_validate(const struct khttpdigest *auth, char **np)
 	 * We only get here if the nonce value exists and is fresh.
 	 */
 
-	er = db_nonce_update(auth->nonce, auth->count);
-
-	if (er == NONCE_ERR) {
-		kerrx("%s: nonce database failure", auth->user);
+	switch (db_nonce_update(auth->nonce, auth->count)) {
+	case NONCE_ERR:
 		return (-2);
-	} else if (er == NONCE_NOTFOUND) {
-		kerrx("%s: nonce update not found?", auth->user);
-		if (!db_nonce_new(np)) {
-			kerrx("%s: nonce database failure", auth->user);
-			return (-2);
-		}
-		return 0;
-	} else if (er == NONCE_REPLAY) {
-		kerrx("%s: REPLAY ATTACK", auth->user);
+	case NONCE_REPLAY:
 		return (-1);
+	case NONCE_NOTFOUND:
+		if (!db_nonce_new(np))
+			return (-2);
+		return 0;
+	default:
+		break;
 	} 
 
 	return 1;
@@ -335,16 +325,14 @@ main(void)
 
 #if HAVE_PLEDGE
 	if (pledge("proc stdio rpath "
-	    "cpath wpath flock fattr", NULL) == -1) {
-		kerr("pledge");
-		return(EXIT_FAILURE);
-	}
+	    "cpath wpath flock fattr", NULL) == -1)
+		kutil_err(NULL, NULL, "pledge");
 #endif
 
 	/* Only open the logfile if it's non-empty. */
 
-	if (logfile[0] != '\0')
-		kutil_openlog(logfile);
+	if (logfile[0] != '\0' && !kutil_openlog(logfile))
+		kutil_errx(NULL, NULL, "kutil_openlog");
 
 	/* Parse the main body. */
 
@@ -355,26 +343,21 @@ main(void)
 		 (KREQ_DEBUG_WRITE | KREQ_DEBUG_READ_BODY) : 0, 
 		 NULL);
 
-	if (er != KCGI_OK) {
-		kerrx("khttp_parse: %s", kcgi_strerror(er));
-		return EXIT_FAILURE;
-	}
+	if (er != KCGI_OK)
+		kutil_errx(NULL, NULL, 
+			"khttp_parse: %s", kcgi_strerror(er));
 
 #if HAVE_SANDBOX_INIT
 	rc = sandbox_init
 		(kSBXProfileNoInternet, 
 		 SANDBOX_NAMED, &np);
-	if (rc == -1) {
-		kerrx("sandbox_init: %s", np);
-		return EXIT_FAILURE;
-	}
+	if (rc == -1)
+		kutil_errx(NULL, NULL, "sandbox_init: %s", np);
 #endif
 #if HAVE_PLEDGE
 	if (pledge("stdio rpath cpath "
-	    "wpath flock fattr", NULL) == -1) {
-		kerr("pledge");
-		return EXIT_FAILURE;
-	}
+	    "wpath flock fattr", NULL) == -1)
+		kutil_err(NULL, NULL, "pledge");
 #endif
 
 	/* 
@@ -404,7 +387,7 @@ main(void)
 		http_error(&r, KHTTP_401);
 		goto out;
 	} else if (r.rawauth.authorised == 0) {
-		kerrx("%s: bad HTTP authorisation tokens", r.fullpath);
+		kutil_info(&r, NULL, "bad HTTP authorisation");
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 
@@ -415,11 +398,7 @@ main(void)
 	 * hashed password), so allocate our state.
 	 */
 
-	if ((r.arg = st = calloc(1, sizeof(struct state))) == NULL) {
-		kerr(NULL);
-		http_error(&r, KHTTP_505);
-		goto out;
-	}
+	r.arg = st = kcalloc(1, sizeof(struct state));
 
 	if (r.fullpath[0] == '\0') {
 		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname);
@@ -453,7 +432,8 @@ main(void)
 	sz = strlcpy(st->caldir, CALDIR, sizeof(st->caldir));
 
 	if (sz >= sizeof(st->caldir)) {
-		kerrx("%s: caldir too long!", st->caldir);
+		kutil_warn(&r, NULL, "caldir too long");
+		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (st->caldir[sz - 1] == '/')
 		st->caldir[sz - 1] = '\0';
@@ -478,11 +458,11 @@ main(void)
 
 	rc = khttpdigest_validatehash(&r, st->prncpl->hash);
 	if (rc < 0) {
-		kerrx("%s: bad authorisation sequence", st->prncpl->email);
+		kutil_info(&r, NULL, "bad authorisation sequence");
 		http_error(&r, KHTTP_401);
 		goto out;
 	} else if (rc == 0) {
-		kerrx("%s: failed authorisation sequence", st->prncpl->email);
+		kutil_info(&r, NULL, "failed authorisation sequence");
 		http_error(&r, KHTTP_401);
 		goto out;
 	} 
@@ -505,9 +485,13 @@ main(void)
 	 */
 
 	if ((rc = nonce_validate(&r.rawauth.d.digest, &np)) < -1) {
+		kutil_warnx(&r, st->prncpl->name, 
+			"cannot validate nonce");
 		http_error(&r, KHTTP_505);
 		goto out;
 	} else if (rc < 0) {
+		kutil_info(&r, st->prncpl->name, 
+			"nonce replay attack");
 		http_error(&r, KHTTP_403);
 		goto out;
 	} else if (rc == 0) {
@@ -584,9 +568,9 @@ main(void)
 			    st->rprncpl->proxies[i].proxy)
 				break;
 		if (i == st->rprncpl->proxiesz) {
-			kerrx("%s: disallowed reverse proxy "
+			kutil_info(&r, st->prncpl->name,
+				"disallowed reverse proxy "
 				"on principal: %s",
-				st->prncpl->email,
 				st->rprncpl->email);
 			http_error(&r, KHTTP_403);
 			goto out;
@@ -600,9 +584,9 @@ main(void)
 			/* Implies read. */
 			if (st->proxy == PROXY_WRITE)
 				break;
-			kerrx("%s: disallowed reverse proxy "
+			kutil_info(&r, st->prncpl->name,
+				"disallowed reverse proxy "
 				"write on principal: %s",
-				st->prncpl->email,
 				st->rprncpl->email);
 			http_error(&r, KHTTP_403);
 			goto out;
@@ -610,9 +594,9 @@ main(void)
 			if (st->proxy == PROXY_READ || 
 			    st->proxy == PROXY_WRITE)
 				break;
-			kerrx("%s: disallowed reverse proxy "
+			kutil_info(&r, st->prncpl->name,
+				"disallowed reverse proxy "
 				"read on principal: %s",
-				st->prncpl->email,
 				st->rprncpl->email);
 			http_error(&r, KHTTP_403);
 			goto out;
@@ -635,8 +619,8 @@ main(void)
 		if (st->cfg == NULL &&
 		    strcmp(st->collection, "calendar-proxy-read") &&
   		    strcmp(st->collection, "calendar-proxy-write")) {
-			kerrx("%s: requesting unknown "
-				"collection", st->prncpl->name);
+			kutil_info(&r, st->prncpl->name,
+				"request unknown collection");
 			http_error(&r, KHTTP_404);
 			goto out;
 		}
@@ -661,12 +645,12 @@ main(void)
 		 */
 
 		if (st->resource[0] == '\0') {
-			kerrx("%s: ignoring post to collection",
-				st->prncpl->name);
+			kutil_info(&r, st->prncpl->name,
+				"ignore POST to collection");
 			http_error(&r, KHTTP_404);
 		} else {
-			kerrx("%s: bad post to resource",
-				st->prncpl->name);
+			kutil_info(&r, st->prncpl->name,
+				"bad POST to resource");
 			http_error(&r, KHTTP_405);
 		}
 		break;
@@ -679,8 +663,8 @@ main(void)
 		 */
 
 		if (st->resource[0] == '\0') {
-			kerrx("%s: ignoring get of collection",
-				st->prncpl->name);
+			kutil_info(&r, st->prncpl->name,
+				"ignore GET of collection");
 			http_error(&r, KHTTP_404);
 		} else
 			method_get(&r);
@@ -692,8 +676,9 @@ main(void)
 		method_delete(&r);
 		break;
 	default:
-		kerrx("%s: ignoring method %s",
-			st->prncpl->name, kmethods[r.method]);
+		kutil_info(&r, st->prncpl->name,
+			"ignore unsupported HTTP method: %s",
+			kmethods[r.method]);
 		http_error(&r, KHTTP_405);
 		break;
 	}
