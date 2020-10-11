@@ -79,19 +79,22 @@ afl-fuzz -i in -o out -- ../test-caldav @@
 The source code is laid out fairly consistently and easily.
 
 The centre of the system is in *libkcaldav.a*, which contains both the
-CalDAV and iCalendar functions in [libkcaldav.h](libkcaldav.h).
+CalDAV and iCalendar functions in [libkcaldav.h](libkcaldav.h).  These
+are implemented in [ical.c](ical.c) and [caldav.c](caldav.c).
 
 The database is manipulated in [db.h](db.h) and is described by
 [kcaldav.sql](kcaldav.sql).  This is used by server and by the
 command-line utility for managing users and calendars.  This depends
-upon the [libkcaldav.h](libkcaldav.h) functions.
+upon the [libkcaldav.h](libkcaldav.h) functions.  It is implemented in
+[db.c](db.c).
 
 The built programs are the command-line utility and CGI server.
 
 The CGI server is described in [server.h](server.h) and constitutes the
-majority of the source code.  Its entry is [kcaldav.c](kcaldav.c]).
+majority of the source code files.  Its entry point is
+[kcaldav.c](kcaldav.c]).
 
-The command-line utility is a standalone file
+Finally, the command-line utility is a standalone file
 [kcaldav.passwd.c](kcaldav.passwd.c).
 
 The portability glue throughout the system (e.g., `HAVE_xxx` macros) as
