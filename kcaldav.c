@@ -46,7 +46,7 @@
 #include "db.h"
 #include "server.h"
 
-int verbose = 1;
+static int verbose = 1;
 
 static const char *const pages[PAGE__MAX] = {
 	"delcoln", /* PAGE_DELCOLN */
@@ -258,12 +258,105 @@ kvalid_body(struct kpair *kp)
 	return (dav != NULL);
 }
 
+/*
+ * Provide a version of kutil_verr that doesn't exit.
+ */
+static void
+kutil_verr_noexit(struct kreq *r,
+	const char *id, const char *fmt, va_list ap)
+{
+
+	kutil_vlog(r, "ERROR", id, fmt, ap);
+}
+
+/*
+ * Provide a version of kutil_verrx that doesn't exit.
+ */
+static void
+kutil_verrx_noexit(struct kreq *r,
+	const char *id, const char *fmt, va_list ap)
+{
+
+	kutil_vlogx(r, "ERROR", id, fmt, ap);
+}
+
+void
+kutil_err_noexit(struct kreq *r, const char *id, const char *fmt, ...)
+{
+	va_list	 ap;
+
+	va_start(ap, fmt);
+	kutil_verr_noexit(r, id, fmt, ap);
+	va_end(ap);
+}
+
+void
+kutil_errx_noexit(struct kreq *r, const char *id, const char *fmt, ...)
+{
+	va_list	 ap;
+
+	va_start(ap, fmt);
+	kutil_verrx_noexit(r, id, fmt, ap);
+	va_end(ap);
+}
+
+static void
+kutil_vdbg(struct kreq *r, const char *id, const char *fmt, va_list ap)
+{
+
+	if (verbose >= 2)
+		kutil_vlogx(r, "INFO", id, fmt, ap);
+}
+
+void
+kutil_dbg(struct kreq *r, const char *id, const char *fmt, ...)
+{
+	va_list	 ap;
+
+	va_start(ap, fmt);
+	kutil_vdbg(r, id, fmt, ap);
+	va_end(ap);
+}
+
+static void
+db_msg_info(void *arg, const char *id, const char *fmt, va_list ap)
+{
+
+	if (verbose >= 2)
+		kutil_vlogx(arg, "DB-INFO", id, fmt, ap);
+}
+
+static void
+db_msg_err(void *arg, const char *id, const char *fmt, va_list ap)
+{
+
+	if (verbose >= 2)
+		kutil_vlogx(arg, "DB-ERR", id, fmt, ap);
+}
+
+static void
+db_msg_errx(void *arg, const char *id, const char *fmt, va_list ap)
+{
+
+	if (verbose >= 2)
+		kutil_vlogx(arg, "DB-ERR", id, fmt, ap);
+}
+
+static void
+db_msg_dbg(void *arg, const char *id, const char *fmt, va_list ap)
+{
+
+	if (verbose >= 2)
+		kutil_vlogx(arg, "DB-INFO", id, fmt, ap);
+}
+
 static void
 state_free(struct state *st)
 {
 
 	if (st == NULL)
 		return;
+
 	if (st->prncpl != st->rprncpl)
 		db_prncpl_free(st->rprncpl);
 	db_prncpl_free(st->prncpl);
@@ -281,46 +374,26 @@ state_free(struct state *st)
  * success.
  */
 static int
-state_load(struct state *st, const char *nonce, const char *name)
+state_load(struct kreq *r, struct state *st,
+	const char *nonce, const char *name)
 {
+	int	 rc;
+
+	db_set_msg_arg(r);
+	db_set_msg_dbg(db_msg_dbg);
+	db_set_msg_info(db_msg_info);
+	db_set_msg_err(db_msg_err);
+	db_set_msg_errx(db_msg_errx);
 
 	if (!db_init(st->caldir, 0))
 		return(-1);
+
 	st->nonce = nonce;
-	return db_prncpl_load(&st->prncpl, name);
-}
+	if ((rc = db_prncpl_load(&st->prncpl, name)) <= 0)
+		return rc;
 
-void
-kutil_err_noexit(struct kreq *r, const char *id, const char *fmt, ...)
-{
-	va_list	 ap;
-
-	va_start(ap, fmt);
-	kutil_vlog(r, "ERROR", id, fmt, ap);
-	va_end(ap);
-}
-
-void
-kutil_errx_noexit(struct kreq *r, const char *id, const char *fmt, ...)
-{
-	va_list	 ap;
-
-	va_start(ap, fmt);
-	kutil_vlogx(r, "ERROR", id, fmt, ap);
-	va_end(ap);
-}
-
-void
-kutil_dbg(struct kreq *r, const char *id, const char *fmt, ...)
-{
-	va_list	 ap;
-
-	if (verbose < 2)
-		return;
-
-	va_start(ap, fmt);
-	kutil_vlogx(r, "DEBUG", id, fmt, ap);
-	va_end(ap);
+	db_set_msg_ident(name);
+	return 1;
 }
 
 int
@@ -473,7 +546,7 @@ main(void)
 	 * We'll do all the authentication afterward: this just loads.
 	 */
 
-	rc = state_load(st, 
+	rc = state_load(&r, st, 
 		r.rawauth.d.digest.nonce, 
 		r.rawauth.d.digest.user);
 
@@ -706,6 +779,8 @@ main(void)
 
 out:
 	khttp_free(&r);
+	db_set_msg_ident(NULL);
+	db_set_msg_arg(NULL);
 	state_free(st);
 	return EXIT_SUCCESS;
 }

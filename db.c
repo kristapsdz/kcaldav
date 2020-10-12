@@ -35,103 +35,149 @@
 #include "libkcaldav.h"
 #include "db.h"
 
-static void	 kvdbg(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-static void 	 kvinfo(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-static void	 kverr(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-static void	 kverrx(const char *, size_t, const char *, ...)
-			__attribute__((format(printf, 3, 4)));
-
-#define		 kerr(fmt, ...) \
-		 kverr(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define		 kdbg(fmt, ...) \
-		 kvdbg(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define		 kinfo(fmt, ...) \
-		 kvinfo(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define		 kerrx(fmt, ...) \
-		 kverrx(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-
-static sqlite3	*db;
-static char	 dbname[PATH_MAX];
-
 #define NONCEMAX 1000
 #define NONCESZ	 16
 
-static void
-kvdbg(const char *file, size_t line, const char *fmt, ...)
+/* Wrappers for debugging functions. */
+
+static void	 	 kdbg(const char *, ...)
+			 __attribute__((format(printf, 1, 2)));
+static void 	 	 kinfo(const char *, ...)
+			 __attribute__((format(printf, 1, 2)));
+static void	 	 kerr(const char *, ...)
+			 __attribute__((format(printf, 1, 2)));
+static void	 	 kerrx(const char *, ...)
+			 __attribute__((format(printf, 1, 2)));
+
+/* The database (or NULL) and it's location. */
+
+static sqlite3		*db;
+static char		 dbname[PATH_MAX];
+
+/* Identifier and private data to provide to db_msg functions. */
+
+static const char	*msg_ident;
+static void		*msg_arg;
+
+/* 
+ * Message callbacks: debugging (lowest priority), info (informational,
+ * low priority), and errors.
+ */
+
+static db_msg		 msg_dbg;
+static db_msg		 msg_info;
+static db_msg		 msg_err;
+static db_msg		 msg_errx;
+
+void
+db_set_msg_arg(void *arg)
 {
-	va_list	 ap;
-	char	 buf[32];
-	time_t	 t = time(NULL);
 
-	if (verbose < 2 || fmt == NULL)
-		return;
-
-	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
-	fprintf(stderr, "%s%s:%zu: DEBUG: ", buf, file, line);
-	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	va_end(ap);
-	fprintf(stderr, "\n");
+	msg_arg = arg;
 }
 
+void
+db_set_msg_ident(const char *ident)
+{
+
+	msg_ident = ident;
+}
+
+void
+db_set_msg_dbg(db_msg msg)
+{
+
+	msg_dbg = msg;
+}
+
+void
+db_set_msg_errx(db_msg msg)
+{
+
+	msg_errx = msg;
+}
+
+void
+db_set_msg_err(db_msg msg)
+{
+
+	msg_err = msg;
+}
+
+void
+db_set_msg_info(db_msg msg)
+{
+
+	msg_info = msg;
+}
+
+/*
+ * Log information.
+ * This means an operation that changed the database.
+ */
 static void
-kverrx(const char *file, size_t line, const char *fmt, ...)
+kinfo(const char *fmt, ...)
 {
 	va_list	 ap;
-	char	 buf[32];
-	time_t	 t = time(NULL);
+
+	if (msg_info == NULL)
+		return;
+
+	va_start(ap, fmt);
+	msg_info(msg_arg, msg_ident, fmt, ap);
+	va_end(ap);
+}
+
+/*
+ * Debugging log.
+ * This changed the database---but in a minor way.
+ * The best example is nonce updates, which aren't important.
+ */
+static void
+kdbg(const char *fmt, ...)
+{
+	va_list	 ap;
+
+	if (msg_dbg == NULL)
+		return;
+
+	va_start(ap, fmt);
+	msg_dbg(msg_arg, msg_ident, fmt, ap);
+	va_end(ap);
+}
+
+/*
+ * Error callback.
+ * This will probably trigger application exit.
+ */
+static void
+kerr(const char *fmt, ...)
+{
+	va_list	 ap;
 	
-	if (verbose == 0 || fmt == NULL)
+	if (msg_errx == NULL)
 		return;
 
-	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
-	fprintf(stderr, "%s%s:%zu: WARNING: ", buf, file, line);
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	msg_err(msg_arg, msg_ident, fmt, ap);
 	va_end(ap);
-	fprintf(stderr, "\n");
 }
 
+/*
+ * Error callback (no errno).
+ * This will probably trigger application exit.
+ */
 static void
-kverr(const char *file, size_t line, const char *fmt, ...)
-{
-	int	 er = errno;
-	va_list	 ap;
-	char	 buf[32];
-	time_t	 t = time(NULL);
-
-	if (verbose == 0)
-		return;
-
-	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
-	fprintf(stderr, "%s%s:%zu: ERROR: ", buf, file, line);
-	if (NULL != fmt) {
-		va_start(ap, fmt);
-		vfprintf(stderr, fmt, ap);
-		va_end(ap);
-	}
-	fprintf(stderr, ": %s\n", strerror(er));
-}
-
-static void
-kvinfo(const char *file, size_t line, const char *fmt, ...)
+kerrx(const char *fmt, ...)
 {
 	va_list	 ap;
-	char	 buf[32];
-	time_t	 t = time(NULL);
-
-	if (verbose < 2 || fmt == NULL)
+	
+	if (msg_errx == NULL)
 		return;
 
-	strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M]:", localtime(&t));
-	fprintf(stderr, "%s%s:%zu: ", buf, file, line);
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	msg_errx(msg_arg, msg_ident, fmt, ap);
 	va_end(ap);
-	fprintf(stderr, "\n");
 }
 
 /*
@@ -142,11 +188,11 @@ static void
 db_close(void)
 {
 
-	if (SQLITE_OK != sqlite3_close(db))
-		perror(sqlite3_errmsg(db));
+	if (sqlite3_close(db) != SQLITE_OK)
+		kerrx("%s", sqlite3_errmsg(db));
 
 	db = NULL;
-	dbname[0] = '\0';
+	explicit_bzero(dbname, PATH_MAX);
 }
 
 /*
@@ -158,10 +204,7 @@ static void
 db_finalise(sqlite3_stmt **stmt)
 {
 
-	if (NULL == *stmt) {
-		kerrx("passed NULL statement");
-		return;
-	}
+	assert(*stmt != NULL);
 	sqlite3_finalize(*stmt);
 	*stmt = NULL;
 }
@@ -194,6 +237,11 @@ get_random_uniform(size_t sz)
 #endif
 }
 
+/*
+ * Sleep for a random period in a sequence of sleeps.
+ * This is influenced by the PRNG so that we don't have all consumers
+ * sleeping and waking at the same time.
+ */
 static void
 db_sleep(size_t attempt)
 {
@@ -212,34 +260,39 @@ db_step_inner(sqlite3_stmt *stmt, int constrained)
 {
 	int	 rc;
 	size_t	 attempt = 0;
-
-	assert(NULL != stmt);
-	assert(NULL != db);
 again:
+	assert(stmt != NULL);
+	assert(db != NULL);
+
 	rc = sqlite3_step(stmt);
-	if (SQLITE_BUSY == rc) {
+	switch (rc) {
+	case SQLITE_BUSY:
 		db_sleep(attempt++);
 		goto again;
-	} else if (SQLITE_LOCKED == rc) {
-		kerrx("%s: sqlite3_step: %s", 
-			dbname, sqlite3_errmsg(db));
+	case SQLITE_LOCKED:
+		kdbg("sqlite3_step: %s (re-trying)", 
+			sqlite3_errmsg(db));
 		db_sleep(attempt++);
 		goto again;
-	} else if (SQLITE_PROTOCOL == rc) {
-		kerrx("%s: sqlite3_step: %s", 
-			dbname, sqlite3_errmsg(db));
+	case SQLITE_PROTOCOL:
+		kdbg("sqlite3_step: %s (re-trying)", 
+			sqlite3_errmsg(db));
 		db_sleep(attempt++);
 		goto again;
+	case SQLITE_DONE:
+		/* FALLTHROUGH */
+	case SQLITE_ROW:
+		return rc;
+	case SQLITE_CONSTRAINT:
+		if (constrained)
+			return rc;
+		break;
+	default:
+		break;
 	}
 
-	if (SQLITE_DONE == rc || SQLITE_ROW == rc)
-		return(rc);
-	if (SQLITE_CONSTRAINT == rc && constrained)
-		return(rc);
-
-	kerrx("%s: sqlite3_step: %s", 
-		dbname, sqlite3_errmsg(db));
-	return(rc);
+	kerrx("sqlite3_step: %s", sqlite3_errmsg(db));
+	return rc;
 }
 
 /*
@@ -252,7 +305,7 @@ static int
 db_step_constrained(sqlite3_stmt *stmt)
 {
 
-	return(db_step_inner(stmt, 1));
+	return db_step_inner(stmt, 1);
 }
 
 /*
@@ -264,7 +317,7 @@ static int
 db_step(sqlite3_stmt *stmt)
 {
 
-	return(db_step_inner(stmt, 0));
+	return db_step_inner(stmt, 0);
 }
 
 /*
@@ -274,33 +327,28 @@ db_step(sqlite3_stmt *stmt)
 static int
 db_bindint(sqlite3_stmt *stmt, size_t pos, int64_t v)
 {
-	int	 rc;
 
-	assert(NULL != db);
 	assert(pos > 0);
-	rc = sqlite3_bind_int64(stmt, pos, v);
-	if (SQLITE_OK == rc) 
-		return(1);
-	kerrx("%s: %s", dbname, sqlite3_errmsg(db));
-	return(0);
+	if (sqlite3_bind_int64(stmt, pos, v) != SQLITE_OK)
+		return 1;
+	kerrx("sqlite3_bind_int64: %s", sqlite3_errmsg(db));
+	return 0;
 }
 
 /*
- * Bind a nil-terminated string "name" to the statement.
+ * Bind a NUL-terminated string "name" to the statement.
  * Return zero on failure, non-zero on success.
  */
 static int
 db_bindtext(sqlite3_stmt *stmt, size_t pos, const char *name)
 {
-	int	 rc;
 
-	assert(NULL != db);
 	assert(pos > 0);
-	rc = sqlite3_bind_text(stmt, pos, name, -1, SQLITE_STATIC);
-	if (SQLITE_OK == rc) 
-		return(1);
-	kerrx("%s: %s", dbname, sqlite3_errmsg(db));
-	return(0);
+	if (sqlite3_bind_text(stmt, 
+	    pos, name, -1, SQLITE_STATIC) != SQLITE_OK)
+		return 1;
+	kerrx("sqlite3_bind_text: %s", sqlite3_errmsg(db));
+	return 0;
 }
 
 /*
@@ -313,30 +361,32 @@ db_exec(const char *sql)
 {
 	size_t	attempt = 0;
 	int	rc;
-
 again:
 	assert(NULL != db);
+
 	rc = sqlite3_exec(db, sql, NULL, NULL, NULL);
+	switch (rc) {
+	case SQLITE_BUSY:
+		db_sleep(attempt++);
+		goto again;
+	case SQLITE_LOCKED:
+		kdbg("sqlite3_exec: %s (re-trying)", 
+			sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	case SQLITE_PROTOCOL:
+		kdbg("sqlite3_exec: %s (re-trying)", 
+			sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	case SQLITE_OK:
+		return rc;
+	default:
+		break;
+	}
 
-	if (SQLITE_BUSY == rc) {
-		db_sleep(attempt++);
-		goto again;
-	} else if (SQLITE_LOCKED == rc) {
-		kerrx("%s: sqlite3_exec: %s", 
-			dbname, sqlite3_errmsg(db));
-		db_sleep(attempt++);
-		goto again;
-	} else if (SQLITE_PROTOCOL == rc) {
-		kerrx("%s: sqlite3_exec: %s", 
-			dbname, sqlite3_errmsg(db));
-		db_sleep(attempt++);
-		goto again;
-	} else if (SQLITE_OK == rc)
-		return(rc);
-
-	kerrx("%s: sqlite3_exec: %s (%s)", 
-		dbname, sqlite3_errmsg(db), sql);
-	return(rc);
+	kerrx("sqlite3_exec: %s", sqlite3_errmsg(db));
+	return rc;
 }
 
 static int
@@ -371,31 +421,33 @@ db_prepare(const char *sql)
 	sqlite3_stmt	*stmt;
 	size_t		 attempt = 0;
 	int		 rc;
-
-	assert(NULL != db);
 again:
+	assert(NULL != db);
+
 	rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+	switch (rc) {
+	case SQLITE_BUSY:
+		db_sleep(attempt++);
+		goto again;
+	case SQLITE_LOCKED:
+		kdbg("sqlite3_prepare_v2: %s (re-trying)", 
+			sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	case SQLITE_PROTOCOL:
+		kdbg("sqlite3_prepare_v2: %s (re-trying)", 
+			sqlite3_errmsg(db));
+		db_sleep(attempt++);
+		goto again;
+	case SQLITE_OK:
+		return stmt;
+	default:
+		break;
+	}
 
-	if (SQLITE_BUSY == rc) {
-		db_sleep(attempt++);
-		goto again;
-	} else if (SQLITE_LOCKED == rc) {
-		kerrx("%s: sqlite3_prepare_v2: %s", 
-			dbname, sqlite3_errmsg(db));
-		db_sleep(attempt++);
-		goto again;
-	} else if (SQLITE_PROTOCOL == rc) {
-		kerrx("%s: sqlite3_prepare_v2: %s", 
-			dbname, sqlite3_errmsg(db));
-		db_sleep(attempt++);
-		goto again;
-	} else if (SQLITE_OK == rc)
-		return(stmt);
-
-	kerrx("%s: sqlite3_stmt: %s (%s)", 
-		dbname, sqlite3_errmsg(db), sql);
+	kerrx("sqlite3_stmt: %s", sqlite3_errmsg(db));
 	sqlite3_finalize(stmt);
-	return(NULL);
+	return NULL;
 }
 
 /*
@@ -407,64 +459,68 @@ again:
 int
 db_init(const char *dir, int create)
 {
-	size_t	 attempt, sz;
+	size_t	 attempt = 0, sz;
 	int	 rc;
 
 	/* 
 	 * Register exit hook for the destruction of the database. 
 	 * This allows us to ignore closing the database properly.
 	 */
-	if (-1 == atexit(db_close)) {
+
+	if (atexit(db_close) == -1) {
 		kerr("atexit");
-		return(0);
+		return 0;
 	}
 
 	/* Format the name of the database. */
+
 	sz = strlcpy(dbname, dir, sizeof(dbname));
 	if (sz > sizeof(dbname)) {
 		kerrx("%s: too long", dir);
-		return(0);
+		return 0;
 	} else if ('/' == dbname[sz - 1])
 		dbname[sz - 1] = '\0';
 
 	sz = strlcat(dbname, "/kcaldav.db", sizeof(dbname));
 	if (sz >= sizeof(dbname)) {
 		kerrx("%s: too long", dir);
-		return(0);
+		return 0;
 	}
 
-	attempt = 0;
 again:
 	rc = sqlite3_open_v2(dbname, &db, 
 		SQLITE_OPEN_READWRITE | 
 		(create ? SQLITE_OPEN_CREATE : 0),
 		NULL);
-	if (SQLITE_BUSY == rc) {
+	switch (rc) {
+	case SQLITE_BUSY:
 		db_sleep(attempt++);
 		goto again;
-	} else if (SQLITE_LOCKED == rc) {
-		kerrx("%s: sqlite3_open_v2: %s", 
-			dbname, sqlite3_errmsg(db));
+	case SQLITE_LOCKED:
+		kdbg("sqlite3_open_v2: %s (re-trying)", 
+			sqlite3_errmsg(db));
 		db_sleep(attempt++);
 		goto again;
-	} else if (SQLITE_PROTOCOL == rc) {
-		kerrx("%s: sqlite3_open_v2: %s", 
-			dbname, sqlite3_errmsg(db));
+	case SQLITE_PROTOCOL:
+		kdbg("sqlite3_open_v2: %s (re-trying)", 
+			sqlite3_errmsg(db));
 		db_sleep(attempt++);
 		goto again;
-	} else if (SQLITE_OK == rc) {
+	case SQLITE_OK:
 		sqlite3_busy_timeout(db, 1000);
-		return(SQLITE_OK == 
-		       db_exec("PRAGMA foreign_keys = ON;"));
+		return SQLITE_OK == 
+		       db_exec("PRAGMA foreign_keys = ON;");
+	default:
+		break;
 	} 
 
-	kerrx("%s: sqlite3_open_v2: %s", 
-		dbname, sqlite3_errmsg(db));
-	return(0);
+	kerrx("sqlite3_open_v2: %s", sqlite3_errmsg(db));
+	return 0;
 }
 
 /*
  * Update the tag ("ctag") for the collection.
+ * Return zero on failure, non-zero on success.
  */
 static int
 db_collection_update_ctag(int64_t id)
@@ -473,24 +529,25 @@ db_collection_update_ctag(int64_t id)
 	sqlite3_stmt	*stmt;
 
 	sql = "UPDATE collection SET ctag=ctag+1 WHERE id=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, id))
+	else if (!db_bindint(stmt, 1, id))
 		goto err;
-	else if (SQLITE_DONE != db_step(stmt))
+	else if (db_step(stmt) != SQLITE_DONE)
 		goto err;
 
+	kdbg("updated ctag: collection-%" PRId64, id);
 	db_finalise(&stmt);
-	return(1);
+	return 1;
 err:
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("failure: %s", dbname);
 	db_finalise(&stmt);
-	return(0);
+	return 0;
 }
 
 /*
  * Delete the nonce row.
- * Return <0 on system failure, >0 on success.
+ * Return zero on failure, non-zero on success.
  */
 int
 db_nonce_delete(const char *nonce, const struct prncpl *p)
@@ -498,90 +555,111 @@ db_nonce_delete(const char *nonce, const struct prncpl *p)
 	sqlite3_stmt	*stmt;
 
 	stmt = db_prepare("DELETE FROM nonce WHERE nonce=?");
-	if (NULL == stmt)
+	if (stmt == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, nonce))
+	else if (!db_bindtext(stmt, 1, nonce))
 		goto err;
-	else if (SQLITE_DONE != db_step(stmt))
+	else if (db_step(stmt) != SQLITE_DONE)
 		goto err;
 
-	kinfo("%s: deleted nonce: %s", p->email, nonce);
 	db_finalise(&stmt);
-	return(1);
+	kdbg("deleted nonce: %s", nonce);
+	return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: failed deleted nonce: %s", p->email, nonce);
-	return(-1);
+	kerrx("failure: %s", dbname);
+	return 0;
 }
 
+/*
+ * See if the nonce count is valid.
+ * Return the corresponding error code.
+ */
 enum nonceerr
-db_nonce_validate(const char *nonce, size_t count)
+db_nonce_validate(const char *nonce, int64_t count)
 {
 	const char	*sql;
 	sqlite3_stmt	*stmt;
-	size_t		 cmp;
-	int		 rc;
+	int64_t		 cmp;
 
 	sql = "SELECT count FROM nonce WHERE nonce=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, nonce))
-		goto err;
-	
-	if (SQLITE_ROW == (rc = db_step(stmt))) {
-		cmp = (size_t)sqlite3_column_int64(stmt, 0);
-		db_finalise(&stmt);
-		return(count < cmp ? NONCE_REPLAY : NONCE_OK);
-	} else if (SQLITE_DONE != rc)
+	else if (!db_bindtext(stmt, 1, nonce))
 		goto err;
 
-	db_finalise(&stmt);
-	return(NONCE_NOTFOUND);
+	switch (db_step(stmt)) {
+	case SQLITE_ROW:
+		cmp = sqlite3_column_int64(stmt, 0);
+		db_finalise(&stmt);
+		if (count < cmp) {
+			kerrx("nonce replay attack: %s, "
+				"%" PRId64 " < %" PRId64, 
+				nonce, count, cmp);
+			return NONCE_REPLAY;
+		}
+		return NONCE_OK;
+	case SQLITE_DONE:
+		db_finalise(&stmt);
+		kdbg("nonce not found: %s", nonce);
+		return NONCE_NOTFOUND;
+	default:
+		break;
+	}
 err:
-	kerrx("%s: failure", dbname);
 	db_finalise(&stmt);
-	return(NONCE_ERR);
+	kerrx("failure: %s", dbname);
+	return NONCE_ERR;
 }
 
+/*
+ * Validate then update nonce to be one greater than the given count.
+ * Returns the corresponding error code.
+ */
 enum nonceerr
-db_nonce_update(const char *nonce, size_t count)
+db_nonce_update(const char *nonce, int64_t count)
 {
 	enum nonceerr	 er;
 	sqlite3_stmt	*stmt;
 	const char	*sql;
 
-	stmt = NULL;
+	if (!db_trans_open())
+		return NONCE_ERR;
 
-	if ( ! db_trans_open())
-		return(NONCE_ERR);
-
-	if (NONCE_OK != (er = db_nonce_validate(nonce, count))) {
+	if ((er = db_nonce_validate(nonce, count)) != NONCE_OK) {
 		db_trans_rollback();
-		return(er);
+		return er;
 	}
 
 	/* FIXME: check for (unlikely) integer overflow. */
+
 	sql = "UPDATE nonce SET count=? WHERE nonce=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, count + 1))
+	else if (!db_bindint(stmt, 1, count + 1))
 		goto err;
-	else if ( ! db_bindtext(stmt, 2, nonce))
+	else if (!db_bindtext(stmt, 2, nonce))
 		goto err;
-	else if (SQLITE_DONE != db_step(stmt))
+	else if (db_step(stmt) != SQLITE_DONE)
 		goto err;
 
 	db_finalise(&stmt);
 	db_trans_commit();
-	kdbg("nonce updated: %s, count %zu", nonce, count + 1);
-	return(NONCE_OK);
+	kdbg("nonce updated: %s, count "
+		"%" PRId64, nonce, count + 1);
+	return NONCE_OK;
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	kerrx("%s: failure", dbname);
-	return(NONCE_ERR);
+	kerrx("failure: %s", dbname);
+	return NONCE_ERR;
 }
 
+/*
+ * Create a new nonce and on success set its value in "np".
+ * This is in static storage and is overwritten with every call.
+ * Return zero on failure, non-zero on success.
+ */
 int
 db_nonce_new(char **np)
 {
@@ -592,34 +670,32 @@ db_nonce_new(char **np)
 	int		 rc;
 	size_t		 i;
 
-	if ( ! db_trans_open())
-		return(0);
-
-	/* How many nonces do we have? */
-	sql = "SELECT count(*) FROM nonce";
-	if (NULL == (stmt = db_prepare(sql)))
-		goto err;
-	else if (SQLITE_ROW == (rc = db_step(stmt)))
-		count = sqlite3_column_int64(stmt, 0);
-	else if (SQLITE_DONE == rc)
-		count = 0;
-	else
-		goto err;
-
-	kdbg("nonce count: %" PRId64, count);
-	db_finalise(&stmt);
+	if (!db_trans_open())
+		return 0;
 
 	/* 
 	 * If we have more than NONCEMAX nonces in the database, then
 	 * cull the first 20 to make room for more.
 	 */
+
+	sql = "SELECT count(*) FROM nonce";
+	if (NULL == (stmt = db_prepare(sql)))
+		goto err;
+	else if ((rc = db_step(stmt)) == SQLITE_ROW)
+		count = sqlite3_column_int64(stmt, 0);
+	else if (rc == SQLITE_DONE)
+		count = 0;
+	else
+		goto err;
+	db_finalise(&stmt);
+
 	if (count >= NONCEMAX) {
 		kdbg("culling from nonce database");
 		sql = "DELETE FROM nonce WHERE id IN "
 			"(SELECT id FROM nonce LIMIT 20)";
-		if (NULL == (stmt = db_prepare(sql)))
+		if ((stmt = db_prepare(sql)) == NULL)
 			goto err;
-		else if (SQLITE_DONE != db_step(stmt))
+		else if (db_step(stmt) != SQLITE_DONE)
 			goto err;
 		db_finalise(&stmt);
 	}
@@ -629,22 +705,22 @@ db_nonce_new(char **np)
 	 * Let the uniqueness constraint guarantee that the nonce is
 	 * actually unique within the system.
 	 */
+
 	sql = "INSERT INTO nonce (nonce) VALUES (?)";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
+
 	for (;;) {
 		for (i = 0; i < sizeof(nonce) - 1; i++)
 			snprintf(nonce + i, 2, "%X", 
 				get_random_uniform(16));
-		if ( ! db_bindtext(stmt, 1, nonce))
+		if (!db_bindtext(stmt, 1, nonce))
 			goto err;
-		kdbg("nonce attempt: %s", nonce);
 		rc = db_step_constrained(stmt);
-		if (SQLITE_CONSTRAINT == rc) {
-			kdbg("nonce exists: %s", nonce);
+		if (rc == SQLITE_CONSTRAINT) {
 			sqlite3_reset(stmt);
 			continue;
-		} else if (SQLITE_DONE != rc)
+		} else if (rc != SQLITE_DONE)
 			goto err;
 		break;
 	}
@@ -653,14 +729,18 @@ db_nonce_new(char **np)
 	db_trans_commit();
 	*np = nonce;
 	kdbg("nonce created: %s", *np);
-	return(1);
+	return 1;
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	kerrx("%s: %s: failure", dbname, __func__);
-	return(0);
+	kerrx("failure: %s", dbname);
+	return 0;
 }
 
+/*
+ * Create a new collection.
+ * Return zero if the collection exists, <0 on error, >0 on success.
+ */
 static int
 db_collection_new_byid(const char *url, int64_t id)
 {
@@ -670,43 +750,35 @@ db_collection_new_byid(const char *url, int64_t id)
 
 	sql = "INSERT INTO collection "
 		"(principal, url) VALUES (?,?)";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, id))
+	else if (!db_bindint(stmt, 1, id))
 		goto err;
-	else if ( ! db_bindtext(stmt, 2, url))
+	else if (!db_bindtext(stmt, 2, url))
 		goto err;
 
 	rc = db_step_constrained(stmt);
 	db_finalise(&stmt);
-	if (SQLITE_CONSTRAINT == rc) {
-		kerrx("%s: collection exists", url);
-		return(0);
-	} else if (SQLITE_DONE == rc) {
-		kerrx("%s: collection created", url);
-		return(1);
+
+	if (rc == SQLITE_CONSTRAINT) {
+		kdbg("collection exists: %s", url);
+		return 0;
+	} else if (rc == SQLITE_DONE) {
+		kinfo("collection created: %s", url);
+		return 1;
 	}
 err:
 	db_finalise(&stmt);
-	kerrx("%s: database failure", dbname);
-	kerrx("%s: failed collection create", url);
-	return(-1);
+	kerrx("failure: %s", dbname);
+	return (-1);
 
 }
 
 int
 db_collection_new(const char *url, const struct prncpl *p)
 {
-	int	 rc;
 
-	if ((rc = db_collection_new_byid(url, p->id)) < 0)
-		kerrx("%s: collection failure: %s", p->email, url);
-	else if (0 == rc) 
-		kerrx("%s: collection exists: %s", p->email, url);
-	else
-		kinfo("%s: collection created: %s", p->email, url);
-
-	return(rc);
+	return db_collection_new_byid(url, p->id);
 }
 
 /*
@@ -726,48 +798,50 @@ db_prncpl_new(const char *name, const char *hash,
 	int		 rc;
 	int64_t		 lastid;
 
-	assert(directory && '\0' != directory[0]);
+	assert(directory != NULL && directory[0] != '\0');
 
-	if ( ! db_trans_open()) 
-		return(-1);
+	if (!db_trans_open()) 
+		return (-1);
 
 	sql = "INSERT INTO principal "
 		"(name,hash,email) VALUES (?,?,?)";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, name))
+	else if (!db_bindtext(stmt, 1, name))
 		goto err;
-	else if ( ! db_bindtext(stmt, 2, hash))
+	else if (!db_bindtext(stmt, 2, hash))
 		goto err;
-	else if ( ! db_bindtext(stmt, 3, email))
+	else if (!db_bindtext(stmt, 3, email))
 		goto err;
+
 	rc = db_step_constrained(stmt);
-	if (SQLITE_DONE != rc && SQLITE_CONSTRAINT != rc)
+
+	if (rc != SQLITE_DONE && rc != SQLITE_CONSTRAINT)
 		goto err;
+
 	db_finalise(&stmt);
 
 	if (SQLITE_CONSTRAINT == rc) {
 		db_trans_rollback();
-		kerrx("%s: principal already exists by "
-			"that email or name: %s", email, name);
-		return(0);
+		kerrx("duplicate principal: %s, %s", name, email);
+		return 0;
 	}
-	kinfo("%s: principal created: %s", email, name);
+
+	kinfo("principal created: %s, %s", email, name);
 
 	lastid = sqlite3_last_insert_rowid(db);
 	if (db_collection_new_byid(directory, lastid) > 0) {
 		db_trans_commit();
-		kinfo("%s: principal collection "
-			"created: %s", email, directory);
-		return(1);
+		kinfo("principal collection created: %s", directory);
+		return 1;
 	}
-	kinfo("%s: principal fail create "
-		"collection: %s", email, directory);
+
+	kerrx("fail create collection: %s", directory);
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
 	kerrx("%s: failure", dbname);
-	return(-1);
+	return (-1);
 }
 
 /*
@@ -1126,7 +1200,7 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 		goto err;
 
 	if (SQLITE_DONE == (c = db_step(stmt))) {
-		kinfo("%s: user not found: %s", dbname, name);
+		kerrx("%s: user not found: %s", dbname, name);
 		rc = 0;
 		goto err;
 	} else if (SQLITE_ROW != c)
@@ -1512,6 +1586,7 @@ db_resource_new(const char *data, const char *url, int64_t colid)
 
 	rc = db_step_constrained(stmt);
 	db_finalise(&stmt);
+	kinfo("added resource: %s to %" PRId64, url, colid);
 
 	if (rc == SQLITE_CONSTRAINT)
 		return 0;
@@ -1589,7 +1664,7 @@ db_resource_update(const char *data, const char *url,
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	kerrx("%s: %s: failure", dbname, __func__);
+	kerrx("failure: %s", dbname);
 	return (-1);
 }
 
@@ -1605,6 +1680,7 @@ db_resource_load(struct res **pp, const char *url, int64_t colid)
 	const char	*sql;	
 	sqlite3_stmt	*stmt;
 	int		 rc;
+	char		*er = NULL;
 
 	*pp = NULL;
 	sql = "SELECT data,etag,url,id,collection FROM resource "
@@ -1639,17 +1715,19 @@ db_resource_load(struct res **pp, const char *url, int64_t colid)
 		/* Parse the full iCalendar. */
 
 		(*pp)->ical = ical_parse(NULL, 
-			(*pp)->data, strlen((*pp)->data), NULL);
+			(*pp)->data, strlen((*pp)->data), &er);
 		if ((*pp)->ical == NULL) {
-			kerrx("%s: failed to parse ical", url);
+			kerrx("failed to parse: %s", er);
 			goto err;
 		}
 		db_finalise(&stmt);
+		free(er);
 		return 1;
 	} else if (rc == SQLITE_DONE) {
 		db_finalise(&stmt);
 		return 0;
 	}
+
 err:
 	if (*pp != NULL) {
 		free((*pp)->etag);
@@ -1658,7 +1736,8 @@ err:
 		free(*pp);
 	}
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
+	free(er);
+	kerrx("failure: %s", __func__);
 	return (-1);
 }
 
@@ -1666,6 +1745,7 @@ err:
  * This checks the ownership of a database file.
  * If the file is newly-created, it creates the database schema and
  * initialises the ownership to the given identifier.
+ * Re
  */
 int
 db_owner_check_or_set(int64_t id)
@@ -1675,14 +1755,14 @@ db_owner_check_or_set(int64_t id)
 	int64_t		 oid;
 
 	sql = "SELECT owneruid FROM database";
-	if (NULL != (stmt = db_prepare(sql))) {
-		if (SQLITE_ROW == db_step(stmt)) {
+	if ((stmt = db_prepare(sql)) != NULL) {
+		if (db_step(stmt) == SQLITE_ROW) {
 			oid = sqlite3_column_int64(stmt, 0);
 			db_finalise(&stmt);
-			if (0 == id && oid != id)
+			if (id == 0 && oid != id)
 				kinfo("root overriding database "
 					"owner: %" PRId64, oid);
-			return(0 == id || oid == id);
+			return id == 0 || oid == id;
 		}
 		goto err;
 	}
@@ -1691,24 +1771,26 @@ db_owner_check_or_set(int64_t id)
 	 * Assume that the database has not been initialised and try to
 	 * do so here with a hardcoded schema.
 	 */
-	if (SQLITE_OK != db_exec(db_sql))
+
+	if (db_exec(db_sql) != SQLITE_OK)
 		goto err;
 
 	/* Finally, insert our database record. */
+
 	sql = "INSERT INTO database (owneruid) VALUES (?)";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sql)) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, id))
+	else if (!db_bindint(stmt, 1, id))
 		goto err;
-	else if (SQLITE_DONE != db_step(stmt)) 
+	else if (db_step(stmt) != SQLITE_DONE) 
 		goto err;
 
 	db_finalise(&stmt);
-	return(1);
+	return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
-	return(-1);
+	kerrx("failure: %s", dbname);
+	return (-1);
 }
 
 void

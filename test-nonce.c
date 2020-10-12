@@ -21,14 +21,13 @@
 #endif
 #include <getopt.h>
 #include <inttypes.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "db.h"
-
-int verbose = 2;
 
 int
 main(int argc, char *argv[])

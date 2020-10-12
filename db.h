@@ -87,6 +87,15 @@ enum	nonceerr {
 	NONCE_OK /* nonce checks out */
 };
 
+typedef void (*db_msg)(void *, const char *, const char *, va_list);
+
+void		db_set_msg_arg(void *);
+void		db_set_msg_ident(const char *);
+void		db_set_msg_dbg(db_msg);
+void		db_set_msg_info(db_msg);
+void		db_set_msg_err(db_msg);
+void		db_set_msg_errx(db_msg);
+
 void		db_collection_free(struct coln *);
 int		db_collection_load(struct coln **, const char *, int64_t);
 int		db_collection_loadid(struct coln **, int64_t, int64_t);
@@ -97,8 +106,8 @@ int		db_collection_update(const struct coln *, const struct prncpl *);
 int		db_init(const char *, int);
 int		db_nonce_delete(const char *, const struct prncpl *);
 int		db_nonce_new(char **);
-enum nonceerr	db_nonce_update(const char *, size_t);
-enum nonceerr	db_nonce_validate(const char *, size_t);
+enum nonceerr	db_nonce_update(const char *, int64_t);
+enum nonceerr	db_nonce_validate(const char *, int64_t);
 int		db_owner_check_or_set(int64_t);
 void		db_prncpl_free(struct prncpl *);
 int64_t		db_prncpl_identify(const char *);
@@ -114,14 +123,6 @@ int		db_resource_remove(const char *, int64_t);
 int		db_resource_load(struct res **, const char *, int64_t);
 int		db_resource_new(const char *, const char *, int64_t);
 int		db_resource_update(const char *, const char *, const char *, int64_t);
-
-/*
- * This pertains to back-end logging.
- * 0: be totally silent.
- * 1: print errors and warnings only.
- * >1: print informational messages.
- */
-extern int verbose;
 
 extern const char *db_sql;
 

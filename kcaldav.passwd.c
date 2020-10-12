@@ -30,6 +30,7 @@
 #if HAVE_MD5
 # include <md5.h>
 #endif
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,7 +45,7 @@
 #include "libkcaldav.h"
 #include "db.h"
 
-int verbose = 0;
+static int verbose = 0;
 
 /*
  * See http_safe_string() in util.c.
@@ -202,6 +203,44 @@ gethash(int new, char *digest,
 		snprintf(&digest[i * 2], 3, "%02x", ha[i]);
 }
 
+static void
+db_msg_info(void *arg, const char *id, const char *fmt, va_list ap)
+{
+
+	if (verbose < 1)
+		return;
+	vprintf(fmt, ap);
+	putchar('\n');
+}
+
+static void
+db_msg_err(void *arg, const char *id, const char *fmt, va_list ap)
+{
+
+	if (verbose < 1)
+		return;
+	vwarn(fmt, ap);
+}
+
+static void
+db_msg_errx(void *arg, const char *id, const char *fmt, va_list ap)
+{
+
+	if (verbose < 1)
+		return;
+	vwarnx(fmt, ap);
+}
+
+static void
+db_msg_dbg(void *arg, const char *id, const char *fmt, va_list ap)
+{
+
+	if (verbose < 2)
+		return;
+	vprintf(fmt, ap);
+	putchar('\n');
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -348,6 +387,11 @@ main(int argc, char *argv[])
 	 * regained effective credentials.
 	 * We only try to create the database if "adduser" is set.
 	 */
+
+	db_set_msg_dbg(db_msg_dbg);
+	db_set_msg_info(db_msg_info);
+	db_set_msg_err(db_msg_err);
+	db_set_msg_errx(db_msg_errx);
 
 	if (!db_init(dir, adduser))
 		errx(1, "failed to open database");

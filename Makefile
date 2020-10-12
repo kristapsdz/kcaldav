@@ -276,7 +276,8 @@ kcaldav.passwd.1: man/kcaldav.passwd.in.1
 # We generate a database on-the-fly.
 
 kcaldav-sql.c: kcaldav.sql
-	( echo "#include <stdlib.h>"; \
+	( echo "#include <stdarg.h>"; \
+	  echo "#include <stdlib.h>"; \
 	  echo "#include <stdint.h>"; \
 	  echo "#include <time.h>"; \
 	  echo "#include \"db.h\""; \
