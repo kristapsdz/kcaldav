@@ -113,8 +113,6 @@ void		db_prncpl_free(struct prncpl *);
 int64_t		db_prncpl_identify(const char *);
 int		db_prncpl_load(struct prncpl **, const char *);
 int		db_prncpl_new(const char *, const char *, const char *, const char *);
-int		db_prncpl_proxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
-int		db_prncpl_rproxies(const struct prncpl *, void (*)(const char *, int64_t, void *), void *);
 int		db_prncpl_update(const struct prncpl *);
 int		db_proxy(const struct prncpl *, int64_t, int64_t);
 int		db_resource_delete(const char *, const char *, int64_t);

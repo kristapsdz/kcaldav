@@ -38,6 +38,79 @@
 #define NONCEMAX 1000
 #define NONCESZ	 16
 
+enum sqlstmt {
+	SQL_COL_GET,
+	SQL_COL_GET_ID,
+	SQL_COL_ITER,
+	SQL_COL_REMOVE,
+	SQL_COL_UPDATE,
+	SQL_OWNER_GET,
+	SQL_OWNER_INSERT,
+	SQL_PRNCPL_GET,
+	SQL_PRNCPL_GET_ID,
+	SQL_PRNCPL_UPDATE,
+	SQL_PROXY_INSERT,
+	SQL_PROXY_ITER,
+	SQL_PROXY_ITER_PRNCPL,
+	SQL_PROXY_REMOVE,
+	SQL_PROXY_UPDATE,
+	SQL_RES_GET,
+	SQL_RES_GET_ETAG,
+	SQL_RES_INSERT,
+	SQL_RES_ITER,
+	SQL_RES_REMOVE,
+	SQL_RES_REMOVE_ETAG,
+	SQL_RES_UPDATE,
+	SQL__MAX
+};
+
+static const char *sqls[SQL__MAX] = {
+	/* SQL_COL_GET */
+	"SELECT url,displayname,colour,description,ctag,id FROM collection WHERE principal=? AND url=?",
+	/* SQL_COL_GET_ID */
+	"SELECT url,displayname,colour,description,ctag,id FROM collection WHERE principal=? AND id=?",
+	/* SQL_COL_ITER */
+	"SELECT url,displayname,colour,description,ctag,id FROM collection WHERE principal=?",
+	/* SQL_COL_REMOVE */
+	"DELETE FROM collection WHERE id=?",
+	/* SQL_COL_UPDATE */
+	"UPDATE collection SET displayname=?,colour=?,description=? WHERE id=?",
+	/* SQL_OWNER_GET */
+	"SELECT owneruid FROM database",
+	/* SQL_OWNER_INSERT */
+	"INSERT INTO database (owneruid) VALUES (?)",
+	/* SQL_PRNCPL_GET */
+	"SELECT hash,id,email FROM principal WHERE name=?",
+	/* SQL_PRNCPL_GET_ID */
+	"SELECT id FROM principal WHERE email=?",
+	/* SQL_PRNCPL_UPDATE */
+	"UPDATE principal SET hash=?,email=? WHERE id=?",
+	/* SQL_PROXY_INSERT */
+	"INSERT INTO proxy (principal,proxy,bits) VALUES (?, ?, ?)",
+	/* SQL_PROXY_ITER */
+	"SELECT email,name,bits,principal,proxy.id FROM proxy INNER JOIN principal ON principal.id=principal WHERE proxy=?",
+	/* SQL_PROXY_ITER_PRNCPL */
+	"SELECT email,name,bits,proxy,proxy.id FROM proxy INNER JOIN principal ON principal.id=proxy WHERE principal=?",
+	/* SQL_PROXY_REMOVE */
+	"DELETE FROM proxy WHERE principal=? AND proxy=?",
+	/* SQL_PROXY_UPDATE */
+	"UPDATE proxy SET bits=? WHERE principal=? AND proxy=?",
+	/* SQL_RES_GET */
+	"SELECT data,etag,url,id,collection FROM resource WHERE collection=? AND url=?",
+	/* SQL_RES_GET_ETAG */
+	"SELECT id FROM resource WHERE url=? AND collection=? AND etag=?",
+	/* SQL_RES_INSERT */
+	"INSERT INTO resource (data,url,collection,etag) VALUES (?,?,?,?)",
+	/* SQL_RES_ITER */
+	"SELECT data,etag,url,id,collection FROM resource WHERE collection=?",
+	/* SQL_RES_REMOVE */
+	"DELETE FROM resource WHERE url=? AND collection=?",
+	/* SQL_RES_REMOVE_ETAG */
+	"DELETE FROM resource WHERE url=? AND collection=? AND etag=?",
+	/* SQL_RES_UPDATE */
+	"UPDATE resource SET data=?,etag=? WHERE id=?",
+};
+
 /* Wrappers for debugging functions. */
 
 static void	 	 kdbg(const char *, ...)
@@ -204,7 +277,8 @@ static void
 db_finalise(sqlite3_stmt **stmt)
 {
 
-	assert(*stmt != NULL);
+	if (*stmt == NULL)
+		return;
 	sqlite3_finalize(*stmt);
 	*stmt = NULL;
 }
@@ -853,30 +927,28 @@ err:
 int
 db_prncpl_update(const struct prncpl *p)
 {
-	const char	*sql;
 	sqlite3_stmt	*stmt;
 	int		 rc;
 
-	sql = "UPDATE principal SET hash=?,email=? WHERE id=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sqls[SQL_PRNCPL_UPDATE])) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, p->hash))
+	else if (!db_bindtext(stmt, 1, p->hash))
 		goto err;
-	else if ( ! db_bindtext(stmt, 2, p->email))
+	else if (!db_bindtext(stmt, 2, p->email))
 		goto err;
-	else if ( ! db_bindint(stmt, 3, p->id))
+	else if (!db_bindint(stmt, 3, p->id))
 		goto err;
+
 	rc = db_step_constrained(stmt);
-	if (SQLITE_CONSTRAINT != rc && SQLITE_DONE != rc)
+	if (rc != SQLITE_CONSTRAINT && rc != SQLITE_DONE)
 		goto err;
+
 	db_finalise(&stmt);
-	kinfo("%s: principal updated", p->email);
-	return(SQLITE_DONE == rc);
+	kinfo("principal updated");
+	return rc == SQLITE_DONE;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
-	kerrx("%s: principal update failure", p->email);
-	return(-1);
+	return (-1);
 }
 
 static int
@@ -884,14 +956,14 @@ db_collection_get(struct coln **pp, sqlite3_stmt *stmt)
 {
 	int	 rc;
 
-	if (SQLITE_DONE == (rc = db_step(stmt))) 
-		return(0);
-	else if (SQLITE_ROW != rc)
-		return(-1);
+	if ((rc = db_step(stmt)) == SQLITE_DONE) 
+		return 0;
+	else if (rc != SQLITE_ROW)
+		return (-1);
 
-	if (NULL == (*pp = calloc(1, sizeof(struct coln)))) {
+	if ((*pp = calloc(1, sizeof(struct coln))) == NULL) {
 		kerr(NULL);
-		return(-1);
+		return (-1);
 	}
 
 	(*pp)->url = strdup
@@ -906,14 +978,14 @@ db_collection_get(struct coln **pp, sqlite3_stmt *stmt)
 	(*pp)->id = sqlite3_column_int64(stmt, 5);
 
 	if (NULL != (*pp)->url &&
-		 NULL != (*pp)->displayname &&
-		 NULL != (*pp)->colour &&
-		 NULL != (*pp)->description)
-		return(1);
+	    NULL != (*pp)->displayname &&
+	    NULL != (*pp)->colour &&
+	    NULL != (*pp)->description)
+		return 1;
 
 	kerr(NULL);
 	db_collection_free(*pp);
-	return(-1);
+	return (-1);
 }
 
 /*
@@ -930,201 +1002,137 @@ db_proxy(const struct prncpl *p, int64_t id, int64_t bits)
 	sqlite3_stmt	*stmt;
 
 	if (0 == bits) {
-		stmt = db_prepare("DELETE FROM proxy "
-			"WHERE principal=? AND proxy=?");
-		if (NULL == stmt)
+		stmt = db_prepare(sqls[SQL_PROXY_REMOVE]);
+		if (stmt == NULL)
 			goto err;
-		else if ( ! db_bindint(stmt, 1, p->id))
+		else if (!db_bindint(stmt, 1, p->id))
 			goto err;
-		else if ( ! db_bindint(stmt, 2, id))
+		else if (!db_bindint(stmt, 2, id))
 			goto err;
-		else if (SQLITE_DONE != db_step(stmt))
+		else if (db_step(stmt) != SQLITE_DONE)
 			goto err;
+
 		db_finalise(&stmt);
-		kinfo("%s: deleted proxy to %" PRId64,
-			p->email, id);
-		return(1);
+		kinfo("deleted proxy to %" PRId64, id);
+		return 1;
 	}
 
 	/* Transaction to wrap the test-set. */
-	if ( ! db_trans_open())
-		return(-1);
+
+	if (!db_trans_open())
+		return (-1);
 
 	/* First try to create a new one. */
-	stmt = db_prepare
-		("INSERT INTO proxy (principal,proxy,bits) "
-		 "VALUES (?, ?, ?)");
-	if (NULL == stmt)
+
+	if ((stmt = db_prepare(sqls[SQL_PROXY_INSERT])) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, p->id))
+	else if (!db_bindint(stmt, 1, p->id))
 		goto err;
-	else if ( ! db_bindint(stmt, 2, id))
+	else if (!db_bindint(stmt, 2, id))
 		goto err;
-	else if ( ! db_bindint(stmt, 3, bits))
+	else if (!db_bindint(stmt, 3, bits))
 		goto err;
 
 	rc = db_step_constrained(stmt);
 	db_finalise(&stmt);
-	if (SQLITE_DONE == rc) {
-		/* We were able to create everything. */
-		if ( ! db_trans_commit())
-			return(-1);
-		kinfo("%s: new proxy to %" PRId64 ": %" PRId64,
-			p->email, id, bits);
-		return(1);
-	} else if (SQLITE_CONSTRAINT != rc)
+
+	if (rc == SQLITE_DONE) {
+		if (!db_trans_commit())
+			return (-1);
+		kinfo("proxy created to %" PRId64 
+			": %" PRId64, id, bits);
+		return 1;
+	} else if (rc != SQLITE_CONSTRAINT)
 		goto err;
 
 	/* Field (might?) exist. */
-	stmt = db_prepare
-		("UPDATE proxy SET bits=? "
-		 "WHERE principal=? AND proxy=?");
-	if (NULL == stmt)
+
+	if ((stmt = db_prepare(sqls[SQL_PROXY_UPDATE])) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, bits))
+	else if (!db_bindint(stmt, 1, bits))
 		goto err;
-	else if ( ! db_bindint(stmt, 2, p->id))
+	else if (!db_bindint(stmt, 2, p->id))
 		goto err;
-	else if ( ! db_bindint(stmt, 3, id))
+	else if (!db_bindint(stmt, 3, id))
 		goto err;
 
 	rc = db_step_constrained(stmt);
 	db_finalise(&stmt);
+
 	if (SQLITE_CONSTRAINT == rc) {
-		/* The proxy row doesn't exist. */
-		if ( ! db_trans_rollback())
-			return(-1);
-		kerrx("%s: proxy principal not exist: %" 
-			PRId64, p->email, id);
-		return(0);
-	} else if (SQLITE_DONE != rc)
+		if (!db_trans_rollback())
+			return (-1);
+		return 0;
+	} else if (rc != SQLITE_DONE)
 		goto err;
 
 	/* All is well. */
-	if ( ! db_trans_commit())
+
+	if (!db_trans_commit())
 		return(-1);
-	kinfo("%s: modified proxy to %" PRId64 ": %" PRId64,
-		p->email, id, bits);
-	return(1);
+
+	kinfo("proxy updated to %" PRId64 ": %" PRId64, id, bits);
+	return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: failure", dbname);
 	db_trans_rollback();
-	return(rc);
+	return rc;
 }
 
-int
-db_prncpl_rproxies(const struct prncpl *p, 
-	void (*fp)(const char *, int64_t, void *), void *arg)
-{
-	sqlite3_stmt	*stmt;
-	int		 rc = -1;
-
-	stmt = db_prepare
-		("SELECT principal.name,proxy.bits "
-		 "FROM proxy "
-		 "INNER JOIN principal ON "
-		  "principal.id = proxy.principal "
-		 "WHERE proxy.proxy=?");
-	if (NULL == stmt) 
-		goto err;
-	else if ( ! db_bindint(stmt, 1, p->id))
-		goto err;
-
-	while (SQLITE_ROW == (rc = db_step(stmt)))
-		fp((char *)sqlite3_column_text(stmt, 0),
-		   sqlite3_column_int64(stmt, 1),
-		   arg);
-	if (SQLITE_DONE != rc) 
-		goto err;
-	db_finalise(&stmt);
-	return(1);
-err:
-	db_finalise(&stmt);
-	kerrx("%s: failure", dbname);
-	return(rc);
-}
-
-int
-db_prncpl_proxies(const struct prncpl *p, 
-	void (*fp)(const char *, int64_t, void *), void *arg)
-{
-	sqlite3_stmt	*stmt;
-	int		 rc = -1;
-
-	stmt = db_prepare
-		("SELECT principal.name,proxy.bits FROM proxy "
-		 "INNER JOIN principal ON principal.id = proxy.proxy "
-		 "WHERE proxy.principal=?");
-	if (NULL == stmt) 
-		goto err;
-	else if ( ! db_bindint(stmt, 1, p->id))
-		goto err;
-
-	while (SQLITE_ROW == (rc = db_step(stmt)))
-		fp((char *)sqlite3_column_text(stmt, 0),
-		   sqlite3_column_int64(stmt, 1),
-		   arg);
-	if (SQLITE_DONE != rc) 
-		goto err;
-	db_finalise(&stmt);
-	return(1);
-err:
-	db_finalise(&stmt);
-	kerrx("%s: failure", dbname);
-	return(rc);
-}
-
+/*
+ * Load collection and, on success, set it in "pp" which must be freed
+ * later.
+ * Returns <0 on failure, 0 if collection not found, >0 on success.
+ */
 int
 db_collection_loadid(struct coln **pp, int64_t id, int64_t pid)
 {
-	const char	*sql;
 	sqlite3_stmt	*stmt;
 	int	 	 rc = -1;
 
-	sql = "SELECT url,displayname,colour,description,ctag,id "
-		"FROM collection WHERE principal=? AND id=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sqls[SQL_COL_GET_ID])) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, pid))
+	else if (!db_bindint(stmt, 1, pid))
 		goto err;
-	else if ( ! db_bindint(stmt, 2, id))
+	else if (!db_bindint(stmt, 2, id))
 		goto err;
 
 	if ((rc = db_collection_get(pp, stmt)) >= 0) {
 		db_finalise(&stmt);
-		return(rc);
+		return rc;
 	}
 err:
 	db_finalise(&stmt);
-	kerrx("%s: failure", dbname);
-	return(rc);
+	return rc;
 }
 
+/*
+ * Load collection and, on success, set it in "pp" which must be freed
+ * later.
+ * Returns <0 on failure, 0 if collection not found, >0 on success.
+ */
 int
 db_collection_load(struct coln **pp, const char *url, int64_t id)
 {
-	const char	*sql;
 	sqlite3_stmt	*stmt;
 	int	 	 rc = -1;
 
-	sql = "SELECT url,displayname,colour,description,ctag,id "
-		"FROM collection WHERE principal=? AND url=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	*pp = NULL;
+
+	if ((stmt = db_prepare(sqls[SQL_COL_GET])) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, id))
+	else if (!db_bindint(stmt, 1, id))
 		goto err;
-	else if ( ! db_bindtext(stmt, 2, url))
+	else if (!db_bindtext(stmt, 2, url))
 		goto err;
 
 	if ((rc = db_collection_get(pp, stmt)) >= 0) {
 		db_finalise(&stmt);
-		return(rc);
+		return rc;
 	}
 err:
 	db_finalise(&stmt);
-	kerrx("%s: failure", dbname);
-	return(rc);
+	return rc;
 }
 
 void
@@ -1141,33 +1149,34 @@ db_collection_free(struct coln *p)
 	free(p);
 }
 
+/*
+ * Get a principal's identifier.
+ * Return the identifier or <0 on failure.
+ */
 int64_t
 db_prncpl_identify(const char *email)
 {
 	sqlite3_stmt	*stmt;
-	int64_t		 id = -1;
+	int64_t		 id;
 	int		 rc;
 
-	stmt = db_prepare
-		("SELECT id FROM principal WHERE email=?");
-	if (NULL == stmt)
+	if ((stmt = db_prepare(sqls[SQL_PRNCPL_GET_ID])) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, email))
+	else if (!db_bindtext(stmt, 1, email))
 		goto err;
 	
-	if (SQLITE_DONE == (rc = db_step(stmt))) {
+	if ((rc = db_step(stmt)) == SQLITE_DONE) {
 		db_finalise(&stmt);
-		return(0);
-	} else if (SQLITE_ROW != rc)
+		return 0;
+	} else if (rc != SQLITE_ROW)
 		goto err;
 
 	id = sqlite3_column_int64(stmt, 0);
 	db_finalise(&stmt);
-	return(id);
+	return id;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: failure", dbname);
-	return(id);
+	return -1;
 }
 
 /*
@@ -1179,34 +1188,29 @@ int
 db_prncpl_load(struct prncpl **pp, const char *name)
 {
 	struct prncpl	*p;
-	const char	*sql;
 	size_t		 i;
 	sqlite3_stmt	*stmt;
-	int		 c, rc;
+	int		 c, rc = -1;
 	void		*vp;
 	struct statvfs	 sfs;
 
-	rc = -1;
 	p = *pp = calloc(1, sizeof(struct prncpl));
-	if (NULL == p) {
+	if (p == NULL) {
 		kerr(NULL);
-		return(-1);
+		return (-1);
 	}
 
-	sql = "SELECT hash,id,email FROM principal WHERE name=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sqls[SQL_PRNCPL_GET])) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, name))
+	else if (!db_bindtext(stmt, 1, name))
 		goto err;
 
-	if (SQLITE_DONE == (c = db_step(stmt))) {
-		kerrx("%s: user not found: %s", dbname, name);
+	if ((c = db_step(stmt)) == SQLITE_DONE) {
 		rc = 0;
 		goto err;
-	} else if (SQLITE_ROW != c)
+	} else if (c != SQLITE_ROW)
 		goto err;
 
-	/* Copy out of the database... */
 	p->name = strdup(name);
 	p->hash = strdup((char *)sqlite3_column_text(stmt, 0));
 	p->id = sqlite3_column_int(stmt, 1);
@@ -1214,15 +1218,13 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 
 	db_finalise(&stmt);
 
-	if (NULL == p->name || 
-		 NULL == p->hash ||
-		 NULL == p->email) {
+	if (NULL == p->name || NULL == p->hash || NULL == p->email) {
 		kerr(NULL);
 		goto err;
 	}
 
-	if (-1 == statvfs(dbname, &sfs)) {
-		kerr("%s: statvfs", dbname);
+	if (statvfs(dbname, &sfs) == -1) {
+		kerr("statvfs: %s", dbname);
 		goto err;
 	}
 
@@ -1231,21 +1233,16 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 
 	/* Read in each collection owned by the given principal. */
 
-	sql = "SELECT url,displayname,colour,description,ctag,id "
-		"FROM collection WHERE principal=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sqls[SQL_COL_ITER])) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, p->id))
+	else if (!db_bindint(stmt, 1, p->id))
 		goto err;
 
-	while (SQLITE_ROW == (c = db_step(stmt))) {
-		vp = reallocarray
-			(p->cols, 
-			 p->colsz + 1,
-			 sizeof(struct coln));
-		if (NULL == vp) {
+	while ((c = db_step(stmt)) == SQLITE_ROW) {
+		vp = reallocarray(p->cols, 
+			p->colsz + 1, sizeof(struct coln));
+		if (vp == NULL) {
 			kerr(NULL);
-			db_finalise(&stmt);
 			goto err;
 		}
 		p->cols = vp;
@@ -1266,31 +1263,26 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 		    NULL == p->cols[i].colour ||
 		    NULL == p->cols[i].description) {
 			kerr(NULL);
-			db_finalise(&stmt);
 			goto err;
 		}
 	}
-	if (SQLITE_DONE != c)
+
+	if (c != SQLITE_DONE)
 		goto err;
 	db_finalise(&stmt);
 
-	sql = "SELECT email,name,bits,principal,proxy.id "
-		"FROM proxy "
-		"INNER JOIN principal ON principal.id=principal "
-		"WHERE proxy=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	/* Read all reverse proxies. */
+
+	if ((stmt = db_prepare(sqls[SQL_PROXY_ITER])) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, p->id))
+	else if (!db_bindint(stmt, 1, p->id))
 		goto err;
 
-	while (SQLITE_ROW == (c = db_step(stmt))) {
-		vp = reallocarray
-			(p->rproxies,
-			 p->rproxiesz + 1,
-			 sizeof(struct proxy));
-		if (NULL == vp) {
+	while ((c = db_step(stmt)) == SQLITE_ROW) {
+		vp = reallocarray(p->rproxies, 
+			p->rproxiesz + 1, sizeof(struct proxy));
+		if (vp == NULL) {
 			kerr(NULL);
-			db_finalise(&stmt);
 			goto err;
 		}
 		p->rproxies = vp;
@@ -1305,31 +1297,24 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 		if (NULL == p->rproxies[i].email ||
 		    NULL == p->rproxies[i].name) {
 			kerr(NULL);
-			db_finalise(&stmt);
 			goto err;
 		}
 	}
-	if (SQLITE_DONE != c)
+
+	if (c != SQLITE_DONE)
 		goto err;
 	db_finalise(&stmt);
 
-	sql = "SELECT email,name,bits,proxy,proxy.id "
-		"FROM proxy "
-		"INNER JOIN principal ON principal.id=proxy "
-		"WHERE principal=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sqls[SQL_PROXY_ITER_PRNCPL])) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, p->id))
+	else if (!db_bindint(stmt, 1, p->id))
 		goto err;
 
-	while (SQLITE_ROW == (c = db_step(stmt))) {
-		vp = reallocarray
-			(p->proxies,
-			 p->proxiesz + 1,
-			 sizeof(struct proxy));
-		if (NULL == vp) {
+	while ((c = db_step(stmt)) == SQLITE_ROW) {
+		vp = reallocarray(p->proxies,
+			 p->proxiesz + 1, sizeof(struct proxy));
+		if (vp == NULL) {
 			kerr(NULL);
-			db_finalise(&stmt);
 			goto err;
 		}
 		p->proxies = vp;
@@ -1345,69 +1330,69 @@ db_prncpl_load(struct prncpl **pp, const char *name)
 		if (NULL == p->proxies[i].email ||
 		    NULL == p->proxies[i].name) {
 			kerr(NULL);
-			db_finalise(&stmt);
 			goto err;
 		}
 	}
-	if (SQLITE_DONE != c)
+
+	if (c != SQLITE_DONE)
 		goto err;
 	db_finalise(&stmt);
-
-	return(1);
+	return 1;
 err:
 	*pp = NULL;
 	db_prncpl_free(p);
 	db_finalise(&stmt);
-	kerrx("%s: failure", dbname);
-	return(rc);
+	return rc;
 }
 
+/*
+ * Push the display name, colour, and description of a collection from
+ * "c" into database storage.
+ * Returns zero on failure, non-zero on success.
+ */
 int
 db_collection_update(const struct coln *c, const struct prncpl *p)
 {
-	const char	*sql;
 	sqlite3_stmt	*stmt;
-	int		 rc;
 
-	sql = "UPDATE collection SET displayname=?,"
-		"colour=?,description=? WHERE id=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sqls[SQL_COL_UPDATE])) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, c->displayname))
+	else if (!db_bindtext(stmt, 1, c->displayname))
 		goto err;
-	else if ( ! db_bindtext(stmt, 2, c->colour))
+	else if (!db_bindtext(stmt, 2, c->colour))
 		goto err;
-	else if ( ! db_bindtext(stmt, 3, c->description))
+	else if (!db_bindtext(stmt, 3, c->description))
 		goto err;
-	else if ( ! db_bindint(stmt, 4, c->id))
+	else if (!db_bindint(stmt, 4, c->id))
 		goto err;
-	else if (SQLITE_DONE != (rc = db_step(stmt)))
+	else if (db_step(stmt) != SQLITE_DONE)
 		goto err;
 
 	db_finalise(&stmt);
-	kinfo("%s: updated collection: %" PRId64, p->email, c->id);
+	kinfo("collection updated: %" PRId64, c->id);
+
 	if (db_collection_update_ctag(c->id))
-		return(1);
+		return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: failure", dbname);
-	kerrx("%s: update collection fail: %" PRId64, p->email, c->id);
-	return(0);
+	return 0;
 }
 
+/*
+ * List all resources in a collection.
+ * Return zero on failure, non-zero on success.
+ * This can return failure after the callback has been invoked.
+ */
 int
 db_collection_resources(void (*fp)(const struct res *, void *), 
 	int64_t colid, void *arg)
 {
-	const char	*sql;	
 	sqlite3_stmt	*stmt;
 	int		 rc;
+	char		*er;
 	struct res	 p;
 
-	sql = "SELECT data,etag,url,id,collection "
-		"FROM resource WHERE collection=?";
-
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_RES_ITER])) == NULL)
 		goto err;
 	else if (!db_bindint(stmt, 1, colid))
 		goto err;
@@ -1419,9 +1404,12 @@ db_collection_resources(void (*fp)(const struct res *, void *),
 		p.url = (char *)sqlite3_column_text(stmt, 2);
 		p.id = sqlite3_column_int64(stmt, 3);
 		p.collection = sqlite3_column_int64(stmt, 4);
-		p.ical = ical_parse(NULL, p.data, strlen(p.data), NULL);
-		if (p.ical == NULL)
+		p.ical = ical_parse(NULL, p.data, strlen(p.data), &er);
+		if (p.ical == NULL) {
+			kerrx("ical_parse: %s", er);
+			free(er);
 			goto err;
+		}
 		(*fp)(&p, arg);
 		ical_free(p.ical);
 	}
@@ -1431,32 +1419,31 @@ db_collection_resources(void (*fp)(const struct res *, void *),
 	return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
 	return 0;
 }
 
+/*
+ * Delete collection from database without verifying that it exists.
+ * Return zero on failure, non-zero on success.
+ */
 int
 db_collection_remove(int64_t id, const struct prncpl *p)
 {
-	const char	*sql;	
 	sqlite3_stmt	*stmt;
 
-	sql = "DELETE FROM collection WHERE id=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sqls[SQL_COL_REMOVE])) == NULL)
 		goto err;
-	else if ( ! db_bindint(stmt, 1, id))
+	else if (!db_bindint(stmt, 1, id))
 		goto err;
-	else if (SQLITE_DONE != db_step(stmt))
+	else if (db_step(stmt) != SQLITE_DONE)
 		goto err;
 
-	kinfo("%s: removed collection: %" PRId64, p->email, id);
 	db_finalise(&stmt);
-	return(1);
+	kinfo("collection removed (maybe): %" PRId64, id);
+	return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: failure", dbname);
-	kerrx("%s: remove collection fail: %" PRId64, p->email, id);
-	return(0);
+	return 0;
 }
 
 /*
@@ -1468,16 +1455,15 @@ err:
 int
 db_resource_delete(const char *url, const char *tag, int64_t colid)
 {
-	const char	*sql;	
 	sqlite3_stmt	*stmt;
 	int		 rc;
 
 	if (!db_trans_open()) 
 		return 0;
 
-	sql = "SELECT * FROM resource WHERE "
-		"url=? AND collection=? AND etag=?";
-	if ((stmt = db_prepare(sql)) == NULL)
+	/* Throw away the results of this query. */
+
+	if ((stmt = db_prepare(sqls[SQL_RES_GET_ETAG])) == NULL)
 		goto err;
 	else if (!db_bindtext(stmt, 1, url))
 		goto err;
@@ -1495,9 +1481,7 @@ db_resource_delete(const char *url, const char *tag, int64_t colid)
 	} else if (rc != SQLITE_ROW)
 		goto err;
 
-	sql = "DELETE FROM resource WHERE "
-		"url=? AND collection=? AND etag=?";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_RES_REMOVE_ETAG])) == NULL)
 		goto err;
 	else if (!db_bindtext(stmt, 1, url))
 		goto err;
@@ -1508,15 +1492,15 @@ db_resource_delete(const char *url, const char *tag, int64_t colid)
 	else if (db_step(stmt) != SQLITE_DONE)
 		goto err;
 
-	db_finalise(&stmt);
 	if (db_collection_update_ctag(colid)) {
+		db_finalise(&stmt);
 		db_trans_commit();
+		kinfo("resource removed: %s", url);
 		return 1;
 	}
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	kerrx("%s: %s: failure", dbname, __func__);
 	return 0;
 }
 
@@ -1529,27 +1513,25 @@ err:
 int
 db_resource_remove(const char *url, int64_t colid)
 {
-	const char	*sql;	
 	sqlite3_stmt	*stmt;
 
-	sql = "DELETE FROM resource WHERE "
-		"url=? AND collection=?";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sqls[SQL_RES_REMOVE])) == NULL)
 		goto err;
-	else if ( ! db_bindtext(stmt, 1, url))
+	else if (!db_bindtext(stmt, 1, url))
 		goto err;
-	else if ( ! db_bindint(stmt, 2, colid))
+	else if (!db_bindint(stmt, 2, colid))
 		goto err;
-	else if (SQLITE_DONE != db_step(stmt))
+	else if (db_step(stmt) != SQLITE_DONE)
 		goto err;
 
 	db_finalise(&stmt);
+	kinfo("resource removed (unsafe): %s", url);
+
 	if (db_collection_update_ctag(colid))
-		return(1);
+		return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
-	return(0);
+	return 0;
 }
 
 /*
@@ -1562,18 +1544,14 @@ err:
 int
 db_resource_new(const char *data, const char *url, int64_t colid)
 {
-	const char	*sql;	
 	sqlite3_stmt	*stmt;
 	int		 rc;
 	char		 etag[64];
 
-	snprintf(etag, sizeof(etag), 
-		"%" PRIu32 "-%" PRIu32, 
+	snprintf(etag, sizeof(etag), "%" PRIu32 "-%" PRIu32, 
 		get_random(), get_random());
 
-	sql = "INSERT INTO resource "
-		"(data,url,collection,etag) VALUES (?,?,?,?)";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_RES_INSERT])) == NULL)
 		goto err;
 	else if (!db_bindtext(stmt, 1, data))
 		goto err;
@@ -1586,18 +1564,18 @@ db_resource_new(const char *data, const char *url, int64_t colid)
 
 	rc = db_step_constrained(stmt);
 	db_finalise(&stmt);
-	kinfo("added resource: %s to %" PRId64, url, colid);
 
 	if (rc == SQLITE_CONSTRAINT)
 		return 0;
 	else if (rc != SQLITE_DONE)
 		goto err;
 
+	kinfo("resource created: %s", url);
+
 	if (db_collection_update_ctag(colid))
 		return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("%s: %s: failure", dbname, __func__);
 	return (-1);
 }
 
@@ -1605,8 +1583,8 @@ err:
  * Update the resource at "url" in collection "colid" with new data,
  * updating its and the collection's etag to a random number.
  * Make sure that the existing etag matches "digest".
- * Returns <0 on system error, 0 if the resource couldn't be found, or
- * >0 on success.
+ * Returns <0 on error, 0 if the resource couldn't be found, or >0 on
+ * success.
  */
 int
 db_resource_update(const char *data, const char *url, 
@@ -1616,11 +1594,9 @@ db_resource_update(const char *data, const char *url,
 	struct res	*res = NULL;
 	int		 rc;
 	int64_t		 id;
-	const char	*sql;
 	char		 etag[64];
 
-	snprintf(etag, sizeof(etag), 
-		"%" PRIu32 "-%" PRIu32, 
+	snprintf(etag, sizeof(etag), "%" PRIu32 "-%" PRIu32,
 		get_random(), get_random());
 
 	if (!db_trans_open()) 
@@ -1643,8 +1619,7 @@ db_resource_update(const char *data, const char *url,
 	id = res->id;
 	db_resource_free(res);
 
-	sql = "UPDATE resource SET data=?,etag=? WHERE id=?";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_RES_UPDATE])) == NULL)
 		goto err;
 	else if (!db_bindtext(stmt, 1, data))
 		goto err;
@@ -1659,33 +1634,30 @@ db_resource_update(const char *data, const char *url,
 
 	if (db_collection_update_ctag(colid)) {
 		db_trans_commit();
+		kinfo("resource updated: %s", url);
 		return 1;
 	}
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	kerrx("failure: %s", dbname);
 	return (-1);
 }
 
 /*
  * Load the resource named "url" within collection "colid".
  * Returns zero if the resource was not found, <0 if the retrieval
- * failed in some way, or >1 if the retrieval was successful.
+ * failed in some way, or >0 if the retrieval was successful.
  * On success, "pp" is set to the resource.
  */
 int
 db_resource_load(struct res **pp, const char *url, int64_t colid)
 {
-	const char	*sql;	
 	sqlite3_stmt	*stmt;
 	int		 rc;
-	char		*er = NULL;
+	char		*er;
 
 	*pp = NULL;
-	sql = "SELECT data,etag,url,id,collection FROM resource "
-		"WHERE collection=? AND url=?";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_RES_GET])) == NULL)
 		goto err;
 	else if (!db_bindint(stmt, 1, colid))
 		goto err;
@@ -1717,11 +1689,11 @@ db_resource_load(struct res **pp, const char *url, int64_t colid)
 		(*pp)->ical = ical_parse(NULL, 
 			(*pp)->data, strlen((*pp)->data), &er);
 		if ((*pp)->ical == NULL) {
-			kerrx("failed to parse: %s", er);
+			kerrx("ical_parse: %s", er);
+			free(er);
 			goto err;
 		}
 		db_finalise(&stmt);
-		free(er);
 		return 1;
 	} else if (rc == SQLITE_DONE) {
 		db_finalise(&stmt);
@@ -1736,8 +1708,6 @@ err:
 		free(*pp);
 	}
 	db_finalise(&stmt);
-	free(er);
-	kerrx("failure: %s", __func__);
 	return (-1);
 }
 
@@ -1745,26 +1715,23 @@ err:
  * This checks the ownership of a database file.
  * If the file is newly-created, it creates the database schema and
  * initialises the ownership to the given identifier.
- * Re
+ * Return <0 on failure, 0 if the owner doesn't match the real user, or
+ * >0 on success.
  */
 int
 db_owner_check_or_set(int64_t id)
 {
 	sqlite3_stmt	*stmt;
-	const char	*sql;
 	int64_t		 oid;
 
-	sql = "SELECT owneruid FROM database";
-	if ((stmt = db_prepare(sql)) != NULL) {
-		if (db_step(stmt) == SQLITE_ROW) {
-			oid = sqlite3_column_int64(stmt, 0);
-			db_finalise(&stmt);
-			if (id == 0 && oid != id)
-				kinfo("root overriding database "
-					"owner: %" PRId64, oid);
-			return id == 0 || oid == id;
-		}
-		goto err;
+	if ((stmt = db_prepare(sqls[SQL_OWNER_GET])) != NULL) {
+		if (db_step(stmt) != SQLITE_ROW) 
+			goto err;
+		oid = sqlite3_column_int64(stmt, 0);
+		db_finalise(&stmt);
+		if (id == 0 && oid != id)
+			kinfo("root overriding: %" PRId64, oid);
+		return id == 0 || oid == id;
 	}
 
 	/*
@@ -1777,8 +1744,7 @@ db_owner_check_or_set(int64_t id)
 
 	/* Finally, insert our database record. */
 
-	sql = "INSERT INTO database (owneruid) VALUES (?)";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_OWNER_INSERT])) == NULL)
 		goto err;
 	else if (!db_bindint(stmt, 1, id))
 		goto err;
@@ -1789,7 +1755,6 @@ db_owner_check_or_set(int64_t id)
 	return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("failure: %s", dbname);
 	return (-1);
 }
 
