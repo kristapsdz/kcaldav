@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2015 Kristaps Dzonsons <kristaps@bsd.lv>
+ * Copyright (c) 2015, 2020 Kristaps Dzonsons <kristaps@bsd.lv>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -19,7 +19,6 @@
 #include <sys/statvfs.h>
 
 #include <assert.h>
-#include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
@@ -35,19 +34,37 @@
 #include "libkcaldav.h"
 #include "db.h"
 
+/*
+ * How many nonces do we allow in the database.
+ * Too few nonces and a clever attacker can SYN-flood the nonce
+ * database, and too many and it'll just be ponderous.
+ */
 #define NONCEMAX 1000
+
+/*
+ * Length of nonce string w/o NUL terminator.
+ */
 #define NONCESZ	 16
 
 enum sqlstmt {
 	SQL_COL_GET,
 	SQL_COL_GET_ID,
+	SQL_COL_INSERT,
 	SQL_COL_ITER,
 	SQL_COL_REMOVE,
 	SQL_COL_UPDATE,
+	SQL_COL_UPDATE_CTAG,
+	SQL_NONCE_COUNT,
+	SQL_NONCE_GET_COUNT,
+	SQL_NONCE_INSERT,
+	SQL_NONCE_REMOVE,
+	SQL_NONCE_REMOVE_MULTI,
+	SQL_NONCE_UPDATE,
 	SQL_OWNER_GET,
 	SQL_OWNER_INSERT,
 	SQL_PRNCPL_GET,
 	SQL_PRNCPL_GET_ID,
+	SQL_PRNCPL_INSERT,
 	SQL_PRNCPL_UPDATE,
 	SQL_PROXY_INSERT,
 	SQL_PROXY_ITER,
@@ -66,15 +83,35 @@ enum sqlstmt {
 
 static const char *sqls[SQL__MAX] = {
 	/* SQL_COL_GET */
-	"SELECT url,displayname,colour,description,ctag,id FROM collection WHERE principal=? AND url=?",
+	"SELECT url,displayname,colour,description,ctag,id "
+		"FROM collection WHERE principal=? AND url=?",
 	/* SQL_COL_GET_ID */
-	"SELECT url,displayname,colour,description,ctag,id FROM collection WHERE principal=? AND id=?",
+	"SELECT url,displayname,colour,description,ctag,id "
+		"FROM collection WHERE principal=? AND id=?",
+	/* SQL_COL_INSERT */
+	"INSERT INTO collection (principal, url) VALUES (?,?)",
 	/* SQL_COL_ITER */
-	"SELECT url,displayname,colour,description,ctag,id FROM collection WHERE principal=?",
+	"SELECT url,displayname,colour,description,ctag,id "
+		"FROM collection WHERE principal=?",
 	/* SQL_COL_REMOVE */
 	"DELETE FROM collection WHERE id=?",
 	/* SQL_COL_UPDATE */
-	"UPDATE collection SET displayname=?,colour=?,description=? WHERE id=?",
+	"UPDATE collection SET displayname=?,colour=?,description=? "
+		"WHERE id=?",
+	/* SQL_COL_UPDATE_CTAG */
+	"UPDATE collection SET ctag=ctag+1 WHERE id=?",
+	/* SQL_NONCE_COUNT */
+	"SELECT count(*) FROM nonce",
+	/* SQL_NONCE_GET_COUNT */
+	"SELECT count FROM nonce WHERE nonce=?",
+	/* SQL_NONCE_INSERT */
+	"INSERT INTO nonce (nonce) VALUES (?)",
+	/* SQL_NONCE_REMOVE */
+	"DELETE FROM nonce WHERE nonce=?",
+	/* SQL_NONCE_REMOVE_MULTI */
+	"DELETE FROM nonce WHERE id IN (SELECT id FROM nonce LIMIT 20)",
+	/* SQL_NONCE_UDPATE */
+	"UPDATE nonce SET count=? WHERE nonce=?",
 	/* SQL_OWNER_GET */
 	"SELECT owneruid FROM database",
 	/* SQL_OWNER_INSERT */
@@ -83,30 +120,41 @@ static const char *sqls[SQL__MAX] = {
 	"SELECT hash,id,email FROM principal WHERE name=?",
 	/* SQL_PRNCPL_GET_ID */
 	"SELECT id FROM principal WHERE email=?",
+	/* SQL_PRNCPL_INSERT */
+	"INSERT INTO principal (name,hash,email) VALUES (?,?,?)",
 	/* SQL_PRNCPL_UPDATE */
 	"UPDATE principal SET hash=?,email=? WHERE id=?",
 	/* SQL_PROXY_INSERT */
 	"INSERT INTO proxy (principal,proxy,bits) VALUES (?, ?, ?)",
 	/* SQL_PROXY_ITER */
-	"SELECT email,name,bits,principal,proxy.id FROM proxy INNER JOIN principal ON principal.id=principal WHERE proxy=?",
+	"SELECT email,name,bits,principal,proxy.id FROM proxy "
+		"INNER JOIN principal ON principal.id=principal "
+		"WHERE proxy=?",
 	/* SQL_PROXY_ITER_PRNCPL */
-	"SELECT email,name,bits,proxy,proxy.id FROM proxy INNER JOIN principal ON principal.id=proxy WHERE principal=?",
+	"SELECT email,name,bits,proxy,proxy.id FROM proxy "
+		"INNER JOIN principal ON principal.id=proxy "
+		"WHERE principal=?",
 	/* SQL_PROXY_REMOVE */
 	"DELETE FROM proxy WHERE principal=? AND proxy=?",
 	/* SQL_PROXY_UPDATE */
 	"UPDATE proxy SET bits=? WHERE principal=? AND proxy=?",
 	/* SQL_RES_GET */
-	"SELECT data,etag,url,id,collection FROM resource WHERE collection=? AND url=?",
+	"SELECT data,etag,url,id,collection FROM resource "
+		"WHERE collection=? AND url=?",
 	/* SQL_RES_GET_ETAG */
-	"SELECT id FROM resource WHERE url=? AND collection=? AND etag=?",
+	"SELECT id FROM resource WHERE url=? AND collection=? "
+		"AND etag=?",
 	/* SQL_RES_INSERT */
-	"INSERT INTO resource (data,url,collection,etag) VALUES (?,?,?,?)",
+	"INSERT INTO resource (data,url,collection,etag) "
+		"VALUES (?,?,?,?)",
 	/* SQL_RES_ITER */
-	"SELECT data,etag,url,id,collection FROM resource WHERE collection=?",
+	"SELECT data,etag,url,id,collection FROM resource "
+		"WHERE collection=?",
 	/* SQL_RES_REMOVE */
 	"DELETE FROM resource WHERE url=? AND collection=?",
 	/* SQL_RES_REMOVE_ETAG */
-	"DELETE FROM resource WHERE url=? AND collection=? AND etag=?",
+	"DELETE FROM resource WHERE url=? AND collection=? "
+		"AND etag=?",
 	/* SQL_RES_UPDATE */
 	"UPDATE resource SET data=?,etag=? WHERE id=?",
 };
@@ -599,11 +647,9 @@ again:
 static int
 db_collection_update_ctag(int64_t id)
 {
-	const char	*sql;
 	sqlite3_stmt	*stmt;
 
-	sql = "UPDATE collection SET ctag=ctag+1 WHERE id=?";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_COL_UPDATE_CTAG])) == NULL)
 		goto err;
 	else if (!db_bindint(stmt, 1, id))
 		goto err;
@@ -614,7 +660,6 @@ db_collection_update_ctag(int64_t id)
 	db_finalise(&stmt);
 	return 1;
 err:
-	kerrx("failure: %s", dbname);
 	db_finalise(&stmt);
 	return 0;
 }
@@ -628,8 +673,7 @@ db_nonce_delete(const char *nonce, const struct prncpl *p)
 {
 	sqlite3_stmt	*stmt;
 
-	stmt = db_prepare("DELETE FROM nonce WHERE nonce=?");
-	if (stmt == NULL)
+	if ((stmt = db_prepare(sqls[SQL_NONCE_REMOVE])) == NULL)
 		goto err;
 	else if (!db_bindtext(stmt, 1, nonce))
 		goto err;
@@ -641,7 +685,6 @@ db_nonce_delete(const char *nonce, const struct prncpl *p)
 	return 1;
 err:
 	db_finalise(&stmt);
-	kerrx("failure: %s", dbname);
 	return 0;
 }
 
@@ -652,12 +695,10 @@ err:
 enum nonceerr
 db_nonce_validate(const char *nonce, int64_t count)
 {
-	const char	*sql;
 	sqlite3_stmt	*stmt;
 	int64_t		 cmp;
 
-	sql = "SELECT count FROM nonce WHERE nonce=?";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_NONCE_GET_COUNT])) == NULL)
 		goto err;
 	else if (!db_bindtext(stmt, 1, nonce))
 		goto err;
@@ -675,14 +716,12 @@ db_nonce_validate(const char *nonce, int64_t count)
 		return NONCE_OK;
 	case SQLITE_DONE:
 		db_finalise(&stmt);
-		kdbg("nonce not found: %s", nonce);
 		return NONCE_NOTFOUND;
 	default:
 		break;
 	}
 err:
 	db_finalise(&stmt);
-	kerrx("failure: %s", dbname);
 	return NONCE_ERR;
 }
 
@@ -695,7 +734,6 @@ db_nonce_update(const char *nonce, int64_t count)
 {
 	enum nonceerr	 er;
 	sqlite3_stmt	*stmt;
-	const char	*sql;
 
 	if (!db_trans_open())
 		return NONCE_ERR;
@@ -707,8 +745,7 @@ db_nonce_update(const char *nonce, int64_t count)
 
 	/* FIXME: check for (unlikely) integer overflow. */
 
-	sql = "UPDATE nonce SET count=? WHERE nonce=?";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_NONCE_UPDATE])) == NULL)
 		goto err;
 	else if (!db_bindint(stmt, 1, count + 1))
 		goto err;
@@ -725,7 +762,6 @@ db_nonce_update(const char *nonce, int64_t count)
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	kerrx("failure: %s", dbname);
 	return NONCE_ERR;
 }
 
@@ -739,7 +775,6 @@ db_nonce_new(char **np)
 {
 	static char	 nonce[NONCESZ + 1];
 	int64_t		 count;
-	const char	*sql;
 	sqlite3_stmt	*stmt;
 	int		 rc;
 	size_t		 i;
@@ -752,8 +787,7 @@ db_nonce_new(char **np)
 	 * cull the first 20 to make room for more.
 	 */
 
-	sql = "SELECT count(*) FROM nonce";
-	if (NULL == (stmt = db_prepare(sql)))
+	if ((stmt = db_prepare(sqls[SQL_NONCE_COUNT])) == NULL)
 		goto err;
 	else if ((rc = db_step(stmt)) == SQLITE_ROW)
 		count = sqlite3_column_int64(stmt, 0);
@@ -761,13 +795,13 @@ db_nonce_new(char **np)
 		count = 0;
 	else
 		goto err;
+
 	db_finalise(&stmt);
 
 	if (count >= NONCEMAX) {
 		kdbg("culling from nonce database");
-		sql = "DELETE FROM nonce WHERE id IN "
-			"(SELECT id FROM nonce LIMIT 20)";
-		if ((stmt = db_prepare(sql)) == NULL)
+		stmt = db_prepare(sqls[SQL_NONCE_REMOVE_MULTI]);
+		if (stmt == NULL)
 			goto err;
 		else if (db_step(stmt) != SQLITE_DONE)
 			goto err;
@@ -780,8 +814,7 @@ db_nonce_new(char **np)
 	 * actually unique within the system.
 	 */
 
-	sql = "INSERT INTO nonce (nonce) VALUES (?)";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_NONCE_INSERT])) == NULL)
 		goto err;
 
 	for (;;) {
@@ -807,7 +840,6 @@ db_nonce_new(char **np)
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	kerrx("failure: %s", dbname);
 	return 0;
 }
 
@@ -818,13 +850,10 @@ err:
 static int
 db_collection_new_byid(const char *url, int64_t id)
 {
-	const char	*sql;
 	sqlite3_stmt	*stmt;
 	int		 rc;
 
-	sql = "INSERT INTO collection "
-		"(principal, url) VALUES (?,?)";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_COL_INSERT])) == NULL)
 		goto err;
 	else if (!db_bindint(stmt, 1, id))
 		goto err;
@@ -834,18 +863,14 @@ db_collection_new_byid(const char *url, int64_t id)
 	rc = db_step_constrained(stmt);
 	db_finalise(&stmt);
 
-	if (rc == SQLITE_CONSTRAINT) {
-		kdbg("collection exists: %s", url);
-		return 0;
-	} else if (rc == SQLITE_DONE) {
+	if (rc == SQLITE_DONE) {
 		kinfo("collection created: %s", url);
 		return 1;
-	}
+	} else if (rc == SQLITE_CONSTRAINT)
+		return 0;
 err:
 	db_finalise(&stmt);
-	kerrx("failure: %s", dbname);
 	return (-1);
-
 }
 
 int
@@ -867,7 +892,6 @@ int
 db_prncpl_new(const char *name, const char *hash, 
 	const char *email, const char *directory)
 {
-	const char	*sql;
 	sqlite3_stmt	*stmt;
 	int		 rc;
 	int64_t		 lastid;
@@ -877,9 +901,7 @@ db_prncpl_new(const char *name, const char *hash,
 	if (!db_trans_open()) 
 		return (-1);
 
-	sql = "INSERT INTO principal "
-		"(name,hash,email) VALUES (?,?,?)";
-	if ((stmt = db_prepare(sql)) == NULL)
+	if ((stmt = db_prepare(sqls[SQL_PRNCPL_INSERT])) == NULL)
 		goto err;
 	else if (!db_bindtext(stmt, 1, name))
 		goto err;
@@ -897,7 +919,6 @@ db_prncpl_new(const char *name, const char *hash,
 
 	if (SQLITE_CONSTRAINT == rc) {
 		db_trans_rollback();
-		kerrx("duplicate principal: %s, %s", name, email);
 		return 0;
 	}
 
@@ -910,11 +931,9 @@ db_prncpl_new(const char *name, const char *hash,
 		return 1;
 	}
 
-	kerrx("fail create collection: %s", directory);
 err:
 	db_finalise(&stmt);
 	db_trans_rollback();
-	kerrx("%s: failure", dbname);
 	return (-1);
 }
 
