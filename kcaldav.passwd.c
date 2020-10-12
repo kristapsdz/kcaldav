@@ -45,7 +45,7 @@
 #include "libkcaldav.h"
 #include "db.h"
 
-static int verbose = 0;
+static int verbose;
 
 /*
  * See http_safe_string() in util.c.
@@ -207,38 +207,26 @@ static void
 db_msg_info(void *arg, const char *id, const char *fmt, va_list ap)
 {
 
-	if (verbose < 1)
-		return;
-	vprintf(fmt, ap);
-	putchar('\n');
+	if (verbose >= 1) {
+		vprintf(fmt, ap);
+		putchar('\n');
+	}
 }
 
 static void
 db_msg_err(void *arg, const char *id, const char *fmt, va_list ap)
 {
 
-	if (verbose < 1)
-		return;
-	vwarn(fmt, ap);
+	if (verbose >= 1)
+		vwarn(fmt, ap);
 }
 
 static void
 db_msg_errx(void *arg, const char *id, const char *fmt, va_list ap)
 {
 
-	if (verbose < 1)
-		return;
-	vwarnx(fmt, ap);
-}
-
-static void
-db_msg_dbg(void *arg, const char *id, const char *fmt, va_list ap)
-{
-
-	if (verbose < 2)
-		return;
-	vprintf(fmt, ap);
-	putchar('\n');
+	if (verbose >= 1)
+		vwarnx(fmt, ap);
 }
 
 int
@@ -388,7 +376,7 @@ main(int argc, char *argv[])
 	 * We only try to create the database if "adduser" is set.
 	 */
 
-	db_set_msg_dbg(db_msg_dbg);
+	db_set_msg_dbg(db_msg_info);
 	db_set_msg_info(db_msg_info);
 	db_set_msg_err(db_msg_err);
 	db_set_msg_errx(db_msg_errx);

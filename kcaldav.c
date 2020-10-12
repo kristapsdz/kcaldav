@@ -46,7 +46,7 @@
 #include "db.h"
 #include "server.h"
 
-static int verbose = 1;
+static int verbose;
 
 static const char *const pages[PAGE__MAX] = {
 	"delcoln", /* PAGE_DELCOLN */
@@ -304,7 +304,7 @@ static void
 kutil_vdbg(struct kreq *r, const char *id, const char *fmt, va_list ap)
 {
 
-	if (verbose >= 2)
+	if (verbose >= 1)
 		kutil_vlogx(r, "INFO", id, fmt, ap);
 }
 
@@ -347,7 +347,7 @@ db_msg_dbg(void *arg, const char *id, const char *fmt, va_list ap)
 {
 
 	if (verbose >= 2)
-		kutil_vlogx(arg, "DB-INFO", id, fmt, ap);
+		kutil_vlogx(arg, "DB-DEBUG", id, fmt, ap);
 }
 
 static void
@@ -423,10 +423,8 @@ main(void)
 #if !HAVE_ARC4RANDOM
 	srandom(time(NULL));
 #endif
-#if defined DEBUG && DEBUG > 1
-	verbose = 3;
-#elif defined DEBUG && DEBUG > 0
-	verbose = 2;
+#if defined DEBUG && DEBUG > 0
+	verbose = DEBUG;
 #endif
 
 #if HAVE_PLEDGE
@@ -445,7 +443,7 @@ main(void)
 	er = khttp_parsex
 		(&r, ksuffixmap, kmimetypes, KMIME__MAX, valid, 
 		 VALID__MAX, pages, PAGE__MAX, KMIME_TEXT_HTML,
-		 PAGE_INDEX, NULL, NULL, verbose > 2 ? 
+		 PAGE_INDEX, NULL, NULL, verbose >= 3 ? 
 		 (KREQ_DEBUG_WRITE | KREQ_DEBUG_READ_BODY) : 0, 
 		 NULL);
 
