@@ -451,7 +451,7 @@ db_bindint(sqlite3_stmt *stmt, size_t pos, int64_t v)
 {
 
 	assert(pos > 0);
-	if (sqlite3_bind_int64(stmt, pos, v) != SQLITE_OK)
+	if (sqlite3_bind_int64(stmt, pos, v) == SQLITE_OK)
 		return 1;
 	kerrx("sqlite3_bind_int64: %s", sqlite3_errmsg(db));
 	return 0;
@@ -467,7 +467,7 @@ db_bindtext(sqlite3_stmt *stmt, size_t pos, const char *name)
 
 	assert(pos > 0);
 	if (sqlite3_bind_text(stmt, 
-	    pos, name, -1, SQLITE_STATIC) != SQLITE_OK)
+	    pos, name, -1, SQLITE_STATIC) == SQLITE_OK)
 		return 1;
 	kerrx("sqlite3_bind_text: %s", sqlite3_errmsg(db));
 	return 0;
