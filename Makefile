@@ -3,42 +3,27 @@
 
 include Makefile.configure
 
-# You WILL need to edit this for your needs.
-# Put your overrides in Makefile.local.
-# I have added defaults for a straightforward OpenBSD installation.
-# For compile-time variables like PREFIX, CFLAGS, etc., see the
-# configure script.
-
 # ####################################################################
 # Stuff to override in Makefile.local...
 # ####################################################################
 
-# This is the directory prepended to all calendar requests.
-# It is relative to the CGI process's file-system root.
-# It contains the database.
-# You want it to be mode-rwx for the SQLite files.
+# Database directory in CGI process's file-system root.
+# Should be read-write-exec for database consumers.
 CALDIR		 = /caldav
 
-# This is the file-system directory of CALDIR.
+# File-system directory of CALDIR.
 CALPREFIX	 = /var/www/caldav
 
-# This is the URI of the static (CSS, JS) files.
+# URI (relative to the server root) of static (CSS, JS) files.
 HTDOCS	 	 = /kcaldav
-#HTDOCS		 = /
 
-# This is the file-system directory of HTDOCS.
-# I'm pretty sure you want to override this...
-HTDOCSPREFIX	 = /var/www/vhosts/www.bsd.lv/htdocs/kcaldav
-#HTDOCSPREFIX	 = /var/www/htdocs
+# File-system directory of HTDOCS.
+HTDOCSPREFIX	 = /var/www/htdocs/kcaldav
 
-# File-system directory where "installwww" installs.
-# You probably aren't going to use that!
-WWWDIR		 = /var/www/vhosts/kristaps.bsd.lv/htdocs/kcaldav
-
-# This is the relative URI of the server executable.
+# URI (relative to the server root) of the CGI script.
 CGIURI		 = /cgi-bin/kcaldav
 
-# This is the file-system directory of the CGI script.
+# File-system directory containing CGIURI.
 CGIPREFIX	 = /var/www/cgi-bin
 
 # Where do we put the system log?
@@ -47,15 +32,20 @@ CGIPREFIX	 = /var/www/cgi-bin
 LOGFILE		 = /logs/kcaldav-system.log
 
 # Set -D DEBUG=1 to produce debugging information in LOGFILE.
-# Set -D DEBUG=2 for LOTS of debugging information.
-# If you want to send me a debug report, please use -DDEBUG=2.
+# Set -D DEBUG=2 for even more debugging information.
+# Set -D DEBUG=3 to also trace network activity.
+# If you want to send me a debug report, please use -DDEBUG=3.
 #CFLAGS		+= -DDEBUG=1
 
 # Override this to be empty if you don't want static compilation.
-# It's set to be -static if the compiler allows it.
+# It's set to -static by Makefile.configure if available.
 #LDADD_STATIC	 =
 
 sinclude Makefile.local
+
+# File-system directory where "installwww" installs.
+# You probably aren't going to use that!
+WWWDIR		 = /var/www/vhosts/kristaps.bsd.lv/htdocs/kcaldav
 
 # ####################################################################
 # You probably don't want to change anything after this point.
@@ -150,7 +140,7 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(DBOBJS) \
 		   compats.o \
 		   kcaldav.passwd.o
-VERSION		 = 0.1.15
+VERSION		 = 0.2.0
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DCALPREFIX=\"$(CALPREFIX)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"
@@ -177,18 +167,6 @@ installcgi: all
 	$(INSTALL_PROGRAM) kcaldav $(DESTDIR)$(CGIPREFIX)
 	$(INSTALL_DATA) $(JSMINS) $(BHTMLS) style.css $(DESTDIR)$(HTDOCSPREFIX)
 	
-uninstallcgi:
-	rm -f $(DESTDIR)$(CGIPREFIX)/kcaldav
-	@for f in $(JSMINS) ; do \
-		echo rm -f $(DESTDIR)$(HTDOCSPREFIX)/$$f ; \
-		rm -f $(DESTDIR)$(HTDOCSPREFIX)/$$f ; \
-	done
-	@for f in $(BHTMLS) ; do \
-		echo rm -f $(DESTDIR)$(HTDOCSPREFIX)/$$f ; \
-		rm -f $(DESTDIR)$(HTDOCSPREFIX)/$$f ; \
-	done
-	rm -f $(DESTDIR)$(HTDOCSPREFIX)/style.css
-
 install: all
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(LIBDIR)

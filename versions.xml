@@ -479,4 +479,38 @@
 			</div>
 		</aside>
 	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-10-12">2020-10-12</time>
+		</header>
+		<aside>
+			<div>
+				Significant upgrades to the source code, although none of it
+				front-facing.
+				Most effort went toward restructuring the code to be more readable
+				and friendly to contribution, especially as regards layering.
+				The layout is briefly described in the README file.
+			</div>
+			<div>
+				Messaging has been overhauled.
+				All web application access now uses
+				<a href="https://kristaps.bsd.lv/kcgi">kcgi</a>'s logging routines,
+				while the local 
+				<a href="kcaldav.passwd.1">kcaldav.passwd.1</a> uses standard
+				console logging.
+				The only front-facing change here is that command-line output is as
+				one would expect&#8212;output was all tailored to web application
+				logging.
+				The only maintainer update is that the <code>DEBUG</code> macro at
+				compile time, which used to be settable to <code>1</code> for
+				verbose output and <code>2</code> for <strong>all</strong> output,
+				is now <code>1</code> (informational messages), <code>2</code>
+				(database operations as well), or <code>3</code> (network as well).
+				A value of <code>0</code> (or less than zero), or not specifying the
+				variable, results in only errors being reported.
+			</div>
+		</aside>
+	</article>
 </articles>
