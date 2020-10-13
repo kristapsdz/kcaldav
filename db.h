@@ -115,6 +115,7 @@ int		db_prncpl_load(struct prncpl **, const char *);
 int		db_prncpl_new(const char *, const char *, const char *, const char *);
 int		db_prncpl_update(const struct prncpl *);
 int		db_proxy(const struct prncpl *, int64_t, int64_t);
+int		db_proxy_remove(const struct prncpl *, int64_t);
 int		db_resource_delete(const char *, const char *, int64_t);
 void		db_resource_free(struct res *);
 int		db_resource_remove(const char *, int64_t);

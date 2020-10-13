@@ -1008,11 +1008,36 @@ db_collection_get(struct coln **pp, sqlite3_stmt *stmt)
 }
 
 /*
+ * Delete a proxy.
+ * Returns zero on failure, non-zero on success.
+ */
+int
+db_proxy_remove(const struct prncpl *p, int64_t id)
+{
+	sqlite3_stmt	*stmt;
+
+	if ((stmt = db_prepare(sqls[SQL_PROXY_REMOVE])) == NULL)
+		goto err;
+	else if (!db_bindint(stmt, 1, p->id))
+		goto err;
+	else if (!db_bindint(stmt, 2, id))
+		goto err;
+	else if (db_step(stmt) != SQLITE_DONE)
+		goto err;
+
+	db_finalise(&stmt);
+	kinfo("deleted proxy (maybe) to %" PRId64, id);
+	return 1;
+err:
+	db_finalise(&stmt);
+	return 0;
+}
+
+/*
  * Create or modify a proxy.
  * This allows the principal "id" to access "bits" on the principal "p".
  * Returns <0 on system failure, 0 if the "id" principal does not exist,
  * or >0 if everything went well.
- * Having "0" as the bits will delete the proxy entry.
  */
 int
 db_proxy(const struct prncpl *p, int64_t id, int64_t bits)
@@ -1020,21 +1045,7 @@ db_proxy(const struct prncpl *p, int64_t id, int64_t bits)
 	int	 	 rc = -1;
 	sqlite3_stmt	*stmt;
 
-	if (0 == bits) {
-		stmt = db_prepare(sqls[SQL_PROXY_REMOVE]);
-		if (stmt == NULL)
-			goto err;
-		else if (!db_bindint(stmt, 1, p->id))
-			goto err;
-		else if (!db_bindint(stmt, 2, id))
-			goto err;
-		else if (db_step(stmt) != SQLITE_DONE)
-			goto err;
-
-		db_finalise(&stmt);
-		kinfo("deleted proxy to %" PRId64, id);
-		return 1;
-	}
+	assert(bits == 1 || bits == 2);
 
 	/* Transaction to wrap the test-set. */
 
