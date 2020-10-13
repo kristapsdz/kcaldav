@@ -46,6 +46,7 @@ enum	xml {
 
 enum	page {
 	PAGE_DELCOLN = 0,
+	PAGE_DELPROXY,
 	PAGE_INDEX,
 	PAGE_LOGOUT,
 	PAGE_MODPROXY,

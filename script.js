@@ -102,6 +102,12 @@
 		}
 
 		list = e.getElementsByClassName
+			('kcalendar-proxy-email-value');
+		for (i = 0, sz = list.length; i < sz; i++) {
+			list[i].value = pr.email;
+		}
+
+		list = e.getElementsByClassName
 			('kcalendar-proxy-read');
 		for (i = 0, sz = list.length; i < sz; i++)
 			if ( ! (1 === pr.bits))

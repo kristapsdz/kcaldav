@@ -50,6 +50,7 @@ static int verbose;
 
 static const char *const pages[PAGE__MAX] = {
 	"delcoln", /* PAGE_DELCOLN */
+	"delproxy", /* PAGE_DELPROXY */
 	"index", /* PAGE_INDEX */
 	"logout", /* PAGE_LOGOUT */
 	"modproxy", /* PAGE_MODPROXY */
@@ -259,6 +260,17 @@ kvalid_body(struct kpair *kp)
 }
 
 /*
+ * Our proxy bits are either 1 or 2.
+ */
+static int
+kvalid_proxy_bits(struct kpair *kp)
+{
+	if (!kvalid_uint(kp))
+		return 0;
+	return kp->parsed.i == 1 || kp->parsed.i == 2;
+}
+
+/*
  * Provide a version of kutil_verr that doesn't exit.
  */
 static void
@@ -401,7 +413,7 @@ main(void)
 {
 	struct kreq	 r;
 	struct kvalid	 valid[VALID__MAX] = {
-		{ kvalid_uint, valids[VALID_BITS] },
+		{ kvalid_proxy_bits, valids[VALID_BITS] },
 		{ kvalid_body, valids[VALID_BODY] },
 		{ kvalid_colour, valids[VALID_COLOUR] },
 		{ kvalid_description, valids[VALID_DESCRIPTION] },

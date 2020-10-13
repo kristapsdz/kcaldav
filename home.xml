@@ -172,9 +172,21 @@
 					</h2>
 					<ul class="kcalendar-principal-proxies">
 						<li>
-							<span class="kcalendar-proxy-read"><i class="fa fa-search"></i></span>
-							<span class="kcalendar-proxy-write"><i class="fa fa-pencil"></i></span>
-							<a class="kcalendar-proxy-email"></a>
+							<form class="kcalendar-proxy-delete" action="@CGIURI@/delproxy.json" method="post"
+							 onsubmit="return(delproxy(this));" class="pure-form">
+								<span class="kcalendar-proxy-read"><i class="fa fa-search"></i></span>
+								<span class="kcalendar-proxy-write"><i class="fa fa-pencil"></i></span>
+								<a class="kcalendar-proxy-email"></a>
+								<input type="hidden" name="email" class="kcalendar-proxy-email-value" />
+								<button class="btn pure-button pure-button-primary" type="submit">
+									<i class="fa fa-fw fa-remove"></i>
+									Delete
+								</button>
+								<button class="pbtn hide pure-button pure-button-primary" type="button" disabled="disabled">
+									<i class="fa fa-fw fa-delete fa-spin fa-spinner"></i>
+									Delete
+								</button>
+							</form>
 						</li>
 					</ul>
 					<ul class="kcalendar-principal-noproxies">
@@ -186,8 +198,11 @@
 						Enter the e-mail address of a system user to grant them 
 						<i class="fa fa-pencil"></i> read-write or
 						<i class="fa fa-search"></i> read-only proxy permissions.
-						(This is <q>delegation</q> in the terms of <a
-							href="http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/doc/Extensions/caldav-proxy.txt">caldav-proxy.txt</a>.)
+						(This is <q>delegation</q> in the terms of 
+						<a href="https://github.com/apple/ccs-calendarserver/blob/master/doc/Extensions/caldav-proxy.txt">
+							caldav-proxy.txt</a>.)
+						If a proxy already exists for the principal, it is updated.
+						Otherwise it is created.
 					</p>
 					<p class="modproxy-error error hide" id="modproxy-error-form">
 						Requested user does not exist.
@@ -199,11 +214,11 @@
 						<input placeholder="User" type="email" name="email" required="required" />
 						<label for="modproxy-read" class="pure-radio">
 							<i class="fa fa-search"></i>
-							<input id="modproxy-read" type="radio" name="bits" value="1" />
+							<input id="modproxy-read" type="radio" name="bits" value="1" required="required" />
 						</label>
 						<label for="modproxy-write" class="pure-radio">
 							<i class="fa fa-pencil"></i>
-							<input id="modproxy-write" type="radio" name="bits" value="2" />
+							<input id="modproxy-write" type="radio" name="bits" value="2" required="required" />
 						</label>
 						<button id="modproxy-btn" type="submit" class="pure-button pure-button-primary">
 							<i class="fa fa-fw fa-user"></i> 

@@ -87,6 +87,14 @@
 		classSet(document.getElementById('modproxy-pbtn'), 'hide');
 	}
 
+	function delproxy(e)
+	{
+
+		console.log('here');
+		return(sendForm(e, function() { genericSetupClass(e); }, 
+			null, function() { document.location.reload(); }));
+	}
+
 	function modproxy(e)
 	{
 
@@ -124,6 +132,23 @@
 			e.value = md5(res.principal.name + ':kcaldav:' + input.value);
 	}
 
+	function genericSetupClass(root)
+	{
+		var list, i, sz;
+
+		list = root.getElementsByClassName('error');
+		for (i = 0, sz = list.length; i < sz; i++)
+			classSet(list[i], 'hide');
+
+		list = root.getElementsByClassName('btn');
+		for (i = 0, sz = list.length; i < sz; i++)
+			classSet(list[i], 'hide');
+
+		list = root.getElementsByClassName('pbtn');
+		for (i = 0, sz = list.length; i < sz; i++)
+			classUnset(list[i], 'hide');
+	}
+
 	function genericSetup(name)
 	{
 		var list, i, sz;
@@ -141,4 +166,5 @@
 	root.setemail = setemail;
 	root.setpass = setpass;
 	root.modproxy = modproxy;
+	root.delproxy = delproxy;
 })(this);
