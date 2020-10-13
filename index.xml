@@ -61,10 +61,10 @@
 					It is <a href="http://opensource.org/licenses/ISC" rel="license">open source</a> with friendly,
 					auditable <a href="https://github.com/kristapsdz/kcaldav">source code</a>.
 				</p>
-				<p>
-					To hack on <span class="nm">kcaldav</span>, visit the
-					<a href="https://github.com/kristapsdz/kcaldav">GitHub page</a> for regression tests, source code
-					layout, and so on.
+				<p class="standout">
+					To contribute to <span class="nm">kcaldav</span>, visit the
+					<a href="https://github.com/kristapsdz/kcaldav">GitHub page</a> for source code layout, bug report tips,
+					and so on.
 				</p>
 				<p>
 					<span class="nm">kcaldav</span> is designed for simple setups, like sharing a calendar collection
@@ -108,8 +108,6 @@
 					features.
 					You'll also want to read <a href="kcaldav.passwd.1.html">kcaldav.passwd(1)</a>.
 					If these manpages lack information or clarity, that's a bug.
-					For bug-reports and comments on usage (please let me know!), contact <a
-						href="https://github.com/kristapsdz">Kristaps</a>.
 				</p>
 			</section>
 			<section id="versions">
