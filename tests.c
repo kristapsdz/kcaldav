@@ -40,7 +40,7 @@ main(void)
 }
 #endif /* TEST_CAPSICUM */
 #if TEST_CRYPT
-#if defined(__linux__)
+#if defined(__linux__) || defined(__wasi__)
 # define _GNU_SOURCE /* old glibc */
 # define _DEFAULT_SOURCE /* new glibc */
 #endif
@@ -63,8 +63,26 @@ int main(void)
 	return v == NULL;
 }
 #endif /* TEST_CRYPT */
+#if TEST_CRYPT_NEWHASH
+#include <pwd.h> /* _PASSWORD_LEN */
+#include <unistd.h>
+
+int
+main(void)
+{
+	const char	*v = "password";
+	char		 hash[_PASSWORD_LEN];
+
+	if (crypt_newhash(v, "bcrypt,a", hash, sizeof(hash)) == -1)
+		return 1;
+	if (crypt_checkpass(v, hash) == -1)
+		return 1;
+
+	return 0;
+}
+#endif /* TEST_CRYPT_NEWHASH */
 #if TEST_ENDIAN_H
-#ifdef __linux__
+#if defined(__linux__) || defined(__wasi__)
 # define _DEFAULT_SOURCE
 #endif
 #include <endian.h>
@@ -93,13 +111,17 @@ main(void)
  */
 
 #include <err.h>
+#include <errno.h>
 
 int
 main(void)
 {
 	warnx("%d. warnx", 1);
+	warnc(ENOENT, "%d. warn", ENOENT);
 	warn("%d. warn", 2);
 	err(0, "%d. err", 3);
+	errx(0, "%d. err", 3);
+	errc(0, ENOENT, "%d. err", 3);
 	/* NOTREACHED */
 	return 1;
 }
@@ -117,6 +139,7 @@ main(void)
 }
 #endif /* TEST_EXPLICIT_BZERO */
 #if TEST_FTS
+#include <stddef.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fts.h>
@@ -190,6 +213,45 @@ main(void)
 	return 0;
 }
 #endif /* TEST_INFTIM */
+#if TEST_LANDLOCK
+#include <linux/landlock.h>
+#include <linux/prctl.h>
+#include <stdlib.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <stdint.h>
+
+#ifndef landlock_create_ruleset
+static inline int landlock_create_ruleset(const struct landlock_ruleset_attr *const attr,
+	const size_t size, const __u32 flags)
+{
+	return syscall(__NR_landlock_create_ruleset, attr, size, flags);
+}
+#endif
+
+#ifndef landlock_restrict_self
+static inline int landlock_restrict_self(const int ruleset_fd,
+	const __u32 flags)
+{
+	return syscall(__NR_landlock_restrict_self, ruleset_fd, flags);
+}
+#endif
+
+int
+main(void)
+{
+	uint64_t mask = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_WRITE_FILE;
+	struct landlock_ruleset_attr rules = {
+		.handled_access_fs = mask
+	};
+	int fd = landlock_create_ruleset(&rules, sizeof(rules), 0);
+
+	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
+		return 1;
+	return landlock_restrict_self(fd, 0) ? 1 : 0;
+}
+#endif /* TEST_LANDLOCK */
 #if TEST_LIB_SOCKET
 #include <sys/socket.h>
 
@@ -230,7 +292,7 @@ main(void)
 }
 #endif /* TEST_MEMMEM */
 #if TEST_MEMRCHR
-#if defined(__linux__) || defined(__MINT__)
+#if defined(__linux__) || defined(__MINT__) || defined(__wasi__)
 #define _GNU_SOURCE	/* See test-*.c what needs this. */
 #endif
 #include <string.h>
@@ -380,6 +442,17 @@ main(void)
 	return(-1 == rc);
 }
 #endif /* TEST_SANDBOX_INIT */
+#if TEST_SCAN_SCALED
+#include <util.h>
+
+int
+main(void)
+{
+	char *cinput = (char *)"1.5K", buf[FMT_SCALED_STRSIZE];
+	long long ninput = 10483892, result;
+	return scan_scaled(cinput, &result) == 0;
+}
+#endif /* TEST_SCAN_SCALED */
 #if TEST_SECCOMP_FILTER
 #include <sys/prctl.h>
 #include <linux/seccomp.h>
@@ -415,7 +488,7 @@ main(void)
 	return setresuid(-1, -1, -1) == -1;
 }
 #endif /* TEST_SETRESUID */
-#if TEST_SHA2_H
+#if TEST_SHA2
 #include <sys/types.h>
 #include <sha2.h>
 
@@ -430,7 +503,7 @@ int main(void)
 
 	return 0;
 }
-#endif /* TEST_SHA2_H */
+#endif /* TEST_SHA2 */
 #if TEST_SOCK_NONBLOCK
 /*
  * Linux doesn't (always?) have this.
@@ -588,11 +661,12 @@ TAILQ_HEAD(fooq, foo);
 int
 main(void)
 {
-	struct fooq foo_q;
+	struct fooq foo_q, bar_q;
 	struct foo *p, *tmp;
 	int i = 0;
 
 	TAILQ_INIT(&foo_q);
+	TAILQ_INIT(&bar_q);
 
 	/*
 	 * Use TAILQ_FOREACH_SAFE because some systems (e.g., Linux)
@@ -601,6 +675,10 @@ main(void)
 
 	TAILQ_FOREACH_SAFE(p, &foo_q, entries, tmp)
 		p->bar = i++;
+
+	/* Test for newer macros as well. */
+
+	TAILQ_CONCAT(&foo_q, &bar_q, entries);
 	return 0;
 }
 #endif /* TEST_SYS_QUEUE */
@@ -653,6 +731,22 @@ main(void)
 }
 
 #endif /* TEST_SYS_TREE */
+#if TEST_TERMIOS
+#include <sys/ioctl.h>
+#include <string.h> /* memset */
+#include <termios.h>
+
+int
+main(void)
+{
+	struct winsize	 size;
+
+	memset(&size, 0, sizeof(struct winsize));
+	if (ioctl(1, TIOCGWINSZ, &size) == -1)
+		return 72;
+	return size.ws_col;
+}
+#endif /* TEST_TERMIOS */
 #if TEST_UNVEIL
 #include <unistd.h>
 
