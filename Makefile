@@ -26,17 +26,17 @@ CGIURI		 = /cgi-bin/kcaldav
 # File-system directory containing CGIURI.
 CGIPREFIX	 = /var/www/cgi-bin
 
-# Where do we put the system log?
+# Where do we get run-time configuration?
 # This must be writable by the server process and relative to the
 # chroot(2), if applicable.
-LOGFILE		 = /logs/kcaldav-system.log
+# If this file does not exist, it will be ignored; however, if the file
+# has configuration errors, the process will not start.
+CFGFILE	 	= /conf/kcaldav.conf
 
-# Set -D DEBUG=1 to produce debugging information in LOGFILE.
-# Set -D DEBUG=2 for even more debugging information.
-# Set -D DEBUG=3 to also trace network activity.
-# If you want to send me a debug report, please use -DDEBUG=3.
+# Deprecated.  Use the configuration file instead.
+#LOGFILE	 = /logs/kcaldav-system.log
+# Deprecated.  Use the configuration file instead.
 #CFLAGS		+= -DDEBUG=1
-
 # Override this to be empty if you don't want static compilation.
 # It's set to -static by Makefile.configure if available.
 #LDADD_STATIC	 =
@@ -70,13 +70,16 @@ CFLAGS		+= $(CFLAGS_PKG)
 BINS		 = kcaldav \
 		   kcaldav.passwd \
 		   test-caldav \
+		   test-conf \
 		   test-ical \
 		   test-nonce
 TESTSRCS 	 = test-caldav.c \
+		   test-conf.c \
 		   test-ical.c \
 		   test-nonce.c \
 		   test-rrule.c
 TESTOBJS 	 = test-caldav.o \
+		   test-conf.o \
 		   test-ical.o \
 		   test-nonce.o
 HTMLS	 	 = archive.html \
@@ -96,6 +99,7 @@ ALLSRCS		 = Makefile \
 		   collection.js \
 		   collection.xml \
 		   compats.c \
+		   conf.c \
 		   datetime.c \
 		   db.c \
 		   db.h \
@@ -106,6 +110,7 @@ ALLSRCS		 = Makefile \
 		   home.xml \
 		   ical.c \
 		   kcaldav.c \
+		   kcaldav.example.conf \
 		   kcaldav.passwd.c \
 		   kcaldav.sql \
 		   libkcaldav.h \
@@ -124,7 +129,8 @@ LIBOBJS		 = caldav.o \
 		   ical.o
 DBOBJS		 = db.o \
 		   kcaldav-sql.o
-BINOBJS		 = delete.o \
+BINOBJS		 = conf.o \
+		   delete.o \
 		   dynamic.o \
 		   get.o \
 		   kcaldav.o \
@@ -144,7 +150,7 @@ VERSION		 = 0.2.0
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DCALPREFIX=\"$(CALPREFIX)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"
-CFLAGS		+= -DLOGFILE=\"$(LOGFILE)\"
+CFLAGS		+= -DCFGFILE=\"$(CFGFILE)\"
 BHTMLS		 = collection.html \
 		   home.html
 
@@ -153,8 +159,9 @@ all: $(BINS) kcaldav.8 kcaldav.passwd.1 $(BHTMLS) $(JSMINS)
 www: kcaldav.tgz kcaldav.tgz.sha512 $(HTMLS) atom.xml
 
 afl: all
-	$(INSTALL_PROGRAM) test-ical afl/test-ical
 	$(INSTALL_PROGRAM) test-caldav afl/test-caldav
+	$(INSTALL_PROGRAM) test-conf afl/test-conf
+	$(INSTALL_PROGRAM) test-ical afl/test-ical
 
 updatecgi: all
 	mkdir -p $(DESTDIR)$(CGIPREFIX)
@@ -171,6 +178,7 @@ install: all
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(LIBDIR)
 	mkdir -p $(DESTDIR)$(INCLUDEDIR)
+	mkdir -p $(DESTDIR)$(SHAREDIR)
 	mkdir -p $(DESTDIR)$(MANDIR)/man8
 	mkdir -p $(DESTDIR)$(MANDIR)/man3
 	mkdir -p $(DESTDIR)$(MANDIR)/man1
@@ -180,6 +188,7 @@ install: all
 	$(INSTALL_MAN) $(MAN3S) $(DESTDIR)$(MANDIR)/man3
 	$(INSTALL_LIB) libkcaldav.a $(DESTDIR)$(LIBDIR)
 	$(INSTALL_DATA) libkcaldav.h $(DESTDIR)$(INCLUDEDIR)
+	$(INSTALL_DATA) kcaldav.example.conf $(DESTDIR)$(SHAREDIR)
 
 installwww: www
 	mkdir -p $(DESTDIR)$(WWWDIR)/snapshots
@@ -196,14 +205,16 @@ kcaldav.tgz: Makefile
 	mkdir -p .dist/kcaldav-$(VERSION)/man
 	mkdir -p .dist/kcaldav-$(VERSION)/regress
 	mkdir -p .dist/kcaldav-$(VERSION)/regress/caldav
+	mkdir -p .dist/kcaldav-$(VERSION)/regress/conf
 	mkdir -p .dist/kcaldav-$(VERSION)/regress/ical
 	$(INSTALL) -m 0644 $(ALLSRCS) .dist/kcaldav-$(VERSION)
 	$(INSTALL) -m 0755 configure .dist/kcaldav-$(VERSION)
 	$(INSTALL) -m 0644 $(MAN3S) .dist/kcaldav-$(VERSION)/man
 	$(INSTALL) -m 0644 man/kcaldav.passwd.in.1 .dist/kcaldav-$(VERSION)/man
 	$(INSTALL) -m 0644 man/kcaldav.in.8 .dist/kcaldav-$(VERSION)/man
-	$(INSTALL) -m 0644 regress/ical/*.ics .dist/kcaldav-$(VERSION)/regress/ical
 	$(INSTALL) -m 0644 regress/caldav/*.xml .dist/kcaldav-$(VERSION)/regress/caldav
+	$(INSTALL) -m 0644 regress/conf/*.conf .dist/kcaldav-$(VERSION)/regress/conf
+	$(INSTALL) -m 0644 regress/ical/*.ics .dist/kcaldav-$(VERSION)/regress/ical
 	( cd .dist && tar zcf ../$@ kcaldav-$(VERSION) )
 	rm -rf .dist
 
@@ -215,6 +226,9 @@ kcaldav: $(BINOBJS) $(DBOBJS) compats.o libkcaldav.a
 
 kcaldav.passwd: kcaldav.passwd.o $(DBOBJS) compats.o libkcaldav.a
 	$(CC) -o $@ kcaldav.passwd.o $(DBOBJS) compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
+
+test-conf: test-conf.o compats.o conf.o
+	$(CC) -o $@ test-conf.o compats.o conf.o $(LDFLAGS) $(BINLIBS)
 
 test-ical: test-ical.o compats.o libkcaldav.a
 	$(CC) -o $@ test-ical.o compats.o libkcaldav.a $(LDFLAGS) $(BINLIBS)
@@ -263,12 +277,12 @@ kcaldav-sql.c: kcaldav.sql
 	  grep -v '^[ 	]*--' kcaldav.sql | sed -e 's!$$!\\n\\!' ; \
 	  echo '";'; ) >$@
 
-regress: test-caldav test-ical test-nonce kcaldav.sql
-	@tmp=`mktemp -d` ; \
-	 sqlite3 $$tmp/kcaldav.db < kcaldav.sql >/dev/null; \
-	 printf "./test-nonce $${tmp}... " ; \
+regress: test-caldav test-ical test-nonce test-conf kcaldav.sql
+	@tmpdir=`mktemp -d` ; \
+	 sqlite3 $$tmpdir/kcaldav.db < kcaldav.sql >/dev/null; \
+	 printf "./test-nonce $${tmpdir}... " ; \
 	 set -e ; \
-	 ./test-nonce $$tmp >/dev/null 2>&1 ; \
+	 ./test-nonce $$tmpdir >/dev/null 2>&1 ; \
 	 if [ $$? -eq 0 ] ; \
 	 then \
 	 	echo "ok" ; \
@@ -276,7 +290,7 @@ regress: test-caldav test-ical test-nonce kcaldav.sql
 	 	echo "fail" ; \
 	 fi ; \
 	 set +e ; \
-	 rm -rf $$tmp 
+	 rm -rf $$tmpdir 
 	@for f in regress/caldav/*.xml ; \
 	 do \
 		set -e ; \
@@ -290,6 +304,28 @@ regress: test-caldav test-ical test-nonce kcaldav.sql
 		fi ; \
 		set +e ; \
 	 done
+	@tmp=`mktemp` ; \
+	 for f in regress/conf/*.in.conf ; \
+	 do \
+		set -e ; \
+		printf "%s... " "$$f" ; \
+		./test-conf $$f >$$tmp ; \
+		if [ $$? -ne 0 ] ; \
+		then \
+			echo "fail (run-time)" ; \
+			set +e ; \
+			continue ; \
+		fi ; \
+		cmp -s regress/conf/`basename $$f .in.conf`.out.conf $$tmp ; \
+		if [ $$? -eq 0 ] ; \
+		then \
+			echo "ok" ; \
+		else \
+			echo "fail" ; \
+		fi ; \
+		set +e ; \
+	 done ; \
+	 rm -f $$tmp
 	@for f in regress/ical/*.ics ; \
 	 do \
 		set -e ; \

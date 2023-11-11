@@ -71,6 +71,14 @@ enum	valid {
 };
 
 /*
+ * Run-time configuration.
+ */
+struct	conf {
+	char		*logfile; /* logfile or NULL (ptr needs free) */
+	int		 verbose; /* assign to verbose */
+};
+
+/*
  * State carried through the system for a single operator.
  */
 struct	state {
@@ -101,6 +109,8 @@ struct	property {
 	resourcefp	rgetfp;
 	principalfp	pgetfp;
 };
+
+int		 conf_read(const char *, struct conf *);
 
 int		 xml_ical_putc(int, void *);
 int		 http_ical_putc(int, void *);

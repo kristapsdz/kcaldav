@@ -14,5 +14,6 @@ kcaldav.passwd
 kcaldav.passwd.1
 libkcaldav.a
 test-caldav
+test-conf
 test-ical
 test-nonce

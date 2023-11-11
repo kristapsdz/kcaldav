@@ -423,33 +423,49 @@ main(void)
 		{ kvalid_hash, valids[VALID_PASS] },
 		{ kvalid_path, valids[VALID_PATH] } }; 
 	struct state	*st = NULL;
-	int		 rc;
-	char		*np;
+	char		*np, *logfile = NULL;
+	struct conf	 conf;
+	const char	*cfgfile = NULL;
 	size_t		 i, sz;
 	enum kcgi_err	 er;
-	const char	*logfile = "";
+	int		 rc;
 
-#ifdef LOGFILE
-	logfile = LOGFILE;
+	/*
+	 * Hard-coded configuration file path.  If unset or set to an
+	 * empty string, no configuration file is used.
+	 */
+#ifdef CFGFILE
+	cfgfile = CFGFILE;
 #endif
+
+	/* Needed for non-OpenBSD systems for a weak PRNG. */
+
 #if !HAVE_ARC4RANDOM
 	srandom(time(NULL));
 #endif
-#if defined DEBUG && DEBUG > 0
-	verbose = DEBUG;
-#endif
+
+	/* Pledge allowing some file-system access. */
 
 #if HAVE_PLEDGE
-	if (pledge("proc stdio rpath "
-	    "cpath wpath flock fattr", NULL) == -1)
+	if (pledge("proc stdio rpath cpath wpath flock fattr", NULL) == -1)
 		kutil_err(NULL, NULL, "pledge");
 #endif
 
-	/* Only open the logfile if it's non-empty. */
+	/* Read run-time configuration.  Act upon it then free. */
 
-	if (logfile[0] != '\0' && !kutil_openlog(logfile))
-		kutil_errx(NULL, NULL, "kutil_openlog");
+	if ((rc = conf_read(cfgfile, &conf)) == -1)
+		kutil_err(NULL, NULL, "%s", cfgfile);
+	else if (rc == 0)
+		kutil_errx(NULL, NULL, "%s: malformed", cfgfile);
 
+	verbose = conf.verbose;
+	if (conf.logfile != NULL && *conf.logfile != '\0')
+		if (!kutil_openlog(conf.logfile))
+			kutil_err(NULL, NULL, "%s", logfile);
+
+	free(conf.logfile);
+	memset(&conf, 0, sizeof(struct conf));
+	
 	/* Parse the main body. */
 
 	er = khttp_parsex
@@ -463,16 +479,20 @@ main(void)
 		kutil_errx(NULL, NULL, 
 			"khttp_parse: %s", kcgi_strerror(er));
 
+	/*
+	 * Tighten the sandbox: drop proc and only allow for the calendar
+	 * directory to be accessed.
+	 */
+
 #if HAVE_SANDBOX_INIT
-	rc = sandbox_init
-		(kSBXProfileNoInternet, 
-		 SANDBOX_NAMED, &np);
+	rc = sandbox_init(kSBXProfileNoInternet, SANDBOX_NAMED, &np);
 	if (rc == -1)
 		kutil_errx(NULL, NULL, "sandbox_init: %s", np);
 #endif
+
 #if HAVE_PLEDGE
-	if (pledge("stdio rpath cpath "
-	    "wpath flock fattr", NULL) == -1)
+	/* TODO: unveil(2). */
+	if (pledge("stdio rpath cpath wpath flock fattr", NULL) == -1)
 		kutil_err(NULL, NULL, "pledge");
 #endif
 
