@@ -490,7 +490,16 @@ main(void)
 #endif
 
 #if HAVE_PLEDGE
+	/*
+	 * Directories required by sqlite3.
+	 */
 	if (unveil(CALDIR, "rwx") == -1)
+		kutil_err(NULL, NULL, "unveil");
+	if (unveil("/tmp", "rwx") == -1)
+		kutil_err(NULL, NULL, "unveil");
+	if (unveil("/var/tmp", "rwx") == -1)
+		kutil_err(NULL, NULL, "unveil");
+	if (unveil("/dev", "rwx") == -1)
 		kutil_err(NULL, NULL, "unveil");
 	if (pledge("stdio rpath cpath wpath flock fattr", NULL) == -1)
 		kutil_err(NULL, NULL, "pledge");
