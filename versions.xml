@@ -526,7 +526,7 @@
 				level and file are retained, although they are overridden by the
 				configuration file contents).
 				This is documented in
-				<a href="kcaldav.conf.5">kcaldav.conf(5)</a>.
+				<a href="kcaldav.conf.5.html">kcaldav.conf(5)</a>.
 				The location of the file is a compile-time constant set in
 				<code>CFGFILE</code>, defaulting to <code>/conf/kcaldav.conf</code>.
 				This makes it much easier to submit bug reports.

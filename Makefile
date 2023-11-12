@@ -1,5 +1,5 @@
 .PHONY: regress
-.SUFFIXES: .3 .3.html .8 .8.html .1 .1.html .xml .html
+.SUFFIXES: .8 .8.html .5 .5.html .1 .1.html .xml .html
 
 include Makefile.configure
 
@@ -265,6 +265,9 @@ kcaldav.8: man/kcaldav.in.8
 	    -e "s!@CALPREFIX@!$(CALPREFIX)!g" \
 	    -e "s!@PREFIX@!$(PREFIX)!g" man/kcaldav.in.8 >$@
 
+kcaldav.conf.5: man/kcaldav.conf.5
+	cp man/kcaldav.conf.5 $@
+
 kcaldav.passwd.1: man/kcaldav.passwd.in.1
 	sed -e "s!@CALPREFIX@!$(CALPREFIX)!g" \
 	    -e "s!@PREFIX@!$(PREFIX)!g" man/kcaldav.passwd.in.1 >$@
@@ -367,7 +370,7 @@ clean:
 distclean: clean
 	rm -f config.h config.log Makefile.configure
 
-.8.8.html .3.3.html .1.1.html:
+.8.8.html .5.5.html .1.1.html:
 	mandoc -Ostyle=https://bsd.lv/css/mandoc.css -Thtml $< >$@
 
 .xml.html:

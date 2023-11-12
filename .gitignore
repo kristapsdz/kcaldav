@@ -17,3 +17,10 @@ test-caldav
 test-conf
 test-ical
 test-nonce
+archive.html
+atom.xml
+index.html
+kcaldav.8.html
+kcaldav.passwd.1.html
+kcaldav.tgz
+kcaldav.tgz.sha512
