@@ -493,11 +493,11 @@ main(void)
 	/*
 	 * Directories required by sqlite3.
 	 */
-	if (unveil(CALDIR, "rwx") == -1)
+	if (unveil(CALDIR, "rwxc") == -1)
 		kutil_err(NULL, NULL, "unveil");
-	if (unveil("/tmp", "rwx") == -1)
+	if (unveil("/tmp", "rwxc") == -1)
 		kutil_err(NULL, NULL, "unveil");
-	if (unveil("/var/tmp", "rwx") == -1)
+	if (unveil("/var/tmp", "rwxc") == -1)
 		kutil_err(NULL, NULL, "unveil");
 	if (unveil("/dev", "rwx") == -1)
 		kutil_err(NULL, NULL, "unveil");
