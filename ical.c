@@ -29,13 +29,6 @@
 
 #include "libkcaldav.h"
 
-enum	icaldatet {
-	ICAL_DT_DATETIMEUTC,
-	ICAL_DT_DATETIME,
-	ICAL_DT_DATE,
-	ICAL_DT__MAX
-};
-
 /*
  * This is a misnomer: it should be "icalcomponents".
  * These are all possible iCalendar components (see RFC 2445, 4.6).
@@ -225,32 +218,33 @@ ical_free(struct ical *p)
 }
 
 static enum icaldatet
-ical_datetime_date(const struct icalparse *p,
-	struct tm *tm, const char *cp)
+ical_datetime_date(const struct icalparse *p, struct tm *tm,
+	const char *cp, enum icaldatet *res)
 {
 	unsigned int	day, mon, yr;
 
 	if (sscanf(cp, "%4u%2u%2u", &yr, &mon, &day) != 3)
-		return ICAL_DT__MAX;
+		return 0;
 
 	tm->tm_year = yr - 1900;
 	tm->tm_mon = mon - 1;
 	tm->tm_mday = day;
-	return ICAL_DT_DATE;
+	*res = ICAL_DT_DATE;
+	return 1;
 }
 
 static enum icaldatet
-ical_datetime_datetime_utc(const struct icalparse *p,
-	struct tm *tm, const char *cp)
+ical_datetime_datetime_utc(const struct icalparse *p, struct tm *tm,
+	const char *cp, enum icaldatet *res)
 {
 	unsigned int	 day, mon, yr, hr, min, sec;
 	char		 t, z;
 
 	if (sscanf(cp, "%4u%2u%2u%c%2u%2u%2u%c",
 	    &yr, &mon, &day, &t, &hr, &min, &sec, &z) != 8)
-		return ICAL_DT__MAX;
+		return 0;
 	else if (t != 'T' || z != 'Z')
-		return ICAL_DT__MAX;
+		return 0;
 
 	tm->tm_year = yr - 1900;
 	tm->tm_mon = mon - 1;
@@ -258,21 +252,22 @@ ical_datetime_datetime_utc(const struct icalparse *p,
 	tm->tm_hour = hr;
 	tm->tm_min = min;
 	tm->tm_sec = sec;
-	return ICAL_DT_DATETIMEUTC;
+	*res = ICAL_DT_DATETIMEUTC;
+	return 1;
 }
 
 static enum icaldatet
-ical_datetime_datetime(const struct icalparse *p,
-	struct tm *tm, const char *cp)
+ical_datetime_datetime(const struct icalparse *p, struct tm *tm,
+	const char *cp, enum icaldatet *res)
 {
 	unsigned int	 day, mon, yr, hr, min, sec;
 	char		 t;
 
 	if (sscanf(cp, "%4u%2u%2u%c%2u%2u%2u",
 	    &yr, &mon, &day, &t, &hr, &min, &sec) != 7)
-		return ICAL_DT__MAX;
+		return 0;
 	else if (t != 'T')
-		return ICAL_DT__MAX;
+		return 0;
 
 	tm->tm_year = yr - 1900;
 	tm->tm_mon = mon - 1;
@@ -280,7 +275,8 @@ ical_datetime_datetime(const struct icalparse *p,
 	tm->tm_hour = hr;
 	tm->tm_min = min;
 	tm->tm_sec = sec;
-	return ICAL_DT_DATETIME;
+	*res = ICAL_DT_DATETIME;
+	return 1;
 }
 
 /*
@@ -290,17 +286,20 @@ ical_datetime_datetime(const struct icalparse *p,
  *  YYYYMMDD
  *  YYYYMMDD 'T' HHMMSS
  *  YYYYMMDD 'T' HHMMSS 'Z'
- * Return the icaldatet or ICAL_DT__MAX on failure.
+ * Return zero on failure, non-zero on success.
  */
-static enum icaldatet
-ical_datetime(const struct icalparse *p,
-	struct icaltm *tm, const char *cp, char **er)
+static int
+ical_datetime(const struct icalparse *p, struct icaltm *tm,
+	const char *cp, char **er)
 {
 	struct tm	 tmm;
 	size_t 		 cplen = strlen(cp);
-	enum icaldatet	 dt = ICAL_DT__MAX;
+	enum icaldatet	 dt;
+	int		 rc;
 
+	memset(tm, 0, sizeof(struct icaltm));
 	memset(&tmm, 0, sizeof(struct tm));
+	tm->type = ICAL_DT_UNSET;
 
 	/*
 	 * Don't use strptime(3) here because some systems (e.g., some
@@ -310,20 +309,22 @@ ical_datetime(const struct icalparse *p,
 	 */
 
 	if (cplen == 16)
-		dt = ical_datetime_datetime_utc(p, &tmm, cp);
+		rc = ical_datetime_datetime_utc(p, &tmm, cp, &dt);
 	else if (cplen == 15)
-		dt = ical_datetime_datetime(p, &tmm, cp);
+		rc = ical_datetime_datetime(p, &tmm, cp, &dt);
 	else if (cplen == 8)
-		dt = ical_datetime_date(p, &tmm, cp);
+		rc = ical_datetime_date(p, &tmm, cp, &dt);
+	else
+		rc = 0;
 
-	if (dt == ICAL_DT__MAX) {
+	if (!rc) {
 		ical_err(er, p->file, p->line, "bad date/date-time");
-		return dt;
+		return 0;
 	}
 
-	tm->set = 1;
+	tm->type = dt;
 	tm->tm = mktime(&tmm);
-	return dt;
+	return 1;
 }
 
 /*
@@ -346,9 +347,9 @@ ical_tzdatetime(struct icalparse *p, struct icaltime *tm,
 
 	/* First, let's parse the raw date and time. */
 
-	dtret = ical_datetime(p, &tm->time, np->val, er);
-	if (dtret == ICAL_DT__MAX)
+	if (!ical_datetime(p, &tm->time, np->val, er))
 		return 0;
+	dtret = tm->time.type;
 
 	/* No timezone. */
 
@@ -455,15 +456,12 @@ static int
 ical_localdatetime(const struct icalparse *p,
 	struct icaltm *v, const char *cp, char **er)
 {
-	enum icaldatet	 dt;
 
 	memset(v, 0, sizeof(struct icaltm));
-
-	dt = ical_datetime(p, v, cp, er);
-	if (dt != ICAL_DT__MAX && dt != ICAL_DT_DATETIME)
+	if (!ical_datetime(p, v, cp, er) ||
+	    v->type != ICAL_DT_DATETIME)
 		ical_err(er, p->file, p->line, "bad local date-time");
-
-	return dt == ICAL_DT_DATETIME;
+	return v->type == ICAL_DT_DATETIME;
 }
 
 /*
@@ -474,15 +472,12 @@ static int
 ical_utcdatetime(const struct icalparse *p,
 	struct icaltm *v, const char *cp, char **er)
 {
-	enum icaldatet	 dt;
 
 	memset(v, 0, sizeof(struct icaltm));
-
-	dt = ical_datetime(p, v, cp, er);
-	if (dt != ICAL_DT__MAX && dt != ICAL_DT_DATETIMEUTC)
+	if (!ical_datetime(p, v, cp, er) ||
+	    v->type != ICAL_DT_DATETIMEUTC)
 		ical_err(er, p->file, p->line, "bad UTC date-time");
-
-	return dt == ICAL_DT_DATETIMEUTC;
+	return v->type == ICAL_DT_DATETIMEUTC;
 }
 
 /*
@@ -679,7 +674,6 @@ static int
 ical_rrule_param(const struct icalparse *p, struct icalrrule *vp,
 	const char *key, char *v, int in_tz, char **er)
 {
-	enum icaldatet	 rv;
 
 	if (strcmp(key, "FREQ") == 0) {
 		vp->freq = ICALFREQ_NONE + 1; 
@@ -689,10 +683,12 @@ ical_rrule_param(const struct icalparse *p, struct icalrrule *vp,
 		ical_err(er, p->file, p->line, 
 			"malformed \"FREQ\"");
 	} else if (strcmp(key, "UNTIL") == 0) {
-		rv = ical_datetime(p, &vp->until, v, er);
-		/* See RFC 5545, p. 66. */
-		if (rv != ICAL_DT__MAX && 
-		    (!in_tz || rv == ICAL_DT_DATETIMEUTC))
+		/* 
+		 * See RFC 5545, p. 41, 66.
+		 * Defer checking the UNTIL format against the caller's
+		 * DTSTART until after parsing all statements.
+		 */
+		if (ical_datetime(p, &vp->until, v, er))
 			return 1;
 		ical_err(er, p->file, p->line, 
 			"malformed \"UNTIL\"");
@@ -1124,6 +1120,7 @@ ical_parsetz(struct icalparse *p, enum icaltztype type, char **er)
 	char		*name, *val, *param;
 	int		 rc;
 	struct icalnode	*np;
+	enum icaldatet	 ntype;
 	void		*pp;
 
 	if (p->comps[ICALTYPE_VTIMEZONE] == NULL) {
@@ -1180,6 +1177,26 @@ ical_parsetz(struct icalparse *p, enum icaltztype type, char **er)
 			return 0;
 	}
 
+	/*
+	 * Check RRULE UNTIL: it must be UTC if this sub-component
+	 * context specifies a UTC DTSTART *or* has non-zero timezone
+	 * bits.  See RFC 5545, p. 41.
+	 */
+
+	if (c->rrule.set &&
+	    c->rrule.until.type != ICAL_DT_UNSET && 
+	    c->dtstart.type != ICAL_DT_UNSET &&
+	    c->rrule.until.type != c->dtstart.type) {
+		ntype = (c->tzto != 0 || c->tzfrom != 0) ?
+			ICAL_DT_DATETIMEUTC : c->dtstart.type;
+		if (c->rrule.until.type != ntype) {
+			ical_err(er, p->file, p->line,
+				"\"RRULE\" \"UNTIL\" not inheriting "
+				"sub-component time-zone format");
+			return 0;
+		}
+	}
+
 	return 1;
 }
 
@@ -1194,6 +1211,7 @@ ical_parsecomp(struct icalparse *p, enum icaltype type, char **er)
 	struct icalcomp	*c;
 	char		*name, *val, *param;
 	int		 rc;
+	enum icaldatet	 ntype;
 	struct icalnode	*np;
 	enum icaltype	 tt;
 	enum icaltztype	 tz;
@@ -1276,6 +1294,25 @@ ical_parsecomp(struct icalparse *p, enum icaltype type, char **er)
 
 		if (!rc)
 			return 0;
+	}
+
+	/*
+	 * Check RRULE UNTIL: it must be UTC if this component context
+	 * specifies a UTC DTSTART *or* has non-empty timezone bits.
+	 * See RFC 5545, p. 41.
+	 */
+
+	if (c->rrule.set &&
+	    c->rrule.until.type != ICAL_DT_UNSET &&
+	    c->dtstart.time.type != ICAL_DT_UNSET) {
+		ntype = c->dtstart.tzstr != NULL ?
+			ICAL_DT_DATETIMEUTC : c->dtstart.time.type;
+		if (c->rrule.until.type != ntype) {
+			ical_err(er, p->file, p->line,
+				"\"RRULE\" \"UNTIL\" not inheriting "
+				"component time-zone format");
+			return 0;
+		}
 	}
 
 	/* We can now run some post-processing queries. */

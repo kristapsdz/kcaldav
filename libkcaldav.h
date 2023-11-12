@@ -159,9 +159,16 @@ struct	icalwk {
 	enum icalwkday	 wkday;
 };
 
+enum	icaldatet {
+	ICAL_DT_UNSET = 0,
+	ICAL_DT_DATETIMEUTC,
+	ICAL_DT_DATETIME,
+	ICAL_DT_DATE,
+};
+
 struct	icaltm {
 	time_t		 tm;
-	int		 set;
+	enum icaldatet	 type;
 };
 
 struct	icaldur {

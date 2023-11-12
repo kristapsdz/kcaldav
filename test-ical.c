@@ -49,7 +49,7 @@ ical_printrrule(const struct icalcomp *c,
 
 	if (ICALFREQ_NONE != r->freq)
 		printf("%sFREQ = %s\n", buf, icalfreqs[r->freq]);
-	if (r->until.set)
+	if (r->until.type != ICAL_DT_UNSET)
 		printf("%sUNTIL = %s", buf, ctime(&r->until.tm));
 	if (0 != r->count)
 		printf("%sCOUNT = %lu\n", buf, r->count);
@@ -131,15 +131,15 @@ ical_printcomp(const struct icalcomp *c)
 	if (NULL != c->tzid)
 		printf("[%s] TZID = %s\n", 
 			icaltypes[c->type], c->tzid);
-	if (c->created.set)
+	if (c->created.type != ICAL_DT_UNSET)
 		printf("[%s] CREATED = %s", 
 			icaltypes[c->type], 
 			ctime(&c->created.tm));
-	if (c->lastmod.set)
+	if (c->lastmod.type != ICAL_DT_UNSET)
 		printf("[%s] LASTMODIFIED = %s", 
 			icaltypes[c->type], 
 			ctime(&c->lastmod.tm));
-	if (c->dtstamp.set)
+	if (c->dtstamp.type != ICAL_DT_UNSET)
 		printf("[%s] DTSTAMP = %s", 
 			icaltypes[c->type], 
 			ctime(&c->dtstamp.tm));
@@ -152,14 +152,14 @@ ical_printcomp(const struct icalcomp *c)
 			c->duration.sec);
 	if (0 != c->rrule.set)
 		ical_printrrule(c, ICALTZ__MAX, &c->rrule);
-	if (c->dtstart.time.set)
+	if (c->dtstart.time.type != ICAL_DT_UNSET)
 		printf("[%s] DTSTART = %s: %s", 
 			icaltypes[c->type], 
 			NULL != c->dtstart.tz ?
 			c->dtstart.tz->tzid : "(no TZ)",
 			ctime(&c->dtstart.time.tm));
 	for (i = 0; i < c->tzsz; i++) {
-		if (c->tzs[i].dtstart.set)
+		if (c->tzs[i].dtstart.type != ICAL_DT_UNSET)
 			printf("[%s:%s] DTSTART = %s", 
 				icaltypes[c->type], 
 				icaltztypes[c->tzs[i].type], 

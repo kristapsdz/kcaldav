@@ -306,8 +306,17 @@ The UNIX epoch value.
 .Em Note :
 this may be replaced by a native 64-bit value so that 32-bit time
 systems aren't affected.
-.It Va int set
-If non-zero, the value has been set; otherwise, zero.
+.It Va "enum icaldatet type"
+If
+.Dv ICAL_DT_UNSET ,
+the date-time has no been set.
+Otherwise, the format of the date-time:
+a date
+.Pq Dv ICAL_T_DATE ,
+date and time
+.Pq Dv ICAL_T_DATETIME ,
+or UTC date and time
+.Pq Dv ICAL_T_DATETIMEUTC .
 .El
 .Pp
 Weekday values are set in
