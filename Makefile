@@ -180,7 +180,7 @@ install: all
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(LIBDIR)
 	mkdir -p $(DESTDIR)$(INCLUDEDIR)
-	mkdir -p $(DESTDIR)$(SHAREDIR)
+	mkdir -p $(DESTDIR)$(SHAREDIR)/kcaldav
 	mkdir -p $(DESTDIR)$(MANDIR)/man8
 	mkdir -p $(DESTDIR)$(MANDIR)/man5
 	mkdir -p $(DESTDIR)$(MANDIR)/man3
@@ -192,7 +192,7 @@ install: all
 	$(INSTALL_MAN) $(MAN3S) $(DESTDIR)$(MANDIR)/man3
 	$(INSTALL_LIB) libkcaldav.a $(DESTDIR)$(LIBDIR)
 	$(INSTALL_DATA) libkcaldav.h $(DESTDIR)$(INCLUDEDIR)
-	$(INSTALL_DATA) kcaldav.example.conf $(DESTDIR)$(SHAREDIR)
+	$(INSTALL_DATA) kcaldav.example.conf $(DESTDIR)$(SHAREDIR)/kcaldav
 
 installwww: www
 	mkdir -p $(DESTDIR)$(WWWDIR)/snapshots
