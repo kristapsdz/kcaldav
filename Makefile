@@ -86,6 +86,7 @@ TESTOBJS 	 = test-caldav.o \
 HTMLS	 	 = archive.html \
 		   index.html \
 		   kcaldav.8.html \
+		   kcaldav.conf.5.html \
 		   kcaldav.passwd.1.html
 MAN3S		 = man/caldav_free.3 \
 		   man/caldav_parse.3 \
