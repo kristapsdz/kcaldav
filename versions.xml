@@ -513,4 +513,31 @@
 			</div>
 		</aside>
 	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2023-11-12">2023-11-12</time>
+		</header>
+		<aside>
+			<div>
+				Instead of compile-time debug levels and output, start using a
+				run-time configuration file.  (Existing methods of setting debug
+				level and file are retained, although they are overridden by the
+				configuration file contents).
+				This is documented in
+				<a href="kcaldav.conf.5">kcaldav.conf(5)</a>.
+				The location of the file is a compile-time constant set in
+				<code>CFGFILE</code>, defaulting to <code>/conf/kcaldav.conf</code>.
+				This makes it much easier to submit bug reports.
+			</div>
+			<div>
+				Fully comply to the RFC for <code>RRULE</code> <code>UNTIL</code>
+				parsing.  Newer versions of Thunderbird (or possibly just the
+				newer time-zone specifications used by Thunderbird) caused
+				<span class="nm">kcaldav</span> to fail in parsing uploaded
+				calendar entries for this reason.
+			</div>
+		</aside>
+	</article>
 </articles>

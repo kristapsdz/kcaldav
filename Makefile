@@ -147,7 +147,7 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(DBOBJS) \
 		   compats.o \
 		   kcaldav.passwd.o
-VERSION		 = 0.2.0
+VERSION		 = 0.2.1
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DCALPREFIX=\"$(CALPREFIX)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"

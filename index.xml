@@ -43,12 +43,6 @@
 						${sblg-titletext}
 					</nav>
 				</span>
-				<span>
-					<a href="https://kristaps.bsd.lv/cgi-bin/minci.cgi/index.html?project-name=kcaldav">
-						<i class="fa fa-fw fa-tachometer"></i>
-						<span class="navtext">builds</span>
-					</a>
-				</span>
 			</div>
 		</nav>
 		<article>
@@ -127,7 +121,7 @@
 			</section>
 		</article>
 		<footer>
-			&#169; 2015&#8211;2016, 2019 <a rel="author" href="https://github.com/kristapsdz">Kristaps Dz</a>
+			&#169; <a rel="author" href="https://github.com/kristapsdz">Kristaps Dz</a>
 		</footer>
 	</body>
 </html>
