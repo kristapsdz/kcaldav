@@ -546,7 +546,8 @@ main(void)
 	r.arg = st = kcalloc(1, sizeof(struct state));
 
 	if (r.fullpath[0] == '\0') {
-		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname);
+		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname,
+			(char *)NULL);
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_307]);
 	        khttp_head(&r, kresps[KRESP_CONTENT_TYPE], 
@@ -666,7 +667,8 @@ main(void)
 	 */
 
 	if (st->principal[0] == '\0') {
-		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname);
+		np = khttp_urlabs(r.scheme, r.host, r.port, r.pname,
+			(char *)NULL);
 		khttp_head(&r, kresps[KRESP_STATUS], 
 			"%s", khttps[KHTTP_307]);
 	        khttp_head(&r, kresps[KRESP_CONTENT_TYPE], 
