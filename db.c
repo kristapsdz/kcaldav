@@ -1435,6 +1435,7 @@ db_collection_resources(void (*fp)(const struct res *, void *),
 		p.id = sqlite3_column_int64(stmt, 3);
 		p.collection = sqlite3_column_int64(stmt, 4);
 		sz = strlen(p.data);
+		rsz = 0;
 		p.ical = ical_parse(NULL, p.data, sz, &rsz, &er);
 		if (p.ical == NULL) {
 			kerrx("ical_parse: %s", er);
@@ -1721,6 +1722,7 @@ db_resource_load(struct res **pp, const char *url, int64_t colid)
 		/* Parse the full iCalendar. */
 
 		sz = strlen((*pp)->data);
+		rsz = 0;
 		(*pp)->ical = ical_parse(NULL, (*pp)->data, sz, &rsz,
 			&er);
 		if ((*pp)->ical == NULL) {
