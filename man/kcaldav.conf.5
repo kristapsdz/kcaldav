@@ -1,0 +1,107 @@
+.\" Copyright (c) Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt KCALDAV.CONF 5
+.Os
+.Sh NAME
+.Nm kcaldav.conf
+.Nd kcaldav configuration
+.\" .Sh LIBRARY
+.\" For sections 2, 3, and 9 only.
+.\" Not used in OpenBSD.
+.Sh SYNOPSIS
+.Nm kcaldav.conf
+.Sh DESCRIPTION
+The
+.Nm
+file specifies run-time configuration for
+.Xr kcaldav 8 .
+Its location relative to the web server root is set at compile-time.
+If not set, or the file does not exist, system defaults are used.
+.Pp
+The file is designed to be human readable and contains a list of keywords with
+values that represent run-time configuration.
+.Pp
+A keyword and its value must appear on a single line.
+The keyword and value are separated by the equal sign
+.Pq = .
+White-space at the start, end, and around the equal sign are stripped.
+A hash mark
+.Pq #
+in the file indicates the beginning of a comment; subsequent characters up to
+the end of the line are not interpereted by the routines that read the file.
+If the hash mark is preceded by a backslash
+.Pq \e ,
+the backslash is stripped from input, but the hash mark is retained.
+Blank lines (even if containing spaces) are ignored.
+It is an error to specify unknown keywords or keywords without a equal sign.
+.Pp
+The configuration options are:
+.Bl -tag -width Ds
+.It Ic logfile
+File for writing log messages.
+This must already exist and be writable by the
+.Xr kcaldav 8
+process.
+If specified as an empty string or not specified, the default is writing log
+messages to
+.Dv stderr .
+.It Ic debug
+A non-negative number indicating log level.
+Zero, the default, outputs only warning and error messages.
+One additionally outputs informational messages.
+Two additionally outputs database debug messages.
+Three additionally outputs network debug messages.
+.El
+.\" .Sh CONTEXT
+.\" For section 9 functions only.
+.\" .Sh IMPLEMENTATION NOTES
+.\" .Sh RETURN VALUES
+.\" For sections 2, 3, and 9 function return values only.
+.\" .Sh ENVIRONMENT
+.\" For sections 1, 6, 7, and 8 only.
+.\" .Sh FILES
+.\" .Sh EXIT STATUS
+.\" For sections 1, 6, and 8 only.
+.Sh EXAMPLES
+A reasonable default configuration is as follows:
+.Bd -literal -offset indent
+# Instead of logging to stderr (usually stored in the web server's
+# error.log), log to a specific file relative to the web server
+# chroot.
+logfile=/logs/kcaldav.log
+
+# Set debug=1 to also output informational messages.
+# Set debug=2 to also output database debug messages.
+# Set debug=3 to also output network debug messages.
+debug=1
+.Ed
+.Pp
+For submitting bug reports,
+.Ic debug
+should be set to 3.
+.\" .Sh DIAGNOSTICS
+.\" For sections 1, 4, 6, 7, 8, and 9 printf/stderr messages only.
+.\" .Sh ERRORS
+.\" For sections 2, 3, 4, and 9 errno settings only.
+.Sh SEE ALSO
+.Xr kcaldav 8
+.\" .Sh STANDARDS
+.\" .Sh HISTORY
+.\" .Sh AUTHORS
+.\" .Sh CAVEATS
+.\" .Sh BUGS
+.\" .Sh SECURITY CONSIDERATIONS
+.\" Not used in OpenBSD.

@@ -33,6 +33,8 @@ It interfaces with a calendar database
 .Pq in the web server's file-system root
 administered by
 .Xr kcaldav.passwd 1 .
+Its run-time configuration is specified by
+.Xr kcaldav.conf 5 .
 .Pp
 For example, assume the CGI program available at:
 .Pp
@@ -162,6 +164,23 @@ can modify collection information online.
 the calendar database must be read-writable by the web server.
 In general, the directory containing the database will also need to be
 writable by the web server for creating its temporary transaction files.
+.Ss Logging
+.Nm
+output logging information in a form similar to the Apache Common Log Format:
+.Bd -literal -offset indent
+%h %l %u %t %m\en
+.Ed
+.Pp
+The
+.Li %m
+value extends the format by containing the unquoted message contents.
+.Pp
+Output is written to
+.Dv stderr
+by default, or otherwise as specified in
+.Xr kcaldav.conf 5 .
+Logging verbosity is also specified in the configuration file,
+defaulting to warning and error messages only.
 .Sh HTTP METHODS
 This section describes each supported HTTP method.
 .Ss DELETE
@@ -383,6 +402,9 @@ The
 .Qq well-known
 web server interface.
 .El
+.Pp
+Logging uses the
+.Lk https://httpd.apache.org/docs/2.4/logs.html "Apache Common Log Format" .
 .\" .Sh HISTORY
 .\" .Sh AUTHORS
 .\" .Sh CAVEATS

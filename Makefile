@@ -26,7 +26,7 @@ CGIURI		 = /cgi-bin/kcaldav
 # File-system directory containing CGIURI.
 CGIPREFIX	 = /var/www/cgi-bin
 
-# Where do we get run-time configuration?
+# Where do we get run-time kcaldav.conf(5) configuration?
 # This must be writable by the server process and relative to the
 # chroot(2), if applicable.
 # If this file does not exist, it will be ignored; however, if the file
@@ -37,6 +37,7 @@ CFGFILE	 	= /conf/kcaldav.conf
 #LOGFILE	 = /logs/kcaldav-system.log
 # Deprecated.  Use the configuration file instead.
 #CFLAGS		+= -DDEBUG=1
+
 # Override this to be empty if you don't want static compilation.
 # It's set to -static by Makefile.configure if available.
 #LDADD_STATIC	 =
@@ -180,11 +181,13 @@ install: all
 	mkdir -p $(DESTDIR)$(INCLUDEDIR)
 	mkdir -p $(DESTDIR)$(SHAREDIR)
 	mkdir -p $(DESTDIR)$(MANDIR)/man8
+	mkdir -p $(DESTDIR)$(MANDIR)/man5
 	mkdir -p $(DESTDIR)$(MANDIR)/man3
 	mkdir -p $(DESTDIR)$(MANDIR)/man1
 	$(INSTALL_PROGRAM) kcaldav.passwd $(DESTDIR)$(BINDIR)
 	$(INSTALL_MAN) kcaldav.passwd.1 $(DESTDIR)$(MANDIR)/man1
 	$(INSTALL_MAN) kcaldav.8 $(DESTDIR)$(MANDIR)/man8
+	$(INSTALL_MAN) ./man/kcaldav.conf.5 $(DESTDIR)$(MANDIR)/man5
 	$(INSTALL_MAN) $(MAN3S) $(DESTDIR)$(MANDIR)/man3
 	$(INSTALL_LIB) libkcaldav.a $(DESTDIR)$(LIBDIR)
 	$(INSTALL_DATA) libkcaldav.h $(DESTDIR)$(INCLUDEDIR)
@@ -212,6 +215,7 @@ kcaldav.tgz: Makefile
 	$(INSTALL) -m 0644 $(MAN3S) .dist/kcaldav-$(VERSION)/man
 	$(INSTALL) -m 0644 man/kcaldav.passwd.in.1 .dist/kcaldav-$(VERSION)/man
 	$(INSTALL) -m 0644 man/kcaldav.in.8 .dist/kcaldav-$(VERSION)/man
+	$(INSTALL) -m 0644 man/kcaldav.conf.5 .dist/kcaldav-$(VERSION)/man
 	$(INSTALL) -m 0644 regress/caldav/*.xml .dist/kcaldav-$(VERSION)/regress/caldav
 	$(INSTALL) -m 0644 regress/conf/*.conf .dist/kcaldav-$(VERSION)/regress/conf
 	$(INSTALL) -m 0644 regress/ical/*.ics .dist/kcaldav-$(VERSION)/regress/ical
