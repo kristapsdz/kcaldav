@@ -246,7 +246,7 @@ kvalid_body(struct kpair *kp)
 	struct caldav	*dav;
 
 	if (kp->ctypepos == KMIME_TEXT_CALENDAR) {
-		ical = ical_parse(NULL, kp->val, kp->valsz, NULL);
+		ical = ical_parse(NULL, kp->val, kp->valsz, NULL, NULL);
 		ical_free(ical);
 		return (ical != NULL);
 	}
@@ -446,7 +446,7 @@ main(void)
 	/* Pledge allowing some file-system access. */
 
 #if HAVE_PLEDGE
-	if (pledge("proc stdio rpath cpath wpath flock fattr", NULL) == -1)
+	if (pledge("proc stdio rpath cpath wpath flock fattr unveil", NULL) == -1)
 		kutil_err(NULL, NULL, "pledge");
 #endif
 
@@ -490,7 +490,10 @@ main(void)
 #endif
 
 #if HAVE_PLEDGE
-	/* TODO: unveil(2). */
+#if 0
+	if (unveil(CALDIR, "rwx") == -1)
+		kutil_err(NULL, NULL, "unveil");
+#endif
 	if (pledge("stdio rpath cpath wpath flock fattr", NULL) == -1)
 		kutil_err(NULL, NULL, "pledge");
 #endif

@@ -19,6 +19,7 @@
 #include <sys/mman.h>
 
 #include <assert.h>
+#include <ctype.h>
 #if HAVE_ERR
 # include <err.h>
 #endif
@@ -186,7 +187,7 @@ main(int argc, char *argv[])
 {
 	int		 fd, c;
 	struct stat	 st;
-	size_t		 i, sz;
+	size_t		 i, sz, rsz = 0;
 	char		*map, *er = NULL;
 	struct ical	*p = NULL;
 
@@ -222,13 +223,23 @@ main(int argc, char *argv[])
 	if (map == MAP_FAILED)
 		err(EXIT_FAILURE, "%s", argv[0]);
 	
-	if ((p = ical_parse(argv[0], map, sz, &er)) != NULL) {
-		for (i = 0; i < ICALTYPE__MAX; i++)
-			ical_printcomp(p->comps[i]);
-		fflush(stdout);
-		ical_printfile(STDOUT_FILENO, p);
-	} else 
-		warnx("%s", er == NULL ? "memory failure" : er);
+	while (rsz < sz) {
+		p = ical_parse(argv[0], map, sz, &rsz, &er);
+		if (p != NULL) {
+			for (i = 0; i < ICALTYPE__MAX; i++)
+				ical_printcomp(p->comps[i]);
+			fflush(stdout);
+			ical_printfile(STDOUT_FILENO, p);
+		} else {
+			warnx("%s", er == NULL ? "memory failure" : er);
+			break;
+		}
+
+		/* Skip whitespace. */
+
+		while (rsz < sz && isspace((unsigned char)map[rsz]))
+			rsz++;
+	}
 
 	munmap(map, sz);
 	ical_free(p);

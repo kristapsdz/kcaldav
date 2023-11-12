@@ -50,9 +50,8 @@ req2ical(struct kreq *r)
 
 	/* This shouldn't fail now. */
 
-	return ical_parse(NULL, 
-		r->fieldmap[VALID_BODY]->val, 
-		r->fieldmap[VALID_BODY]->valsz, NULL);
+	return ical_parse(NULL, r->fieldmap[VALID_BODY]->val, 
+		r->fieldmap[VALID_BODY]->valsz, NULL, NULL);
 }
 
 /*

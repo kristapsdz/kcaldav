@@ -298,8 +298,8 @@ typedef int (*ical_putchar)(int, void *);
 
 __BEGIN_DECLS
 
-struct ical 	 *ical_parse(const char *, 
-			const char *, size_t sz, char **);
+struct ical 	 *ical_parse(const char *, const char *, size_t,
+			size_t *, char **);
 void		  ical_free(struct ical *);
 int		  ical_print(const struct ical *, ical_putchar, void *);
 int		  ical_printfile(int, const struct ical *);

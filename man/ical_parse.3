@@ -27,6 +27,7 @@
 .Fa const char *file
 .Fa const char *cp
 .Fa size_t len
+.Fa size_t *pos
 .Fa char **er
 .Fc
 .Sh DESCRIPTION
@@ -35,7 +36,13 @@ Parse an iCalendar file given in
 which may not be
 .Dv NULL ,
 of length
-.Fa sz .
+.Fa sz ,
+and optionally starting at
+.Fa pos
+or zero if
+.Fa pos
+is
+.Dv NULL .
 If
 .Fa file
 is not
@@ -351,6 +358,12 @@ if there are no more.
 Returns the parse object on success.
 It must be freed with
 .Xr ical_free 3 .
+If
+.Fa pos
+is not
+.Dv NULL ,
+it is updated to the current position in the buffer.
+.Pp
 On failure, returns
 .Dv NULL .
 .Pp
@@ -362,6 +375,7 @@ is provided an error message.
 If the error message is
 .Dv NULL ,
 memory allocation has failed.
+The error string pointer must be freed by the caller.
 .\" For sections 2, 3, and 9 function return values only.
 .\" .Sh ENVIRONMENT
 .\" For sections 1, 6, 7, and 8 only.

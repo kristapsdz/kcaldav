@@ -1417,6 +1417,7 @@ db_collection_resources(void (*fp)(const struct res *, void *),
 	int64_t colid, void *arg)
 {
 	sqlite3_stmt	*stmt;
+	size_t		 rsz, sz;
 	int		 rc;
 	char		*er;
 	struct res	 p;
@@ -1433,12 +1434,15 @@ db_collection_resources(void (*fp)(const struct res *, void *),
 		p.url = (char *)sqlite3_column_text(stmt, 2);
 		p.id = sqlite3_column_int64(stmt, 3);
 		p.collection = sqlite3_column_int64(stmt, 4);
-		p.ical = ical_parse(NULL, p.data, strlen(p.data), &er);
+		sz = strlen(p.data);
+		p.ical = ical_parse(NULL, p.data, sz, &rsz, &er);
 		if (p.ical == NULL) {
 			kerrx("ical_parse: %s", er);
 			free(er);
 			goto err;
-		}
+		} else if (rsz != sz)
+			kdbg("ical_parse: trailing bytes (%zu < %zu)",
+				rsz, sz);
 		(*fp)(&p, arg);
 		ical_free(p.ical);
 	}
@@ -1684,6 +1688,7 @@ db_resource_load(struct res **pp, const char *url, int64_t colid)
 	sqlite3_stmt	*stmt;
 	int		 rc;
 	char		*er;
+	size_t		 sz, rsz;
 
 	*pp = NULL;
 	if ((stmt = db_prepare(sqls[SQL_RES_GET])) == NULL)
@@ -1715,13 +1720,16 @@ db_resource_load(struct res **pp, const char *url, int64_t colid)
 
 		/* Parse the full iCalendar. */
 
-		(*pp)->ical = ical_parse(NULL, 
-			(*pp)->data, strlen((*pp)->data), &er);
+		sz = strlen((*pp)->data);
+		(*pp)->ical = ical_parse(NULL, (*pp)->data, sz, &rsz,
+			&er);
 		if ((*pp)->ical == NULL) {
 			kerrx("ical_parse: %s", er);
 			free(er);
 			goto err;
-		}
+		} else if (rsz != sz)
+			kdbg("ical_parse: trailing bytes (%zu < %zu)",
+				rsz, sz);
 		db_finalise(&stmt);
 		return 1;
 	} else if (rc == SQLITE_DONE) {

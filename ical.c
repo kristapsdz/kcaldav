@@ -1398,7 +1398,8 @@ ical_postparse(struct icalparse *pp, char **er)
  * allocation failure.
  */
 struct ical *
-ical_parse(const char *file, const char *cp, size_t sz, char **er)
+ical_parse(const char *file, const char *cp, size_t sz, size_t *pos,
+	char **er)
 {
 	struct icalparse	 pp;
 	char			*name, *val, *param;
@@ -1411,6 +1412,8 @@ ical_parse(const char *file, const char *cp, size_t sz, char **er)
 	pp.file = file == NULL ? "<buffer>" : file;
 	pp.cp = cp;
 	pp.sz = sz;
+	if (pos != NULL)
+		pp.pos = *pos;
 
 	if ((pp.ical = p = calloc(1, sizeof(struct ical))) == NULL)
 		return NULL;
@@ -1441,6 +1444,9 @@ ical_parse(const char *file, const char *cp, size_t sz, char **er)
 
 	if (!ical_postparse(&pp, er))
 		goto err;
+
+	if (pos != NULL)
+		*pos = pp.pos;
 
 	free(pp.buf.buf);
 	return p;
