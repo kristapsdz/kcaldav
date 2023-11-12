@@ -17,10 +17,14 @@
 
 #include <sys/types.h>
 
+#if HAVE_ERR
+# include <err.h>
+#endif
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h> /* pledge */
 
 #include <kcgi.h>
 #include <kcgixml.h>
@@ -35,6 +39,11 @@ main(int argc, char *argv[])
 	int	 	 c;
 	struct conf	 conf;
 
+#if HAVE_PLEDGE
+	if (pledge("stdio rpath", NULL) == -1)
+		err(1, NULL);
+#endif
+
 	if (argc < 2)
 		return 1;
 
@@ -43,6 +52,7 @@ main(int argc, char *argv[])
 
 	if (conf.logfile != NULL)
 		printf("logfile=%s\n", conf.logfile);
+
 	printf("debug=%d\n", conf.verbose);
 
 	free(conf.logfile);

@@ -34,7 +34,7 @@
 # include <time.h> /* time(3) */
 #endif
 #if HAVE_PLEDGE
-# include <unistd.h> /* pledge(2) */
+# include <unistd.h> /* pledge(2), unveil(2) */
 #endif
 
 #include <kcgi.h>
@@ -490,10 +490,8 @@ main(void)
 #endif
 
 #if HAVE_PLEDGE
-#if 0
 	if (unveil(CALDIR, "rwx") == -1)
 		kutil_err(NULL, NULL, "unveil");
-#endif
 	if (pledge("stdio rpath cpath wpath flock fattr", NULL) == -1)
 		kutil_err(NULL, NULL, "pledge");
 #endif
