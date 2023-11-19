@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 #include <limits.h>
 #if HAVE_MD5
 # include <md5.h>
@@ -493,13 +494,13 @@ main(void)
 	/*
 	 * Directories required by sqlite3.
 	 */
-	if (unveil(CALDIR, "rwxc") == -1)
+	if (unveil(CALDIR, "rwxc") == -1 && errno != ENOENT)
 		kutil_err(NULL, NULL, "unveil " CALDIR);
-	if (unveil("/tmp", "rwxc") == -1)
+	if (unveil("/tmp", "rwxc") == -1 && errno != ENOENT)
 		kutil_err(NULL, NULL, "unveil /tmp");
-	if (unveil("/var/tmp", "rwxc") == -1)
+	if (unveil("/var/tmp", "rwxc") == -1 && errno != ENOENT)
 		kutil_err(NULL, NULL, "unveil /var/tmp");
-	if (unveil("/dev", "rwx") == -1)
+	if (unveil("/dev", "rwx") == -1 && errno != ENOENT)
 		kutil_err(NULL, NULL, "unveil /dev");
 	if (pledge("stdio rpath cpath wpath flock fattr", NULL) == -1)
 		kutil_err(NULL, NULL, "pledge");
