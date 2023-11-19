@@ -422,7 +422,7 @@ main(void)
 		{ kvalid_hash, valids[VALID_PASS] },
 		{ kvalid_path, valids[VALID_PATH] } }; 
 	struct state	*st = NULL;
-	char		*np, *logfile = NULL;
+	char		*np;
 	struct conf	 conf;
 	const char	*cfgfile = NULL;
 	size_t		 i, sz;
@@ -460,7 +460,7 @@ main(void)
 	verbose = conf.verbose;
 	if (conf.logfile != NULL && *conf.logfile != '\0')
 		if (!kutil_openlog(conf.logfile))
-			kutil_err(NULL, NULL, "%s", logfile);
+			kutil_err(NULL, NULL, "%s", conf.logfile);
 
 	free(conf.logfile);
 	memset(&conf, 0, sizeof(struct conf));
@@ -494,13 +494,13 @@ main(void)
 	 * Directories required by sqlite3.
 	 */
 	if (unveil(CALDIR, "rwxc") == -1)
-		kutil_err(NULL, NULL, "unveil");
+		kutil_err(NULL, NULL, "unveil " CALDIR);
 	if (unveil("/tmp", "rwxc") == -1)
-		kutil_err(NULL, NULL, "unveil");
+		kutil_err(NULL, NULL, "unveil /tmp");
 	if (unveil("/var/tmp", "rwxc") == -1)
-		kutil_err(NULL, NULL, "unveil");
+		kutil_err(NULL, NULL, "unveil /var/tmp");
 	if (unveil("/dev", "rwx") == -1)
-		kutil_err(NULL, NULL, "unveil");
+		kutil_err(NULL, NULL, "unveil /dev");
 	if (pledge("stdio rpath cpath wpath flock fattr", NULL) == -1)
 		kutil_err(NULL, NULL, "pledge");
 #endif
