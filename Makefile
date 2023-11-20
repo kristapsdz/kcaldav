@@ -26,6 +26,10 @@ CGIURI		 = /cgi-bin/kcaldav
 # File-system directory containing CGIURI.
 CGIPREFIX	 = /var/www/cgi-bin
 
+# Override this to be empty if you don't want static compilation.
+# It's set to -static by Makefile.configure if available.
+#LDADD_STATIC	 =
+
 # Where do we get run-time kcaldav.conf(5) configuration?
 # This must be writable by the server process and relative to the
 # chroot(2), if applicable.
@@ -33,14 +37,9 @@ CGIPREFIX	 = /var/www/cgi-bin
 # has configuration errors, the process will not start.
 CFGFILE	 	= /conf/kcaldav.conf
 
-# Deprecated.  Use the configuration file instead.
+# DEPRECATED.  Use the configuration file instead.
 #LOGFILE	 = /logs/kcaldav-system.log
-# Deprecated.  Use the configuration file instead.
 #CFLAGS		+= -DDEBUG=1
-
-# Override this to be empty if you don't want static compilation.
-# It's set to -static by Makefile.configure if available.
-#LDADD_STATIC	 =
 
 sinclude Makefile.local
 
@@ -148,7 +147,7 @@ ALLOBJS		 = $(TESTOBJS) \
 		   $(DBOBJS) \
 		   compats.o \
 		   kcaldav.passwd.o
-VERSION		 = 0.2.4
+VERSION		 = 0.2.5
 CFLAGS		+= -DCALDIR=\"$(CALDIR)\"
 CFLAGS		+= -DCALPREFIX=\"$(CALPREFIX)\"
 CFLAGS		+= -DVERSION=\"$(VERSION)\"

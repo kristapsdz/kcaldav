@@ -3,19 +3,19 @@
 **kcaldav** is a simple, safe, and minimal CalDAV server running on the
 [BCHS](https://learnbchs.org) software stack.
 
-This repository consists of bleeding-edge code between versions: to keep
-up to date with the current stable release of **kcaldav**, visit the
-[website](https://kristaps.bsd.lv/kcaldav).
-The website also contains canonical installation, deployment, examples,
-and usage documentation.
-
-What follows describes using the bleeding-edge version of the system.
+To keep up to date with the current stable release of **kcaldav**, visit
+https://kristaps.bsd.lv/kcaldav.  The website also contains canonical
+installation, deployment, examples, and usage documentation.
 
 # Installation
 
-To use the bleeding-edge version of **kcaldav** (instead of from your
-system's packages or a stable version), the process it the similar as
-for source releases.
+You'll need a C compiler ([gcc](https://gcc.gnu.org/) or
+[clang](https://clang.llvm.org/)), [zlib](https://zlib.net) (*zlib* or
+*zlib-dev* for some package managers),
+[libexpat](https://libexpat.github.io/) (*libexpat-dev*),
+[kcgi](https://kristaps.bsd.lv/kcgi), [sqlite3](https://sqlite3.org)
+(*libsqlite3-dev*), and BSD make (*bmake* for some managers) for
+building.
 
 Begin by cloning or downloading.  Then configure with `./configure`,
 compile with `make` (BSD make, so it may be `bmake` on your system),
@@ -34,8 +34,25 @@ The database hasn't updated in a long, long time, so there are no
 special commands for updating it.  When updates do happen, I'll work out
 a process for doing so.
 
+A common idiom for installing on Linux is to use
+[libbsd](https://libbsd.freedesktop.org/wiki/) as noted in the
+[oconfigure](https://github.com/kristapsdz/oconfigure) documentation:
+
+```
+CFLAGS=$(pkg-config --cflags libbsd-overlay) \
+    ./configure LDFLAGS=$(pkg-config --libs libbsd-overlay)
+make
+make install
+```
+
+# Deployment
+
 To create the database for initial use (or to manage it), follow 
 [kcaldav.passwd(1)](man/kcaldav.passwd.in.1).
+
+If errors occur during operation, see
+[kcaldav.conf.5](man/kcaldav.conf.5) for how to configure the system for
+more debugging information.
 
 # Regression and fuzzing
 
