@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h> /* fopen, getline */
 #include <stdlib.h>
 #include <string.h>
