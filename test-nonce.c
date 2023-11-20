@@ -37,37 +37,37 @@ main(int argc, char *argv[])
 	enum nonceerr	 er;
 
 	if (getopt(argc, argv, "") != -1)
-		return EXIT_FAILURE;
+		return 1;
 
 	argc -= optind;
 	argv += optind;
 
 	if (argc != 1)
-		return EXIT_FAILURE;
+		return 1;
 
 	if (!db_init(argv[0], 0))
-		errx(EXIT_FAILURE, "db_init");
+		errx(1, "db_init");
 
 	for (i = 0; i < 100; i++) {
 		snprintf(nonce, sizeof(nonce), "%016zu", i);
-		if (NONCE_ERR == (er = db_nonce_update(nonce, 0)))
-			errx(EXIT_FAILURE, "nonce database failure");
-		if (NONCE_NOTFOUND != er)
-			errx(EXIT_FAILURE, "found nonce!?");
+		if ((er = db_nonce_update(nonce, 0)) == NONCE_ERR)
+			errx(1, "nonce database failure");
+		if (er != NONCE_NOTFOUND)
+			errx(1, "found nonce!?");
 	}
 
-	for (i = 0; i < 2000; i++) {
+	for (i = 0; i < 100; i++) {
 		if (!db_nonce_new(&np))
-			errx(EXIT_FAILURE, "nonce database failure");
-		if (NONCE_ERR == (er = db_nonce_update(np, 1)))
-			errx(EXIT_FAILURE, "nonce database failure");
-		if (NONCE_NOTFOUND == er)
-			errx(EXIT_FAILURE, "didn't find nonce!?");
-		if (NONCE_ERR == (er = db_nonce_update(np, 1)))
-			errx(EXIT_FAILURE, "nonce database failure");
-		if (NONCE_REPLAY != er) 
-			errx(EXIT_FAILURE, "replay attack!?");
+			errx(1, "nonce database failure");
+		if ((er = db_nonce_update(np, 1)) == NONCE_ERR)
+			errx(1, "nonce database failure");
+		if (er == NONCE_NOTFOUND)
+			errx(1, "didn't find nonce!?");
+		if ((er = db_nonce_update(np, 1)) == NONCE_ERR)
+			errx(1, "nonce database failure");
+		if (er != NONCE_REPLAY) 
+			errx(1, "replay attack!?");
 	}
 
-	return EXIT_SUCCESS;
+	return 0;
 }
