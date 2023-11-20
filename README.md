@@ -1,4 +1,4 @@
-# Synopsis
+# Introduction
 
 **kcaldav** is a simple, safe, and minimal CalDAV server running on the
 [BCHS](https://learnbchs.org) software stack.
